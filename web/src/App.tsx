@@ -1,6 +1,22 @@
-import { Scissors, Calendar, Clock, User } from 'lucide-react'
+import { Scissors, Calendar, Clock, User as UserIcon, LogIn } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+
+axios.defaults.withCredentials = true
 
 export default function App() {
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    axios.get('http://localhost:3333/auth/me')
+      .then(res => setUser(res.data))
+      .catch(() => setUser(null))
+  }, [])
+
+  const handleGoogleLogin = () => {
+    window.location.href = 'http://localhost:3333/auth/google'
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center p-4">
       <header className="mb-12 text-center">
@@ -14,34 +30,59 @@ export default function App() {
       </header>
 
       <main className="w-full max-w-md space-y-4">
-        <section className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 backdrop-blur-sm">
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-amber-500" />
-            Novo Agendamento
-          </h2>
-
-          <div className="space-y-4">
-            <button className="w-full flex items-center justify-between p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700 rounded-xl transition-all group">
-              <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-zinc-400 group-hover:text-amber-500 transition-colors" />
-                <span className="font-medium">Escolher Serviço</span>
-              </div>
-              <span className="text-zinc-500">→</span>
+        {!user ? (
+          <section className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center backdrop-blur-sm">
+            <h2 className="text-xl font-semibold mb-6">Bem-vindo!</h2>
+            <p className="text-zinc-400 mb-8 text-sm">Para continuar e agendar seu horário, faça login com sua conta Google.</p>
+            
+            <button 
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-3 py-4 bg-white hover:bg-zinc-100 text-zinc-950 font-bold rounded-xl transition-all shadow-lg active:scale-[0.98]"
+            >
+              <LogIn className="w-5 h-5" />
+              Entrar com Google
             </button>
-
-            <button className="w-full flex items-center justify-between p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700 rounded-xl transition-all group">
-              <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-zinc-400 group-hover:text-amber-500 transition-colors" />
-                <span className="font-medium">Escolher Barbeiro</span>
+          </section>
+        ) : (
+          <section className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 backdrop-blur-sm">
+            <div className="flex items-center gap-4 mb-8 pb-6 border-b border-zinc-800">
+              <div className="bg-zinc-800 p-2 rounded-full">
+                <UserIcon className="w-6 h-6 text-amber-500" />
               </div>
-              <span className="text-zinc-500">→</span>
-            </button>
-          </div>
+              <div>
+                <p className="text-sm text-zinc-500 font-medium">Olá, {user.name}!</p>
+                <p className="text-xs text-zinc-600">Seja bem-vindo de volta.</p>
+              </div>
+            </div>
 
-          <button className="w-full mt-8 py-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98]">
-            Ver Horários Disponíveis
-          </button>
-        </section>
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-amber-500" />
+              Novo Agendamento
+            </h2>
+
+            <div className="space-y-4">
+              <button className="w-full flex items-center justify-between p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700 rounded-xl transition-all group">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-zinc-400 group-hover:text-amber-500 transition-colors" />
+                  <span className="font-medium">Escolher Serviço</span>
+                </div>
+                <span className="text-zinc-500">→</span>
+              </button>
+
+              <button className="w-full flex items-center justify-between p-4 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700 rounded-xl transition-all group">
+                <div className="flex items-center gap-3">
+                  <UserIcon className="w-5 h-5 text-zinc-400 group-hover:text-amber-500 transition-colors" />
+                  <span className="font-medium">Escolher Barbeiro</span>
+                </div>
+                <span className="text-zinc-500">→</span>
+              </button>
+            </div>
+
+            <button className="w-full mt-8 py-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98]">
+              Ver Horários Disponíveis
+            </button>
+          </section>
+        )}
       </main>
 
       <footer className="mt-12 text-zinc-500 text-sm">
