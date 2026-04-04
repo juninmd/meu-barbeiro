@@ -1,10 +1,11 @@
 {
   "name": "api",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --transpile-only --respawn src/server.ts",
+    "dev": "NODE_OPTIONS=--loader ts-node/esm ts-node-dev --transpile-only --respawn src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
