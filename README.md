@@ -1,45 +1,45 @@
-# Meu Barbeiro - Gerenciador Inteligente ✂️
+# ✂️ Meu Barbeiro
 
-Sistema completo de agendamento para barbearias.
+> A solução completa para gestão de barbearias e agendamentos.
 
-## 🚀 Tecnologias
+[![Deployment Status](https://img.shields.io/badge/ArgoCD-Synced-success?style=for-the-badge&logo=argocd)](https://argocd.antonio-code.duckdns.org)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
-- **Backend:** Node.js + Express + TypeScript + Prisma (PostgreSQL)
-- **Frontend:** React + TypeScript + Vite + Tailwind CSS v4
-- **Bot:** Telegram (Telegraf)
+## 📝 Descrição
 
-## 📁 Estrutura
+O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e clientes. Com agendamento online, gestão de serviços e controle financeiro, permitimos que o profissional foque no que faz de melhor: a arte da barbearia.
 
-- `api/`: Backend e integração com Telegram.
-- `web/`: Frontend React com Tailwind v4.
+## ✨ Funcionalidades
 
-## 🛠️ Como rodar
+- **Agendamento Online**: Link exclusivo para clientes marcarem horário.
+- **Gestão de Serviços**: Cadastro de cortes, barbas e tratamentos com preços e durações.
+- **Painel Administrativo**: Visão geral do dia, semana e faturamento.
+- **Notificações**: Lembretes automáticos para evitar faltas.
 
-### Requisitos
-- pnpm
+## 🛠️ Tech Stack
 
-### Instalação
-```bash
-# Na raiz
-pnpm install
-```
+- **Frontend**: [React 19](https://react.dev/) + [Vite 6](https://vite.dev/)
+- **Backend**: Node.js (API)
+- **Estilização**: Tailwind CSS v4
+- **Deployment**: Nginx + Docker
 
-### Rodando o Backend
-```bash
-cd api
-# Configure o .env com DATABASE_URL
-pnpm prisma:generate
-pnpm dev
-```
+## 🚀 Como Rodar Localmente
 
-### Rodando o Frontend
-```bash
-cd web
-pnpm dev
-```
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/juninmd/meu-barbeiro.git
+   ```
+2. Instale as dependências:
+   ```bash
+   pnpm install
+   ```
+3. Inicie o web app:
+   ```bash
+   pnpm --filter web dev
+   ```
 
-## 📝 Regras de Negócio
-- Escolha de serviços (Cabelo, Barba, Sobrancelha...)
-- Tempo médio por serviço
-- Gestão de barbeiros (solo ou time)
-- Agendamento via Web e Telegram
+## 📦 Deployment
+
+A versão web é servida via **Nginx** no cluster **K3s**.
+
+- **URL Web**: [https://barbeiro.antonio-code.duckdns.org](https://barbeiro.antonio-code.duckdns.org)
