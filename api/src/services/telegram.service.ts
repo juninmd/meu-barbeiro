@@ -17,11 +17,31 @@ bot.start(async (ctx) => {
     }
   })
 
-  ctx.reply(`Olá ${first_name}! Bem-vindo ao Meu Barbeiro. Como posso te ajudar hoje?`)
+  ctx.replyWithHTML(
+    `💈 <b>MEU BARBEIRO</b>\n` +
+    `──────────────────────\n` +
+    `Olá <b>${first_name}</b>! 👋\n\n` +
+    `Bem-vindo ao sistema de agendamentos premium.\n\n` +
+    `📌 <b>O que você deseja fazer?</b>\n` +
+    `• Ver serviços: /servicos\n` +
+    `• Agendar agora: /agendar\n` +
+    `• Meus agendamentos: /meus_horarios\n\n` +
+    `──────────────────────\n` +
+    `<i>Sempre pronto para o seu melhor visual!</i>`
+  )
 })
 
 bot.command('agendar', (ctx) => {
-  ctx.reply('Para agendar, escolha um serviço: /cabelo, /barba, /sobrancelha')
+  ctx.replyWithHTML(
+    `📅 <b>AGENDAMENTO</b>\n` +
+    `──────────────────────\n` +
+    `Escolha o serviço desejado:\n\n` +
+    `✂️ <b>Cabelo</b> — /cabelo\n` +
+    `🧔 <b>Barba</b> — /barba\n` +
+    `✨ <b>Sobrancelha</b> — /sobrancelha\n\n` +
+    `──────────────────────\n` +
+    `<i>Selecione uma opção para continuar.</i>`
+  )
 })
 
 export { bot }
