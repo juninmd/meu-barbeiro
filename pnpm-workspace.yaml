@@ -2,5 +2,7 @@ packages:
   - 'api'
   - 'web'
 
+strictDepBuilds: false
+
 onlyBuiltDependencies:
   - esbuild
