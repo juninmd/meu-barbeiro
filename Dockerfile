@@ -4,7 +4,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json ./web/
-RUN pnpm install --filter web
+RUN pnpm install --filter web --config.strict-dep-builds=false
 COPY web/ ./web/
 RUN pnpm --filter web run build
 
