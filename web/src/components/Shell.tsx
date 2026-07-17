@@ -1,21 +1,24 @@
 import { LogOut, Scissors, ShieldCheck } from 'lucide-react'
 import { mockEnabled } from '../lib/repository'
-import type { Role, User } from '../types'
+import type { Barbershop, Role, User } from '../types'
 
 interface ShellProps {
   user: User
+  barbershop: Barbershop | null
   children: React.ReactNode
   onLogout: () => void
   onSwitchRole: (role: Role) => void
 }
 
-export function Shell({ user, children, onLogout, onSwitchRole }: ShellProps) {
+export function Shell({ user, barbershop, children, onLogout, onSwitchRole }: ShellProps) {
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ '--amber': barbershop?.primaryColor || '#d99b32' } as React.CSSProperties}>
       <header className="topbar">
         <a className="brand" href="#top" aria-label="Meu Barbeiro - início">
-          <span className="brand-icon"><Scissors aria-hidden="true" /></span>
-          <span><strong>MEU</strong> BARBEIRO</span>
+          <span className="brand-icon">
+            {barbershop?.logoUrl ? <img src={barbershop.logoUrl} alt="" /> : <Scissors aria-hidden="true" />}
+          </span>
+          <span>{barbershop?.name || <><strong>MEU</strong> BARBEIRO</>}</span>
         </a>
         <div className="profile-actions">
           {mockEnabled && (
@@ -30,7 +33,7 @@ export function Shell({ user, children, onLogout, onSwitchRole }: ShellProps) {
           )}
           <div className="profile-copy">
             <strong>{user.name}</strong>
-            <small>{user.role === 'BARBER' ? 'Profissional' : 'Cliente'}</small>
+            <small>{user.role === 'CUSTOMER' ? 'Cliente' : 'Gestão'}</small>
           </div>
           <button className="icon-button" onClick={onLogout} aria-label="Sair">
             <LogOut aria-hidden="true" />

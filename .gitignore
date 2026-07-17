@@ -7,5 +7,4 @@ test-results/
 playwright-report/
 .DS_Store
 *.log
-api/prisma/migrations/
 web/dist/

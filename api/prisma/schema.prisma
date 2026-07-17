@@ -13,38 +13,154 @@ enum Role {
   CUSTOMER
 }
 
+enum MembershipRole {
+  OWNER
+  ADMIN
+  BARBER
+}
+
+enum DepositType {
+  NONE
+  PERCENTAGE
+  FIXED
+  FULL
+}
+
+enum SubscriptionStatus {
+  INACTIVE
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum PaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
 model User {
-  id           String        @id @default(uuid())
-  name         String
-  email        String?       @unique
-  googleId     String?       @unique
-  phone        String?       @unique
-  telegramId   String?       @unique
-  role         Role          @default(CUSTOMER)
-  appointments Appointment[] @relation("UserAppointments")
+  id                 String        @id @default(uuid())
+  name               String
+  email              String?       @unique
+  googleId           String?       @unique
+  phone              String?       @unique
+  telegramId         String?       @unique
+  role               Role          @default(CUSTOMER)
+  appointments       Appointment[] @relation("UserAppointments")
   barberAppointments Appointment[] @relation("BarberAppointments")
-  createdAt    DateTime      @default(now())
+  memberships        Membership[]
+  createdAt          DateTime      @default(now())
+}
+
+model Barbershop {
+  id                               String             @id @default(uuid())
+  slug                             String             @unique
+  name                             String
+  logoUrl                          String?
+  primaryColor                     String             @default("#d99b32")
+  address                          String?
+  timezone                         String             @default("America/Sao_Paulo")
+  depositType                      DepositType        @default(FULL)
+  depositValue                     Int                @default(0)
+  monthlyFeeCents                  Int                @default(2000)
+  commissionBps                    Int                @default(100)
+  subscriptionStatus               SubscriptionStatus @default(INACTIVE)
+  mercadoPagoSubscriptionId        String?            @unique
+  mercadoPagoSellerId              String?            @unique
+  mercadoPagoAccessTokenEncrypted  String?
+  mercadoPagoRefreshTokenEncrypted String?
+  mercadoPagoTokenExpiresAt        DateTime?
+  memberships                      Membership[]
+  businessHours                    BusinessHour[]
+  services                         Service[]
+  appointments                     Appointment[]
+  createdAt                        DateTime           @default(now())
+  updatedAt                        DateTime           @updatedAt
+}
+
+model Membership {
+  id           String         @id @default(uuid())
+  barbershopId String
+  userId       String
+  role         MembershipRole
+  barbershop   Barbershop     @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([barbershopId, userId])
+  @@index([userId])
+}
+
+model BusinessHour {
+  id           String     @id @default(uuid())
+  barbershopId String
+  weekday      Int
+  opensAt      String
+  closesAt     String
+  enabled      Boolean    @default(true)
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([barbershopId, weekday])
 }
 
 model Service {
   id           String        @id @default(uuid())
+  barbershopId String
   name         String
-  duration     Int           // Em minutos
-  price        Float
+  duration     Int
+  priceCents   Int
+  barbershop   Barbershop    @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
   appointments Appointment[]
+
+  @@unique([barbershopId, name])
+  @@unique([barbershopId, id])
+  @@index([barbershopId])
 }
 
 model Appointment {
-  id          String   @id @default(uuid())
-  userId      String
-  barberId    String
-  serviceId   String
-  scheduledAt DateTime
-  status      String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED, DONE
-  
-  user        User     @relation("UserAppointments", fields: [userId], references: [id])
-  barber      User     @relation("BarberAppointments", fields: [barberId], references: [id])
-  service     Service  @relation(fields: [serviceId], references: [id])
-  
-  createdAt   DateTime @default(now())
+  id                      String        @id @default(uuid())
+  barbershopId            String
+  userId                  String
+  barberId                String
+  serviceId               String
+  scheduledAt             DateTime
+  status                  String        @default("PENDING")
+  paymentStatus           PaymentStatus @default(NOT_REQUIRED)
+  paymentAmountCents      Int           @default(0)
+  commissionCents         Int           @default(0)
+  paymentExpiresAt        DateTime?
+  mercadoPagoPreferenceId String?       @unique
+  mercadoPagoPaymentId    String?       @unique
+
+  barbershop Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user       User       @relation("UserAppointments", fields: [userId], references: [id])
+  barber     User       @relation("BarberAppointments", fields: [barberId], references: [id])
+  service    Service    @relation(fields: [serviceId], references: [id])
+  createdAt  DateTime   @default(now())
+
+  @@index([barbershopId, barberId, scheduledAt])
+  @@index([barbershopId, userId])
+}
+
+model WebhookEvent {
+  id          String    @id @default(uuid())
+  provider    String
+  eventId     String
+  type        String
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([provider, eventId])
+}
+
+model Session {
+  sid       String   @id
+  data      Json
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }

@@ -6,7 +6,10 @@ import { servicesRoutes } from './routes/services.routes.js'
 import { appointmentsRoutes } from './routes/appointments.routes.js'
 import { authRoutes } from './routes/auth.routes.js'
 import { barbersRoutes } from './routes/barbers.routes.js'
+import { barbershopsRoutes } from './routes/barbershops.routes.js'
+import { billingRoutes } from './routes/billing.routes.js'
 import { errorHandler } from './middleware/errors.js'
+import { PrismaSessionStore } from './lib/session-store.js'
 
 const app = express()
 const sessionSecret = process.env.SESSION_SECRET
@@ -24,6 +27,7 @@ app.use(cors({
 app.use(express.json())
 
 app.use(session({
+  store: new PrismaSessionStore(),
   secret: sessionSecret || 'development-only-secret',
   resave: false,
   saveUninitialized: false,
@@ -43,6 +47,8 @@ app.get('/health', (req, res) => {
 })
 
 app.use('/auth', authRoutes)
+app.use('/barbershops', barbershopsRoutes)
+app.use('/billing/mercado-pago', billingRoutes)
 app.use('/services', servicesRoutes)
 app.use('/barbers', barbersRoutes)
 app.use('/appointments', appointmentsRoutes)

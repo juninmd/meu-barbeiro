@@ -15,6 +15,8 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
 - **Gestão de Serviços**: Cadastro de cortes, barbas e tratamentos com preços e durações.
 - **Painel Administrativo**: Visão geral do dia, semana e faturamento.
 - **Notificações**: Lembretes automáticos para evitar faltas.
+- **SaaS multi-barbearia**: identidade, endereço, horários e política de sinal por estabelecimento.
+- **Mercado Pago**: assinatura mensal de R$ 20,00, conexão OAuth do vendedor, sinal online e comissão fixa de 1% por serviço.
 
 ## 🛠️ Tech Stack
 
@@ -51,6 +53,37 @@ API juntos:
 ```bash
 pnpm dev:full
 ```
+
+### API, banco e Mercado Pago
+
+Copie `api/.env.example` para `api/.env` e configure PostgreSQL, sessão, Google e
+Mercado Pago. Gere `SESSION_SECRET` e `TOKEN_ENCRYPTION_KEY` com valores aleatórios;
+tokens OAuth dos vendedores são persistidos criptografados.
+
+Banco novo:
+
+```bash
+pnpm --filter api prisma:migrate:deploy
+```
+
+Banco legado já criado antes do Prisma Migrate: confira que ele corresponde ao
+schema inicial, marque somente a baseline e depois aplique as demais migrations:
+
+```bash
+pnpm --filter api exec prisma migrate resolve --applied 20260717000000_initial
+pnpm --filter api prisma:migrate:deploy
+```
+
+Na aplicação do Mercado Pago, configure:
+
+- Redirect OAuth: `${API_PUBLIC_URL}/billing/mercado-pago/callback`
+- Webhook: `${API_PUBLIC_URL}/billing/mercado-pago/webhook`
+- Eventos: `payment` e `subscription_preapproval`
+
+Use credenciais de teste em homologação e credenciais de produção somente nos
+Secrets do ambiente. A plataforma cobra R$ 20,00/mês da barbearia. Em cada
+checkout do cliente, `marketplace_fee` recebe 1% do valor total do serviço; o
+sinal configurado precisa ser suficiente para essa comissão.
 
 ## ✅ Validação
 

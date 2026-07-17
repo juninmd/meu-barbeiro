@@ -2,17 +2,18 @@ import { CalendarDays, Check, Clock3, MapPin, Scissors, Sparkles, UserRound, X }
 import { useState } from 'react'
 import { formatCurrency, formatDate, toLocalDateTime } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { Appointment, Barber, NewAppointment, Service } from '../../types'
+import type { Appointment, Barber, Barbershop, NewAppointment, Service } from '../../types'
 import { StatusBadge } from '../../components/StatusBadge'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
   barbers: Barber[]
+  barbershop: Barbershop | null
   services: Service[]
   onRefresh: () => Promise<void>
 }
 
-export function ClientDashboard({ appointments, barbers, services, onRefresh }: ClientDashboardProps) {
+export function ClientDashboard({ appointments, barbers, barbershop, services, onRefresh }: ClientDashboardProps) {
   const [form, setForm] = useState<NewAppointment>({ barberId: '', serviceId: '', scheduledAt: '' })
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -27,9 +28,15 @@ export function ClientDashboard({ appointments, barbers, services, onRefresh }: 
     setBusy(true)
     setMessage(null)
     try {
-      await repository.createAppointment(form)
+      const result = await repository.createAppointment(form)
       setForm({ barberId: '', serviceId: '', scheduledAt: '' })
-      setMessage('Pedido enviado. O barbeiro já recebeu seu horário.')
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl)
+        return
+      }
+      setMessage(result.appointment.paymentStatus === 'APPROVED'
+        ? 'Pagamento aprovado. O barbeiro já recebeu seu horário.'
+        : 'Pedido enviado. O barbeiro já recebeu seu horário.')
       await onRefresh()
     } catch (error) {
       setMessage(errorMessage(error, 'Não foi possível agendar'))
@@ -40,9 +47,12 @@ export function ClientDashboard({ appointments, barbers, services, onRefresh }: 
 
   const cancel = async (id: string) => {
     setBusy(true)
+    setMessage(null)
     try {
       await repository.updateAppointment(id, 'CANCELLED')
       await onRefresh()
+    } catch (error) {
+      setMessage(errorMessage(error, 'Não foi possível cancelar'))
     } finally {
       setBusy(false)
     }
@@ -56,8 +66,8 @@ export function ClientDashboard({ appointments, barbers, services, onRefresh }: 
           <h1>Reserve sua cadeira.</h1>
           <p>Escolha o serviço, o profissional e o melhor momento. Simples assim.</p>
         </div>
-        <div className="hero-stamp" aria-label="Atendimento de terça a sábado">
-          <span>TER — SÁB</span><strong>09—20H</strong><small>com hora marcada</small>
+        <div className="hero-stamp" aria-label="Horários configurados pela barbearia">
+          <span>AGENDE</span><strong>ONLINE</strong><small>com hora marcada</small>
         </div>
       </section>
 
@@ -146,6 +156,9 @@ export function ClientDashboard({ appointments, barbers, services, onRefresh }: 
                   <h3>{appointment.service.name}</h3>
                   <p><UserRound aria-hidden="true" /> {appointment.barber.name}</p>
                   <p><Clock3 aria-hidden="true" /> {appointment.service.duration} min · {formatCurrency(appointment.service.price)}</p>
+                  {appointment.paymentStatus !== 'NOT_REQUIRED' && (
+                    <p><span aria-hidden="true">$</span> Sinal {formatCurrency(appointment.paymentAmount)} · {appointment.paymentStatus === 'APPROVED' ? 'pago' : 'pendente'}</p>
+                  )}
                   <button className="text-button danger" disabled={busy} onClick={() => cancel(appointment.id)}>
                     <X aria-hidden="true" /> Cancelar horário
                   </button>
@@ -156,7 +169,7 @@ export function ClientDashboard({ appointments, barbers, services, onRefresh }: 
 
           <div className="location-card">
             <MapPin aria-hidden="true" />
-            <div><strong>Barbearia Central</strong><span>Rua das Navalhas, 27 · Centro</span></div>
+            <div><strong>{barbershop?.name || 'Barbearia'}</strong><span>{barbershop?.address || 'Endereço informado no agendamento'}</span></div>
           </div>
 
           {history.length > 0 && (

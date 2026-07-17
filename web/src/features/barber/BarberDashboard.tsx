@@ -3,17 +3,19 @@ import { useState } from 'react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { Appointment, AppointmentStatus, NewService, Service } from '../../types'
+import type { Appointment, AppointmentStatus, Barbershop, NewService, Service } from '../../types'
+import { BarbershopSettings } from './BarbershopSettings'
 
 interface BarberDashboardProps {
   appointments: Appointment[]
+  barbershop: Barbershop | null
   services: Service[]
   onRefresh: () => Promise<void>
 }
 
 const isToday = (value: string) => new Date(value).toDateString() === new Date().toDateString()
 
-export function BarberDashboard({ appointments, services, onRefresh }: BarberDashboardProps) {
+export function BarberDashboard({ appointments, barbershop, services, onRefresh }: BarberDashboardProps) {
   const [serviceForm, setServiceForm] = useState<NewService>({ name: '', duration: 30, price: 0 })
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -117,9 +119,11 @@ export function BarberDashboard({ appointments, services, onRefresh }: BarberDas
                         <Check aria-hidden="true" /> Concluir
                       </button>
                     )}
-                    <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}>
-                      <X aria-hidden="true" /> Cancelar
-                    </button>
+                    {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && (
+                      <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}>
+                        <X aria-hidden="true" /> Cancelar
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>
@@ -152,6 +156,7 @@ export function BarberDashboard({ appointments, services, onRefresh }: BarberDas
           </form>
         </section>
       </div>
+      {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
     </main>
   )
 }

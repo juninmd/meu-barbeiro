@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from 'express'
 import { Prisma } from '@prisma/client'
 import { ZodError } from 'zod'
+import { MercadoPagoError } from '../integrations/mercado-pago.js'
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof ZodError) {
@@ -17,6 +18,12 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
       res.status(404).json({ message: 'Registro não encontrado' })
       return
     }
+  }
+
+  if (error instanceof MercadoPagoError) {
+    console.error('Mercado Pago request failed', { status: error.status, message: error.message })
+    res.status(502).json({ message: 'Falha ao comunicar com o Mercado Pago' })
+    return
   }
 
   console.error(error)

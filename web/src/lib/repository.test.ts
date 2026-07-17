@@ -16,6 +16,29 @@ describe('development mock repository', () => {
     expect(mockEnabled).toBe(true)
   })
 
+  it('uses R$ 20 monthly and 1% commission defaults', async () => {
+    const barbershop = await repository.barbershop()
+    expect(barbershop.monthlyFeeCents).toBe(2_000)
+    expect(barbershop.commissionBps).toBe(100)
+  })
+
+  it('persists tenant branding, hours and Mercado Pago connection', async () => {
+    const current = await repository.barbershop()
+    await repository.updateBarbershop({
+      ...current,
+      name: 'Navalha Club',
+      primaryColor: '#112233',
+      depositType: 'PERCENTAGE',
+      depositValue: 30,
+    })
+    await repository.disconnectMercadoPago()
+    expect(await repository.barbershop()).toMatchObject({
+      name: 'Navalha Club', primaryColor: '#112233', depositType: 'PERCENTAGE', depositValue: 30, mercadoPagoConnected: false,
+    })
+    await repository.connectMercadoPago()
+    expect((await repository.barbershop()).mercadoPagoConnected).toBe(true)
+  })
+
   it('isolates appointments by customer and barber role', async () => {
     const customer = repository.mockUser('CUSTOMER')
     const barber = repository.mockUser('BARBER')
@@ -39,10 +62,12 @@ describe('development mock repository', () => {
       serviceId: service.id,
       scheduledAt,
     })
-    await repository.updateAppointment(created.id, 'CONFIRMED')
+    expect(created.appointment.paymentStatus).toBe('APPROVED')
+    expect(created.appointment.commission).toBe(0.55)
+    await repository.updateAppointment(created.appointment.id, 'CONFIRMED')
 
     const barberAppointments = await repository.appointments(repository.mockUser('BARBER'))
-    expect(barberAppointments.find((item) => item.id === created.id)?.status).toBe('CONFIRMED')
+    expect(barberAppointments.find((item) => item.id === created.appointment.id)?.status).toBe('CONFIRMED')
   })
 
   it('prevents deleting a service with active appointments', async () => {
@@ -77,7 +102,7 @@ describe('development mock repository', () => {
       barberId: 'barber-demo',
       serviceId: 'service-cut',
       scheduledAt: sunday.toISOString(),
-    })).rejects.toThrow('Escolha de terça a sábado, entre 09:00 e 20:00')
+    })).rejects.toThrow('A barbearia não atende neste dia')
     expect(await repository.appointments(repository.mockUser('CUSTOMER'))).toEqual(before)
   })
 
@@ -90,7 +115,7 @@ describe('development mock repository', () => {
     const first = await repository.createAppointment(input)
     await expect(repository.createAppointment(input)).rejects.toThrow('Este horário acabou de ser reservado')
     const stored = await repository.appointments(repository.mockUser('CUSTOMER'))
-    expect(stored.filter((item) => item.scheduledAt === input.scheduledAt)).toEqual([first])
+    expect(stored.filter((item) => item.scheduledAt === input.scheduledAt)).toEqual([first.appointment])
   })
 
   it('rejects changes to a terminal appointment and preserves its status', async () => {

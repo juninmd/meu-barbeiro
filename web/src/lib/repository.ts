@@ -1,8 +1,10 @@
 import axios from 'axios'
 import type {
   Appointment,
+  AppointmentCheckout,
   AppointmentStatus,
   Barber,
+  Barbershop,
   NewAppointment,
   NewService,
   Role,
@@ -10,9 +12,14 @@ import type {
   User,
 } from '../types'
 
+const tenantSlug = window.location.pathname.match(/^\/b\/([a-z0-9-]+)/)?.[1]
+  || import.meta.env.VITE_BARBERSHOP_SLUG
+  || 'barbearia-central'
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   withCredentials: true,
+  headers: { 'x-barbershop-slug': tenantSlug },
 })
 
 export const mockEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCKS !== 'false'
@@ -41,11 +48,34 @@ const initialServices: Service[] = [
 ]
 
 interface MockState {
+  barbershop: Barbershop
   services: Service[]
   appointments: Appointment[]
 }
 
-const storageKey = 'meu-barbeiro:mock-state:v1'
+const storageKey = 'meu-barbeiro:mock-state:v2'
+
+const initialBarbershop: Barbershop = {
+  id: 'barbershop-demo',
+  slug: 'barbearia-central',
+  name: 'Barbearia Central',
+  logoUrl: null,
+  primaryColor: '#d99b32',
+  address: 'Rua das Navalhas, 27 · Centro',
+  timezone: 'America/Sao_Paulo',
+  depositType: 'FULL',
+  depositValue: 0,
+  monthlyFeeCents: 2_000,
+  commissionBps: 100,
+  subscriptionStatus: 'ACTIVE',
+  mercadoPagoConnected: true,
+  businessHours: Array.from({ length: 7 }, (_, weekday) => ({
+    weekday,
+    opensAt: '09:00',
+    closesAt: '20:00',
+    enabled: weekday >= 2 && weekday <= 6,
+  })),
+}
 
 const futureAt = (days: number, hours: number, minutes = 0) => {
   const date = new Date()
@@ -55,6 +85,7 @@ const futureAt = (days: number, hours: number, minutes = 0) => {
 }
 
 const seedState = (): MockState => ({
+  barbershop: initialBarbershop,
   services: initialServices,
   appointments: [
     {
@@ -64,6 +95,9 @@ const seedState = (): MockState => ({
       serviceId: initialServices[2].id,
       scheduledAt: futureAt(0, 14),
       status: 'CONFIRMED',
+      paymentStatus: 'APPROVED',
+      paymentAmount: 85,
+      commission: 0.85,
       user: customer,
       barber: barbers[0],
       service: initialServices[2],
@@ -75,6 +109,9 @@ const seedState = (): MockState => ({
       serviceId: initialServices[0].id,
       scheduledAt: futureAt(0, 16),
       status: 'PENDING',
+      paymentStatus: 'APPROVED',
+      paymentAmount: 55,
+      commission: 0.55,
       user: { id: 'customer-2', name: 'Pedro Lima', role: 'CUSTOMER' },
       barber: barbers[0],
       service: initialServices[0],
@@ -86,6 +123,9 @@ const seedState = (): MockState => ({
       serviceId: initialServices[1].id,
       scheduledAt: futureAt(1, 10, 30),
       status: 'CONFIRMED',
+      paymentStatus: 'APPROVED',
+      paymentAmount: 38,
+      commission: 0.38,
       user: { id: 'customer-3', name: 'Lucas Rocha', role: 'CUSTOMER' },
       barber: barbers[0],
       service: initialServices[1],
@@ -107,13 +147,24 @@ const readState = (): MockState => {
 
 const writeState = (state: MockState) => localStorage.setItem(storageKey, JSON.stringify(state))
 
+const depositAmount = (price: number, barbershop: Barbershop): number => {
+  if (barbershop.depositType === 'NONE') return 0
+  if (barbershop.depositType === 'FULL') return price
+  if (barbershop.depositType === 'PERCENTAGE') return Math.round(price * barbershop.depositValue) / 100
+  return Math.min(price, barbershop.depositValue / 100)
+}
+
+const commissionAmount = (price: number, barbershop: Barbershop): number => (
+  Math.round(Math.round(price * 100) * barbershop.commissionBps / 10_000) / 100
+)
+
 const selectedMockUser = (role: Role): User => role === 'BARBER' ? barbers[0] : customer
 
 export const repository = {
   async currentUser(): Promise<User | null> {
     if (mockEnabled) return null
     const { data } = await api.get<User | null>('/auth/me')
-    if (!data || typeof data !== 'object' || !('role' in data) || !['BARBER', 'CUSTOMER'].includes(data.role)) return null
+    if (!data || typeof data !== 'object' || !('role' in data) || !['ADMIN', 'BARBER', 'CUSTOMER'].includes(data.role)) return null
     return data
   },
 
@@ -135,6 +186,45 @@ export const repository = {
     return (await api.get<Service[]>('/services')).data
   },
 
+  async barbershop(): Promise<Barbershop> {
+    if (mockEnabled) return readState().barbershop
+    return (await api.get<Barbershop>('/barbershops/current')).data
+  },
+
+  async updateBarbershop(input: Barbershop): Promise<Barbershop> {
+    if (!mockEnabled) return (await api.patch<Barbershop>('/barbershops/current', input)).data
+    const state = readState()
+    state.barbershop = { ...state.barbershop, ...input }
+    writeState(state)
+    return state.barbershop
+  },
+
+  async subscribe(): Promise<{ checkoutUrl: string | null }> {
+    if (!mockEnabled) return (await api.post<{ checkoutUrl: string }>('/billing/mercado-pago/subscription')).data
+    const state = readState()
+    state.barbershop.subscriptionStatus = 'ACTIVE'
+    writeState(state)
+    return { checkoutUrl: null }
+  },
+
+  async connectMercadoPago(): Promise<{ authorizationUrl: string | null }> {
+    if (!mockEnabled) return (await api.get<{ authorizationUrl: string }>('/billing/mercado-pago/connect')).data
+    const state = readState()
+    state.barbershop.mercadoPagoConnected = true
+    writeState(state)
+    return { authorizationUrl: null }
+  },
+
+  async disconnectMercadoPago(): Promise<void> {
+    if (!mockEnabled) {
+      await api.post('/billing/mercado-pago/disconnect')
+      return
+    }
+    const state = readState()
+    state.barbershop.mercadoPagoConnected = false
+    writeState(state)
+  },
+
   async barbers(): Promise<Barber[]> {
     if (mockEnabled) return barbers
     return (await api.get<Barber[]>('/barbers')).data
@@ -148,8 +238,8 @@ export const repository = {
     return (await api.get<Appointment[]>('/appointments')).data
   },
 
-  async createAppointment(input: NewAppointment): Promise<Appointment> {
-    if (!mockEnabled) return (await api.post<Appointment>('/appointments', input)).data
+  async createAppointment(input: NewAppointment): Promise<AppointmentCheckout> {
+    if (!mockEnabled) return (await api.post<AppointmentCheckout>('/appointments', input)).data
 
     const state = readState()
     const barber = barbers.find((item) => item.id === input.barberId)
@@ -158,9 +248,16 @@ export const repository = {
     const scheduledAt = new Date(input.scheduledAt)
     if (Number.isNaN(scheduledAt.getTime())) throw new Error('Horário inválido')
     if (scheduledAt.getTime() <= Date.now()) throw new Error('Horário deve estar no futuro')
-    const endAt = scheduledAt.getHours() * 60 + scheduledAt.getMinutes() + service.duration
-    if ([0, 1].includes(scheduledAt.getDay()) || scheduledAt.getHours() < 9 || endAt > 20 * 60) {
-      throw new Error('Escolha de terça a sábado, entre 09:00 e 20:00')
+    const configuredHours = state.barbershop.businessHours.find((item) => item.weekday === scheduledAt.getDay())
+    const startAt = scheduledAt.getHours() * 60 + scheduledAt.getMinutes()
+    const [opensHour = 0, opensMinute = 0] = configuredHours?.opensAt.split(':').map(Number) ?? []
+    const [closesHour = 0, closesMinute = 0] = configuredHours?.closesAt.split(':').map(Number) ?? []
+    const opensAt = opensHour * 60 + opensMinute
+    const closesAt = closesHour * 60 + closesMinute
+    if (!configuredHours?.enabled || startAt < opensAt || startAt + service.duration > closesAt) {
+      throw new Error(configuredHours?.enabled
+        ? `Escolha um horário entre ${configuredHours.opensAt} e ${configuredHours.closesAt}`
+        : 'A barbearia não atende neste dia')
     }
     const conflict = state.appointments.some((item) => {
       if (item.barberId !== barber.id || !['PENDING', 'CONFIRMED'].includes(item.status)) return false
@@ -176,13 +273,16 @@ export const repository = {
       userId: customer.id,
       ...input,
       status: 'PENDING',
+      paymentStatus: state.barbershop.depositType === 'NONE' ? 'NOT_REQUIRED' : 'APPROVED',
+      paymentAmount: depositAmount(service.price, state.barbershop),
+      commission: state.barbershop.depositType === 'NONE' ? 0 : commissionAmount(service.price, state.barbershop),
       user: customer,
       barber,
       service,
     }
     state.appointments.push(appointment)
     writeState(state)
-    return appointment
+    return { appointment, checkoutUrl: null }
   },
 
   async updateAppointment(id: string, status: AppointmentStatus): Promise<Appointment> {

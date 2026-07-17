@@ -77,6 +77,7 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .brand { display: flex; align-items: center; gap: .8rem; color: inherit; text-decoration: none; letter-spacing: .08em; }
 .brand strong { color: var(--amber-light); }
 .brand-icon { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid #ffffff2c; border-radius: 50%; }
+.brand-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .profile-actions { display: flex; align-items: center; gap: .9rem; }
 .profile-copy { display: grid; text-align: right; }
 .profile-copy strong { font-size: .83rem; }
@@ -184,11 +185,36 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .empty-copy { color: var(--muted); }
 
+.settings-stack { display: grid; gap: 1.25rem; margin-top: 3rem; }
+.settings-stack > .section-heading { margin-bottom: 0; }
+.billing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.billing-card { display: grid; align-content: start; gap: .7rem; min-height: 245px; padding: 1.4rem; border: 1px solid var(--line); background: #fffdf8; }
+.billing-card > svg { width: 1.5rem; height: 1.5rem; color: #93641b; }
+.billing-card > span { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.billing-card > strong { font: 1.8rem Georgia, serif; }
+.billing-card > strong small { margin-left: .25rem; color: var(--muted); font: .7rem "Aptos", sans-serif; }
+.billing-card p { min-height: 38px; margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
+.billing-card .button { align-self: end; margin-top: auto; }
+.settings-form { display: grid; gap: 1.6rem; }
+.settings-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.settings-form fieldset { display: grid; gap: .8rem; min-width: 0; padding: 0; border: 0; }
+.settings-form legend { margin-bottom: .45rem; font: 1.15rem Georgia, serif; }
+.settings-form label { display: grid; gap: .35rem; color: var(--muted); font-size: .7rem; font-weight: 800; text-transform: uppercase; }
+.settings-form input, .settings-form select { width: 100%; min-height: 42px; padding: .55rem .7rem; border: 1px solid var(--line); background: white; }
+.settings-form input[type="color"] { padding: .25rem; }
+.settings-hint { color: var(--muted); font-size: .76rem; line-height: 1.5; }
+.hours-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem 1rem; }
+.hour-row { display: grid; grid-template-columns: 68px 1fr auto 1fr; align-items: center; gap: .45rem; padding: .55rem; background: #faf7ef; }
+.hour-row .hour-toggle { display: flex; align-items: center; gap: .4rem; }
+.hour-row .hour-toggle input { width: auto; min-height: auto; }
+.hour-row > span { color: var(--muted); font-size: .7rem; }
+
 @media (max-width: 900px) {
   .login-shell { grid-template-columns: 1fr; }
   .login-story { min-height: 560px; }
   .login-card { min-height: 500px; }
   .client-grid, .barber-grid { grid-template-columns: 1fr; }
+  .billing-grid { grid-template-columns: 1fr; }
   .schedule-column { grid-template-columns: 1fr 1fr; }
   .schedule-column .panel { grid-row: span 3; }
 }
@@ -208,6 +234,7 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
   .metric-grid { gap: .6rem; }
   .metric { padding: .85rem 1rem; }
   .mock-grid { grid-template-columns: 1fr; }
+  .settings-columns, .hours-grid { grid-template-columns: 1fr; }
   .login-story { min-height: 500px; padding: 2rem 1.3rem; }
   .login-story h1 { font-size: 3.5rem; }
   .login-card { padding: 3rem 1.3rem; }

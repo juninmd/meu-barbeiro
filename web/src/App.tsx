@@ -4,15 +4,16 @@ import { Shell } from './components/Shell'
 import { BarberDashboard } from './features/barber/BarberDashboard'
 import { ClientDashboard } from './features/client/ClientDashboard'
 import { errorMessage, repository } from './lib/repository'
-import type { Appointment, Barber, Role, Service, User } from './types'
+import type { Appointment, Barber, Barbershop, Role, Service, User } from './types'
 
 interface AppData {
   appointments: Appointment[]
   barbers: Barber[]
+  barbershop: Barbershop | null
   services: Service[]
 }
 
-const emptyData: AppData = { appointments: [], barbers: [], services: [] }
+const emptyData: AppData = { appointments: [], barbers: [], barbershop: null, services: [] }
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -23,12 +24,13 @@ export default function App() {
   const loadData = useCallback(async (currentUser: User) => {
     setError(null)
     try {
-      const [appointments, barbers, services] = await Promise.all([
+      const [appointments, barbers, barbershop, services] = await Promise.all([
         repository.appointments(currentUser),
         repository.barbers(),
+        repository.barbershop(),
         repository.services(),
       ])
-      setData({ appointments, barbers, services })
+      setData({ appointments, barbers, barbershop, services })
     } catch (caught) {
       setError(errorMessage(caught, 'Falha ao carregar os dados'))
     }
@@ -69,12 +71,12 @@ export default function App() {
   if (!user) return <Login onMockLogin={enterMock} />
 
   return (
-    <Shell user={user} onLogout={logout} onSwitchRole={enterMock}>
+    <Shell user={user} barbershop={data.barbershop} onLogout={logout} onSwitchRole={enterMock}>
       {error && <div className="error-banner" role="alert">{error}<button onClick={() => refresh()}>Tentar novamente</button></div>}
-      {user.role === 'BARBER' ? (
-        <BarberDashboard appointments={data.appointments} services={data.services} onRefresh={refresh} />
+      {user.role === 'BARBER' || user.role === 'ADMIN' ? (
+        <BarberDashboard appointments={data.appointments} barbershop={data.barbershop} services={data.services} onRefresh={refresh} />
       ) : (
-        <ClientDashboard appointments={data.appointments} barbers={data.barbers} services={data.services} onRefresh={refresh} />
+        <ClientDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} services={data.services} onRefresh={refresh} />
       )}
     </Shell>
   )

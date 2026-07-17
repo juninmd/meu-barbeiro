@@ -1,11 +1,32 @@
+interface BusinessHourWindow {
+  weekday: number
+  opensAt: string
+  closesAt: string
+  enabled: boolean
+}
+
 interface ScheduleWindow {
   scheduledAt: Date
   duration: number
+  timezone?: string
+  businessHours?: BusinessHourWindow[]
+  now?: Date
 }
 
-const localParts = (date: Date) => {
+const defaultHours: BusinessHourWindow[] = Array.from({ length: 7 }, (_, weekday) => ({
+  weekday,
+  opensAt: '09:00',
+  closesAt: '20:00',
+  enabled: weekday >= 2 && weekday <= 6,
+}))
+
+const weekdayNumbers: Record<string, number> = {
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+}
+
+const localParts = (date: Date, timeZone: string) => {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo',
+    timeZone,
     weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
@@ -14,15 +35,28 @@ const localParts = (date: Date) => {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]))
 }
 
-export function validateBusinessHours({ scheduledAt, duration }: ScheduleWindow): string | null {
-  if (scheduledAt.getTime() <= Date.now()) return 'Horário deve estar no futuro'
+const minutes = (value: string): number => {
+  const [hour, minute] = value.split(':').map(Number)
+  return (hour ?? 0) * 60 + (minute ?? 0)
+}
 
-  const parts = localParts(scheduledAt)
-  if (parts.weekday === 'Sun' || parts.weekday === 'Mon') return 'Atendemos de terça a sábado'
+export function validateBusinessHours({
+  scheduledAt,
+  duration,
+  timezone = 'America/Sao_Paulo',
+  businessHours = defaultHours,
+  now = new Date(),
+}: ScheduleWindow): string | null {
+  if (scheduledAt.getTime() <= now.getTime()) return 'Horário deve estar no futuro'
+
+  const parts = localParts(scheduledAt, timezone)
+  const weekday = weekdayNumbers[parts.weekday ?? '']
+  const configured = businessHours.find((item) => item.weekday === weekday)
+  if (!configured?.enabled) return 'A barbearia não atende neste dia'
 
   const startMinutes = Number(parts.hour) * 60 + Number(parts.minute)
-  if (startMinutes < 9 * 60 || startMinutes + duration > 20 * 60) {
-    return 'Escolha um horário entre 09:00 e 20:00'
+  if (startMinutes < minutes(configured.opensAt) || startMinutes + duration > minutes(configured.closesAt)) {
+    return `Escolha um horário entre ${configured.opensAt} e ${configured.closesAt}`
   }
   return null
 }
