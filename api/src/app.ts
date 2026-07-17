@@ -1,15 +1,21 @@
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import session from 'express-session'
-import { passport } from './lib/passport'
-import { servicesRoutes } from './routes/services.routes'
-import { appointmentsRoutes } from './routes/appointments.routes'
-import { authRoutes } from './routes/auth.routes'
-
-dotenv.config()
+import { passport } from './lib/passport.js'
+import { servicesRoutes } from './routes/services.routes.js'
+import { appointmentsRoutes } from './routes/appointments.routes.js'
+import { authRoutes } from './routes/auth.routes.js'
+import { barbersRoutes } from './routes/barbers.routes.js'
+import { errorHandler } from './middleware/errors.js'
 
 const app = express()
+const sessionSecret = process.env.SESSION_SECRET
+
+if (process.env.NODE_ENV === 'production' && !sessionSecret) {
+  throw new Error('SESSION_SECRET is required in production')
+}
+
+app.set('trust proxy', 1)
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -18,9 +24,15 @@ app.use(cors({
 app.use(express.json())
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'secret',
+  secret: sessionSecret || 'development-only-secret',
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  },
 }))
 
 app.use(passport.initialize())
@@ -32,6 +44,8 @@ app.get('/health', (req, res) => {
 
 app.use('/auth', authRoutes)
 app.use('/services', servicesRoutes)
+app.use('/barbers', barbersRoutes)
 app.use('/appointments', appointmentsRoutes)
+app.use(errorHandler)
 
 export { app }

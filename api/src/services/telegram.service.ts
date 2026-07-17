@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf'
-import { prisma } from '../lib/prisma'
+import { prisma } from '../lib/prisma.js'
 
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '')
+const bot: Telegraf = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '')
 
 bot.start(async (ctx) => {
   const { id, first_name } = ctx.from

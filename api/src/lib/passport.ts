@@ -1,22 +1,28 @@
 import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
-import { prisma } from './prisma'
+import type { User } from '@prisma/client'
+import { prisma } from './prisma.js'
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+const googleClientId = process.env.GOOGLE_CLIENT_ID
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
+export const googleAuthConfigured = Boolean(googleClientId && googleClientSecret)
+
+if (googleClientId && googleClientSecret) {
   passport.use(new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientID: googleClientId,
+      clientSecret: googleClientSecret,
       callbackURL: "/auth/google/callback"
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        const email = profile.emails?.[0]?.value ?? null
         const user = await prisma.user.upsert({
           where: { googleId: profile.id },
-          update: { name: profile.displayName, email: profile.emails?.[0].value },
+          update: { name: profile.displayName, email },
           create: {
             googleId: profile.id,
             name: profile.displayName,
-            email: profile.emails?.[0].value,
+            email,
             role: 'CUSTOMER'
           }
         })
@@ -30,13 +36,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   console.warn('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set — skipping GoogleStrategy')
 }
 
-passport.serializeUser((user: any, done) => {
-  done(null, user.id)
+passport.serializeUser((user, done) => {
+  done(null, (user as User).id)
 })
 
 passport.deserializeUser(async (id: string, done) => {
-  const user = await prisma.user.findUnique({ where: { id } })
-  done(null, user)
+  try {
+    const user = await prisma.user.findUnique({ where: { id } })
+    done(null, user ?? false)
+  } catch (error) {
+    done(error)
+  }
 })
 
 export { passport }

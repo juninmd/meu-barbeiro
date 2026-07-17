@@ -1,5 +1,6 @@
-import { app } from './app'
-import { bot } from './services/telegram.service'
+import 'dotenv/config'
+import { app } from './app.js'
+import { bot } from './services/telegram.service.js'
 
 const PORT = process.env.PORT || 3333
 

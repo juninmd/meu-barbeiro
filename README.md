@@ -33,10 +33,33 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
    ```bash
    pnpm install
    ```
-3. Inicie o web app:
+3. Inicie o web app em modo de desenvolvimento:
    ```bash
-   pnpm --filter web dev
+   pnpm dev
    ```
+
+O modo de desenvolvimento abre uma área **Acesso mock**. Use **Visão cliente**
+para criar e cancelar agendamentos e **Visão barbeiro** para confirmar horários,
+concluir atendimentos e gerenciar serviços. Os dados ficam no `localStorage` do
+navegador. O seletor de perfis e os dados mock não são habilitados no build de
+produção.
+
+Para testar contra a API real, copie `web/.env.example` para `web/.env.local`,
+configure `VITE_API_URL` e defina `VITE_ENABLE_MOCKS=false`. Para iniciar web e
+API juntos:
+
+```bash
+pnpm dev:full
+```
+
+## ✅ Validação
+
+```bash
+pnpm lint
+pnpm test
+pnpm build
+pnpm test:e2e
+```
 
 ## 📦 Deployment
 
