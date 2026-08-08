@@ -13,6 +13,11 @@ export interface User {
 export interface Barber extends User {
   role: 'ADMIN' | 'BARBER'
   specialty: string
+  available?: boolean
+  unavailableReason?: 'folga' | 'ausência' | 'fora da escala' | 'agenda cheia' | null
+  slotCount?: number
+  firstAvailableTime?: string | null
+  nextAvailableDate?: string | null
 }
 
 export interface Service {
