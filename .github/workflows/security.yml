@@ -5,4 +5,10 @@ on:
     branches: [main, master]
 jobs:
   gitleaks:
-    uses: juninmd/base-actions/.github/workflows/reusable-security-scan.yml@main
+    permissions:
+      contents: read
+    # Fixado no ultimo commit valido. Em base-actions@main este workflow declara
+    # um segredo chamado GITHUB_TOKEN em workflow_call; o nome e reservado pelo
+    # GitHub e invalida o arquivo, derrubando todos os repositorios que o chamam.
+    # Voltar para @main quando o segredo reservado for removido la.
+    uses: juninmd/base-actions/.github/workflows/reusable-security-scan.yml@5e6042eee1d2b7547c514c37b69d1d530f512d68
