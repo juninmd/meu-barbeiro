@@ -9,6 +9,12 @@ import {
 const API_URL = process.env.MERCADO_PAGO_API_URL || 'https://api.mercadopago.com'
 const AUTH_URL = process.env.MERCADO_PAGO_AUTH_URL || 'https://auth.mercadopago.com'
 
+export function parseSubscriptionReference(reference: string): { kind: 'saas' | 'customer'; id: string } {
+  if (reference.startsWith('customer:')) return { kind: 'customer', id: reference.slice('customer:'.length) }
+  if (reference.startsWith('saas:')) return { kind: 'saas', id: reference.slice('saas:'.length) }
+  return { kind: 'saas', id: reference }
+}
+
 export function verifyMercadoPagoSignature(input: {
   signature: string
   requestId: string
@@ -139,16 +145,62 @@ export class MercadoPagoClient {
     payerEmail: string
     backUrl: string
   }): Promise<{ id: string; initPoint: string }> {
+    return this.createSubscription({
+      reason: 'Meu Barbeiro - assinatura mensal',
+      externalReference: `saas:${input.barbershopId}`,
+      payerEmail: input.payerEmail,
+      frequency: 1,
+      frequencyType: 'months',
+      amountCents: DEFAULT_MONTHLY_FEE_CENTS,
+      backUrl: input.backUrl,
+    })
+  }
+
+  createCustomerSubscription(input: {
+    subscriptionId: string
+    planName: string
+    priceCents: number
+    intervalDays: number
+    payerEmail: string
+    backUrl: string
+  }): Promise<{ id: string; initPoint: string }> {
+    return this.createSubscription({
+      reason: `Meu Barbeiro - ${input.planName}`,
+      externalReference: `customer:${input.subscriptionId}`,
+      payerEmail: input.payerEmail,
+      frequency: input.intervalDays,
+      frequencyType: 'days',
+      amountCents: input.priceCents,
+      backUrl: input.backUrl,
+    })
+  }
+
+  updateSubscriptionStatus(subscriptionId: string, status: 'cancelled'): Promise<{ id: string }> {
+    return this.request(`/preapproval/${encodeURIComponent(subscriptionId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    })
+  }
+
+  private async createSubscription(input: {
+    reason: string
+    externalReference: string
+    payerEmail: string
+    frequency: number
+    frequencyType: 'days' | 'months'
+    amountCents: number
+    backUrl: string
+  }): Promise<{ id: string; initPoint: string }> {
     const response = await this.request<{ id: string; init_point: string }>('/preapproval', {
       method: 'POST',
       body: JSON.stringify({
-        reason: 'Meu Barbeiro - assinatura mensal',
-        external_reference: input.barbershopId,
+        reason: input.reason,
+        external_reference: input.externalReference,
         payer_email: input.payerEmail,
         auto_recurring: {
-          frequency: 1,
-          frequency_type: 'months',
-          transaction_amount: DEFAULT_MONTHLY_FEE_CENTS / 100,
+          frequency: input.frequency,
+          frequency_type: input.frequencyType,
+          transaction_amount: input.amountCents / 100,
           currency_id: 'BRL',
         },
         back_url: input.backUrl,
@@ -221,11 +273,11 @@ export class MercadoPagoClient {
     return this.request(`/preapproval/${encodeURIComponent(subscriptionId)}`, { method: 'GET' })
   }
 
-  refundPayment(paymentId: string, sellerAccessToken: string, idempotencyKey: string): Promise<{ id: number | string }> {
+  refundPayment(paymentId: string, sellerAccessToken: string, idempotencyKey: string, amountCents?: number): Promise<{ id: number | string }> {
     return this.request(`/v1/payments/${encodeURIComponent(paymentId)}/refunds`, {
       method: 'POST',
       headers: { 'x-idempotency-key': idempotencyKey },
-      body: '{}',
+      body: amountCents === undefined ? '{}' : JSON.stringify({ amount: amountCents / 100 }),
     }, sellerAccessToken)
   }
 

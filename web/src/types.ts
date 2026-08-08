@@ -35,6 +35,9 @@ export interface Appointment {
   userId: string
   barberId: string
   serviceId: string
+  walkInQueueId?: string | null
+  customerSubscriptionId?: string | null
+  recurringBookingId?: string | null
   scheduledAt: string
   status: AppointmentStatus
   paymentStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'REFUNDED'
@@ -44,6 +47,7 @@ export interface Appointment {
   depositRetained?: boolean
   clientConfirmed?: boolean
   reminders?: AppointmentReminder[]
+  cancellation?: AppointmentCancellation | null
   user: User
   barber: Barber
   service: Service
@@ -55,6 +59,91 @@ export interface AppointmentReminder {
   sentAt: string
   deliveredOk: boolean
   error: string | null
+}
+
+export interface MembershipPlan {
+  id: string
+  name: string
+  priceCents: number
+  intervalDays: number
+  includedVisits: number
+  serviceIds: string[]
+  active: boolean
+}
+
+export interface CustomerSubscription {
+  id: string
+  userId: string
+  status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED'
+  currentPeriodStart: string
+  currentPeriodEnd: string
+  visitsUsed: number
+  plan: MembershipPlan
+  user?: Pick<User, 'id' | 'name' | 'email' | 'phone'>
+}
+
+export interface RecurringBookingOccurrence {
+  id: string
+  scheduledAt: string
+  status: 'CREATED' | 'PENDING'
+  reason: string | null
+}
+
+export interface RecurringBooking {
+  id: string
+  subscriptionId: string
+  userId: string
+  barberId: string
+  serviceIds: string[]
+  weekday: number
+  time: string
+  active: boolean
+  user?: Pick<User, 'id' | 'name'>
+  barber?: Pick<User, 'id' | 'name'>
+  subscription?: CustomerSubscription
+  occurrences: RecurringBookingOccurrence[]
+}
+
+export interface NewMembershipPlan {
+  name: string
+  priceCents: number
+  intervalDays: number
+  includedVisits: number
+  serviceIds: string[]
+  active?: boolean
+}
+
+export interface NewRecurringBooking {
+  subscriptionId: string
+  userId?: string
+  barberId: string
+  serviceIds: string[]
+  weekday: number
+  time: string
+}
+
+export interface AppointmentCancellation {
+  cancelledByRole: 'CUSTOMER' | 'BARBER' | 'OWNER' | 'ADMIN'
+  reason: string | null
+  hoursBefore: number
+  refundedCents: number
+  feeCents: number
+  createdAt: string
+}
+
+export interface CancellationQuote {
+  hoursBefore: number
+  late: boolean
+  refundedCents: number
+  feeCents: number
+}
+
+export type StaffNotificationType = 'NEW_APPOINTMENT' | 'CANCELLATION' | 'RESCHEDULE' | 'NO_SHOW' | 'DAILY_SUMMARY'
+
+export interface NotificationPreferences {
+  notificationTypes: StaffNotificationType[]
+  dailySummaryTime: string
+  telegramLinked: boolean
 }
 
 export interface BusinessHour {
@@ -111,6 +200,8 @@ export interface Barbershop {
   timezone: string
   depositType: 'NONE' | 'PERCENTAGE' | 'FIXED' | 'FULL'
   depositValue: number
+  cancellationWindowHours: number
+  lateCancellationFeeBps: number
   monthlyFeeCents: number
   commissionBps: number
   remindersEnabled?: boolean
@@ -177,6 +268,50 @@ export type NewWalkInAppointment = NewAppointment & (
   | { userId: string; customer?: never }
   | { customer: { name: string; phone?: string }; userId?: never }
 )
+
+export type WalkInQueueStatus = 'WAITING' | 'IN_SERVICE' | 'DONE' | 'GAVE_UP'
+
+export interface WalkInQueueEntry {
+  id: string
+  userId: string | null
+  guestName: string | null
+  name: string
+  serviceIds: string[]
+  services: Service[]
+  barberId: string | null
+  barber: Pick<Barber, 'id' | 'name'> | null
+  assignedBarber: Pick<Barber, 'id' | 'name'> | null
+  status: WalkInQueueStatus
+  arrivedAt: string
+  calledAt: string | null
+  finishedAt: string | null
+  position: number | null
+  estimatedMinutes: number | null
+  estimatedStartAt: string | null
+  createdAt: string
+}
+
+export interface NewWalkInQueueEntry {
+  userId?: string
+  guestName?: string
+  serviceIds: string[]
+  barberId?: string | null
+}
+
+export interface FitNowBarber {
+  barber: Pick<Barber, 'id' | 'name'>
+  fitsNow: boolean
+  nextAvailableAt: string | null
+  currentServiceMinutesLeft: number
+}
+
+export interface FitNowResponse {
+  serviceIds: string[]
+  duration: number
+  checkedAt: string
+  timezone: string
+  barbers: FitNowBarber[]
+}
 
 export interface CustomerSummary {
   id: string
@@ -283,6 +418,19 @@ export interface RevenueReport {
   topServices: ReportRankedItem[]
   topProducts: ReportRankedItem[]
   totals: Omit<BarberReport, 'barber'> & { grossRevenueCents: number }
+}
+
+export interface CancellationReport {
+  period: { from: string; to: string; timezone: string }
+  total: number
+  byCancelledBy: Record<'CUSTOMER' | 'BARBER' | 'OWNER' | 'ADMIN', number>
+  byTiming: { late: number; advance: number }
+  lostRevenueCents: number
+  retainedFeeCents: number
+  topCustomers: Array<{ id: string; name: string; cancellations: number }>
+  byWeekday: Array<{ weekday: number; label: string; cancellations: number }>
+  byHour: Array<{ hour: number; label: string; cancellations: number }>
+  waitlistReused: number
 }
 
 export interface LoyaltyProgram {

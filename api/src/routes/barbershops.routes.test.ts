@@ -9,6 +9,8 @@ import { barbershopsRoutes } from './barbershops.routes.js'
 const originals = {
   findBarbershop: prisma.barbershop.findUnique,
   findMembership: prisma.membership.findUnique,
+  findMembershipOrThrow: prisma.membership.findUniqueOrThrow,
+  updateMembership: prisma.membership.update,
   createHoliday: prisma.holiday.create,
   transaction: prisma.$transaction,
 }
@@ -31,6 +33,8 @@ const settings = (hour: Partial<(typeof businessHours)[number]> & {
   timezone: 'America/Sao_Paulo',
   depositType: 'NONE',
   depositValue: 0,
+  cancellationWindowHours: 6,
+  lateCancellationFeeBps: 2_500,
   businessHours: businessHours.map((item) => item.weekday === 2 ? { ...item, ...hour } : item),
 })
 
@@ -57,9 +61,17 @@ describe('barbershop settings and holidays', () => {
       timezone: 'America/Sao_Paulo',
       remindersEnabled: true,
       reminderHoursBefore: [24, 2],
+      cancellationWindowHours: 6,
+      lateCancellationFeeBps: 2_500,
       businessHours,
     }) as never })
-    Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: async () => ({ role: 'OWNER' }) as never })
+    Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: async () => ({ id: 'membership-1', role: 'OWNER' }) as never })
+    Object.defineProperty(prisma.membership, 'findUniqueOrThrow', { configurable: true, value: async () => ({
+      notificationTypes: ['CANCELLATION', 'DAILY_SUMMARY'], dailySummaryTime: '07:00', user: { telegramId: null },
+    }) as never })
+    Object.defineProperty(prisma.membership, 'update', { configurable: true, value: async ({ data }: { data: Record<string, unknown> }) => ({
+      ...data, user: { telegramId: null },
+    }) as never })
     Object.defineProperty(prisma, '$transaction', { configurable: true, value: async () => ({
       id: 'barbershop-1',
       slug: 'barbearia-central',
@@ -81,6 +93,8 @@ describe('barbershop settings and holidays', () => {
   afterEach(() => {
     Object.defineProperty(prisma.barbershop, 'findUnique', { configurable: true, value: originals.findBarbershop })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: originals.findMembership })
+    Object.defineProperty(prisma.membership, 'findUniqueOrThrow', { configurable: true, value: originals.findMembershipOrThrow })
+    Object.defineProperty(prisma.membership, 'update', { configurable: true, value: originals.updateMembership })
     Object.defineProperty(prisma.holiday, 'create', { configurable: true, value: originals.createHoliday })
     Object.defineProperty(prisma, '$transaction', { configurable: true, value: originals.transaction })
   })
@@ -131,9 +145,29 @@ describe('barbershop settings and holidays', () => {
       const response = await fetch(`${url}/current`)
 
       assert.equal(response.status, 200)
-      const body = await response.json() as { remindersEnabled: boolean; reminderHoursBefore: number[] }
+      const body = await response.json() as { remindersEnabled: boolean; reminderHoursBefore: number[]; cancellationWindowHours: number; lateCancellationFeeBps: number }
       assert.equal(body.remindersEnabled, true)
       assert.deepEqual(body.reminderHoursBefore, [24, 2])
+      assert.equal(body.cancellationWindowHours, 6)
+      assert.equal(body.lateCancellationFeeBps, 2_500)
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+    }
+  })
+
+  it('lets each staff member silence selected notices and exposes the missing channel', async () => {
+    const { server, url } = await startApp()
+    try {
+      const response = await fetch(`${url}/current/notification-preferences`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ notificationTypes: ['CANCELLATION'], dailySummaryTime: '06:45' }),
+      })
+
+      assert.equal(response.status, 200)
+      assert.deepEqual(await response.json(), {
+        notificationTypes: ['CANCELLATION'], dailySummaryTime: '06:45', telegramLinked: false,
+      })
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
     }

@@ -4,6 +4,7 @@ import session from 'express-session'
 import { passport } from './lib/passport.js'
 import { servicesRoutes } from './routes/services.routes.js'
 import { appointmentsRoutes } from './routes/appointments.routes.js'
+import { appointmentsFitNowRoutes, walkInQueueRoutes } from './routes/walk-in-queue.routes.js'
 import { authRoutes } from './routes/auth.routes.js'
 import { barbersRoutes } from './routes/barbers.routes.js'
 import { barbershopsRoutes } from './routes/barbershops.routes.js'
@@ -13,6 +14,9 @@ import { productsRoutes } from './routes/products.routes.js'
 import { customersRoutes } from './routes/customers.routes.js'
 import { loyaltyRoutes } from './routes/loyalty.routes.js'
 import { reportsRoutes } from './routes/reports.routes.js'
+import { plansRoutes } from './routes/plans.routes.js'
+import { subscriptionsRoutes } from './routes/subscriptions.routes.js'
+import { recurringBookingsRoutes } from './routes/recurring-bookings.routes.js'
 import { errorHandler } from './middleware/errors.js'
 import { PrismaSessionStore } from './lib/session-store.js'
 
@@ -63,9 +67,14 @@ app.use('/services', servicesRoutes)
 app.use('/products', productsRoutes)
 app.use('/barbers', barbersRoutes)
 app.use('/customers', customersRoutes)
+app.use('/appointments', appointmentsFitNowRoutes)
 app.use('/appointments', appointmentsRoutes)
+app.use('/walk-in-queue', walkInQueueRoutes)
 app.use('/reports', reportsRoutes)
 app.use('/loyalty', loyaltyRoutes)
+app.use('/plans', plansRoutes)
+app.use('/subscriptions', subscriptionsRoutes)
+app.use('/recurring-bookings', recurringBookingsRoutes)
 app.use(errorHandler)
 
 export { app }

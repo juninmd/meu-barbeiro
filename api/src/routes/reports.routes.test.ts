@@ -11,6 +11,7 @@ const originals = {
   findMemberships: prisma.membership.findMany,
   findAppointments: prisma.appointment.findMany,
   findSales: prisma.productSale.findMany,
+  findCancellations: prisma.appointmentCancellation.findMany,
 }
 
 const barber = { id: 'barber-1', name: 'Rafael' }
@@ -19,7 +20,7 @@ const service = { id: 'service-1', name: 'Corte', priceCents: 5_005 }
 describe('reports', () => {
   beforeEach(() => {
     Object.defineProperty(prisma.barbershop, 'findUnique', { configurable: true, value: async () => ({
-      id: 'shop-1', timezone: 'America/Sao_Paulo', businessHours: [],
+      id: 'shop-1', timezone: 'America/Sao_Paulo', businessHours: [], cancellationWindowHours: 6,
     }) as never })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: async () => ({ role: 'BARBER' }) as never })
   })
@@ -30,6 +31,7 @@ describe('reports', () => {
     Object.defineProperty(prisma.membership, 'findMany', { configurable: true, value: originals.findMemberships })
     Object.defineProperty(prisma.appointment, 'findMany', { configurable: true, value: originals.findAppointments })
     Object.defineProperty(prisma.productSale, 'findMany', { configurable: true, value: originals.findSales })
+    Object.defineProperty(prisma.appointmentCancellation, 'findMany', { configurable: true, value: originals.findCancellations })
   })
 
   it('counts only DONE revenue and uses the unit price recorded in each product sale', () => {
@@ -79,6 +81,26 @@ describe('reports', () => {
       assert.equal(seen[0]?.barberId, barber.id)
       assert.equal(seen[1]?.soldById, barber.id)
       assert.equal(seen[2]?.userId, barber.id)
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+    }
+  })
+
+  it('filters BARBER cancellation reports to the authenticated professional', async () => {
+    let seen: Record<string, unknown> | undefined
+    Object.defineProperty(prisma.appointmentCancellation, 'findMany', { configurable: true, value: async ({ where }: { where: Record<string, unknown> }) => { seen = where; return [] } })
+    const app = express()
+    app.use((req, _res, next) => { req.user = { id: barber.id, role: 'BARBER' } as Express.User; next() })
+    app.use('/reports', reportsRoutes)
+    app.use(errorHandler)
+    const server = app.listen(0, '127.0.0.1')
+    await new Promise<void>((resolve) => server.once('listening', resolve))
+    const address = server.address()
+    assert(address && typeof address !== 'string')
+    try {
+      const response = await fetch(`http://127.0.0.1:${address.port}/reports/cancellations?from=2026-08-01&to=2026-08-31`)
+      assert.equal(response.status, 200)
+      assert.deepEqual(seen?.appointment, { barberId: barber.id })
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
     }

@@ -59,6 +59,13 @@ model User {
   customerProfiles   CustomerProfile[] @relation("CustomerProfiles")
   updatedProfiles    CustomerProfile[] @relation("CustomerProfileUpdates")
   loyaltyStamps      LoyaltyStamp[]
+  receivedReminders  AppointmentReminder[] @relation("ReminderRecipient")
+  cancellations      AppointmentCancellation[] @relation("CancellationActor")
+  walkInQueueEntries WalkInQueue[]       @relation("WalkInQueueCustomer")
+  preferredWalkIns   WalkInQueue[]       @relation("WalkInQueueBarber")
+  customerSubscriptions CustomerSubscription[]
+  recurringBookings    RecurringBooking[]       @relation("RecurringBookingCustomer")
+  barberRecurringBookings RecurringBooking[]    @relation("RecurringBookingBarber")
   createdAt          DateTime          @default(now())
 }
 
@@ -92,6 +99,15 @@ model Barbershop {
   customerProfiles                 CustomerProfile[]
   loyaltyProgram                   LoyaltyProgram?
   loyaltyStamps                    LoyaltyStamp[]
+  appointmentReminders             AppointmentReminder[]
+  appointmentCancellations         AppointmentCancellation[]
+  walkInQueue                      WalkInQueue[]
+  membershipPlans                 MembershipPlan[]
+  customerSubscriptions           CustomerSubscription[]
+  recurringBookings               RecurringBooking[]
+  recurringBookingOccurrences     RecurringBookingOccurrence[]
+  cancellationWindowHours          Int                @default(0)
+  lateCancellationFeeBps           Int                @default(0)
   remindersEnabled                 Boolean            @default(true)
   reminderHoursBefore              Int[]              @default([24, 2])
   createdAt                        DateTime           @default(now())
@@ -99,12 +115,14 @@ model Barbershop {
 }
 
 model Membership {
-  id           String         @id @default(uuid())
-  barbershopId String
-  userId       String
-  role         MembershipRole
-  barbershop   Barbershop     @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String         @id @default(uuid())
+  barbershopId       String
+  userId             String
+  role               MembershipRole
+  notificationTypes  String[]       @default(["NEW_APPOINTMENT", "CANCELLATION", "RESCHEDULE", "NO_SHOW", "DAILY_SUMMARY"])
+  dailySummaryTime   String         @default("07:00")
+  barbershop         Barbershop     @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([barbershopId, userId])
   @@index([userId])
@@ -245,6 +263,9 @@ model Appointment {
   mercadoPagoPreferenceId String?       @unique
   mercadoPagoPaymentId    String?       @unique
   customerConfirmedAt     DateTime?
+  walkInQueueId           String?
+  customerSubscriptionId  String?
+  recurringBookingId      String?
 
   barbershop   Barbershop            @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
   user         User                  @relation("UserAppointments", fields: [userId], references: [id])
@@ -253,10 +274,144 @@ model Appointment {
   productSales ProductSale[]
   reminders    AppointmentReminder[]
   loyaltyStamp LoyaltyStamp?
+  cancellation AppointmentCancellation?
+  walkInQueue  WalkInQueue?           @relation(fields: [walkInQueueId], references: [id], onDelete: SetNull)
+  customerSubscription CustomerSubscription? @relation(fields: [customerSubscriptionId], references: [id], onDelete: SetNull)
+  recurringBooking     RecurringBooking?     @relation(fields: [recurringBookingId], references: [id], onDelete: SetNull)
+  recurringOccurrence  RecurringBookingOccurrence?
   createdAt    DateTime              @default(now())
 
   @@index([barbershopId, barberId, scheduledAt])
   @@index([barbershopId, userId])
+  @@index([walkInQueueId])
+  @@index([customerSubscriptionId])
+  @@index([recurringBookingId])
+}
+
+model MembershipPlan {
+  id             String   @id @default(uuid())
+  barbershopId   String
+  name           String
+  priceCents     Int
+  intervalDays   Int
+  includedVisits Int
+  serviceIds     String[]
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  barbershop     Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  subscriptions  CustomerSubscription[]
+
+  @@unique([barbershopId, name])
+  @@index([barbershopId, active])
+}
+
+model CustomerSubscription {
+  id                          String   @id @default(uuid())
+  barbershopId                String
+  userId                      String
+  planId                      String
+  status                      String   @default("ACTIVE")
+  startedAt                   DateTime @default(now())
+  currentPeriodStart          DateTime
+  currentPeriodEnd            DateTime
+  visitsUsed                  Int      @default(0)
+  mercadoPagoSubscriptionId   String?  @unique
+  cancelledAt                 DateTime?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  barbershop                  Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user                        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                        MembershipPlan @relation(fields: [planId], references: [id])
+  appointments                Appointment[]
+  recurringBookings           RecurringBooking[]
+
+  @@index([barbershopId, status])
+  @@index([userId, status])
+  @@index([planId])
+}
+
+model RecurringBooking {
+  id             String   @id @default(uuid())
+  barbershopId   String
+  subscriptionId String
+  userId         String
+  barberId       String
+  serviceIds     String[]
+  weekday        Int
+  time           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  barbershop     Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  subscription   CustomerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  user           User @relation("RecurringBookingCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  barber         User @relation("RecurringBookingBarber", fields: [barberId], references: [id])
+  appointments   Appointment[]
+  occurrences    RecurringBookingOccurrence[]
+
+  @@index([barbershopId, active])
+  @@index([subscriptionId])
+  @@index([userId])
+  @@index([barberId])
+}
+
+model RecurringBookingOccurrence {
+  id                 String   @id @default(uuid())
+  barbershopId       String
+  recurringBookingId String
+  scheduledAt        DateTime
+  status             String
+  reason             String?
+  appointmentId      String?  @unique
+  createdAt          DateTime @default(now())
+  barbershop         Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  recurringBooking   RecurringBooking @relation(fields: [recurringBookingId], references: [id], onDelete: Cascade)
+  appointment        Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@unique([recurringBookingId, scheduledAt])
+  @@index([barbershopId, status, scheduledAt])
+}
+
+model WalkInQueue {
+  id               String     @id @default(uuid())
+  barbershopId     String
+  userId           String?
+  guestName        String?
+  serviceIds       String[]
+  barberId         String?
+  status           String     @default("WAITING")
+  arrivedAt        DateTime   @default(now())
+  calledAt         DateTime?
+  finishedAt       DateTime?
+  estimatedMinutes Int?
+  createdAt        DateTime   @default(now())
+  barbershop       Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user             User?      @relation("WalkInQueueCustomer", fields: [userId], references: [id], onDelete: SetNull)
+  barber           User?      @relation("WalkInQueueBarber", fields: [barberId], references: [id], onDelete: SetNull)
+  appointments     Appointment[]
+
+  @@index([barbershopId, arrivedAt])
+  @@index([barbershopId, status, arrivedAt])
+  @@index([userId, status])
+}
+
+model AppointmentCancellation {
+  id              String      @id @default(uuid())
+  appointmentId   String      @unique
+  barbershopId    String
+  cancelledById   String
+  cancelledByRole String
+  reason          String?
+  hoursBefore     Int
+  refundedCents   Int
+  feeCents        Int
+  createdAt       DateTime    @default(now())
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  barbershop      Barbershop  @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  cancelledBy     User        @relation("CancellationActor", fields: [cancelledById], references: [id])
+
+  @@index([barbershopId, createdAt])
+  @@index([cancelledById])
 }
 
 model LoyaltyProgram {
@@ -285,17 +440,26 @@ model LoyaltyStamp {
 }
 
 model AppointmentReminder {
-  id            String      @id @default(uuid())
-  appointmentId String
-  kind          String
-  channel       String      @default("telegram")
-  sentAt        DateTime    @default(now())
-  deliveredOk   Boolean
-  error         String?
-  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  id               String       @id @default(uuid())
+  appointmentId    String?
+  recipientId      String
+  barbershopId     String
+  kind             String
+  channel          String       @default("telegram")
+  deduplicationKey String       @unique
+  message          String?
+  availableAt      DateTime     @default(now())
+  sentAt           DateTime     @default(now())
+  processedAt      DateTime?
+  deliveredOk      Boolean      @default(false)
+  error            String?
+  appointment      Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  recipient        User         @relation("ReminderRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  barbershop       Barbershop   @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
 
-  @@unique([appointmentId, kind, channel])
   @@index([appointmentId])
+  @@index([recipientId, processedAt, availableAt])
+  @@index([barbershopId])
 }
 
 model WebhookEvent {
