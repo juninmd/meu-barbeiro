@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { calculateCommissionCents, calculateDepositCents } from '../domain/billing.js'
 import { mercadoPagoClient, sellerAccessToken } from '../lib/mercado-pago-config.js'
 import { prisma } from '../lib/prisma.js'
-import { schedulesOverlap, validateBusinessHours } from '../lib/schedule.js'
+import { availabilitySlots, validateAppointmentSchedule, validateRescheduleStatus } from '../lib/schedule.js'
 import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { resolveBarbershop } from '../middleware/barbershop.js'
 
@@ -32,6 +32,82 @@ router.get('/', async (req, res) => {
     orderBy: { scheduledAt: 'asc' },
   })
   res.json(appointments.map(publicAppointment))
+})
+
+router.get('/availability', async (req, res) => {
+  const user = req.user as SessionUser
+  const barbershop = req.barbershop!
+  const input = z.object({
+    barberId: z.string().uuid(),
+    serviceId: z.string().uuid(),
+    date: z.iso.date(),
+    appointmentId: z.string().uuid().optional(),
+  }).parse(req.query)
+  const now = new Date()
+
+  const [service, barber, scheduled, excludedAppointment] = await Promise.all([
+    prisma.service.findUnique({
+      where: { barbershopId_id: { barbershopId: barbershop.id, id: input.serviceId } },
+    }),
+    prisma.user.findFirst({
+      where: {
+        id: input.barberId,
+        memberships: { some: { barbershopId: barbershop.id, role: { in: ['OWNER', 'ADMIN', 'BARBER'] } } },
+      },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        barbershopId: barbershop.id,
+        barberId: input.barberId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        OR: [
+          { paymentStatus: { not: 'PENDING' } },
+          { paymentExpiresAt: { gt: now } },
+        ],
+      },
+      include: { service: true },
+    }),
+    input.appointmentId
+      ? prisma.appointment.findFirst({
+        where: {
+          id: input.appointmentId,
+          barbershopId: barbershop.id,
+          barberId: input.barberId,
+          serviceId: input.serviceId,
+        },
+      })
+      : Promise.resolve(null),
+  ])
+  if (!service || !barber) {
+    res.status(400).json({ message: 'Serviço ou barbeiro inválido' })
+    return
+  }
+  if (input.appointmentId) {
+    const ownsAppointment = user.role === 'CUSTOMER'
+      ? excludedAppointment?.userId === user.id
+      : excludedAppointment?.barberId === user.id
+    if (!ownsAppointment) {
+      res.status(403).json({ message: 'Ação não permitida' })
+      return
+    }
+  }
+
+  const availability = availabilitySlots({
+    date: input.date,
+    duration: service.duration,
+    timezone: barbershop.timezone,
+    businessHours: barbershop.businessHours,
+    scheduled: scheduled.filter((item) => item.id !== input.appointmentId).map((item) => ({
+      scheduledAt: item.scheduledAt,
+      duration: item.service.duration,
+    })),
+    now,
+  })
+  res.json({
+    date: input.date,
+    timezone: barbershop.timezone,
+    ...availability,
+  })
 })
 
 router.post('/', async (req, res) => {
@@ -79,22 +155,19 @@ router.post('/', async (req, res) => {
     res.status(400).json({ message: 'Serviço ou barbeiro inválido' })
     return
   }
-  const scheduleError = validateBusinessHours({
+  const scheduleError = validateAppointmentSchedule({
     scheduledAt: input.scheduledAt,
     duration: service.duration,
     timezone: barbershop.timezone,
     businessHours: barbershop.businessHours,
+    scheduled: scheduled.map((item) => ({
+      id: item.id,
+      scheduledAt: item.scheduledAt,
+      duration: item.service.duration,
+    })),
   })
   if (scheduleError) {
-    res.status(400).json({ message: scheduleError })
-    return
-  }
-  const conflict = scheduled.some((item) => schedulesOverlap(
-    { scheduledAt: item.scheduledAt, duration: item.service.duration },
-    { scheduledAt: input.scheduledAt, duration: service.duration },
-  ))
-  if (conflict) {
-    res.status(409).json({ message: 'Este horário acabou de ser reservado' })
+    res.status(scheduleError.code === 'conflict' ? 409 : 400).json({ message: scheduleError.message })
     return
   }
 
@@ -155,14 +228,16 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   const user = req.user as SessionUser
+  const barbershop = req.barbershop!
   const id = z.string().uuid().parse(req.params.id)
-  const { status } = z.object({
-    status: z.enum(['CONFIRMED', 'CANCELLED', 'DONE']),
-  }).parse(req.body)
+  const input = z.union([
+    z.object({ status: z.enum(['CONFIRMED', 'CANCELLED', 'DONE']) }).strict(),
+    z.object({ scheduledAt: z.coerce.date() }).strict(),
+  ]).parse(req.body)
 
   const appointment = await prisma.appointment.findFirst({
     where: { id, barbershopId: req.barbershop!.id },
-    include: { barbershop: true },
+    include: { barbershop: true, service: true },
   })
   if (!appointment) {
     res.status(404).json({ message: 'Agendamento não encontrado' })
@@ -172,10 +247,62 @@ router.patch('/:id', async (req, res) => {
   const ownsAppointment = user.role === 'CUSTOMER'
     ? appointment.userId === user.id
     : appointment.barberId === user.id
-  if (!ownsAppointment || (user.role === 'CUSTOMER' && status !== 'CANCELLED')) {
+  if (!ownsAppointment || (user.role === 'CUSTOMER' && 'status' in input && input.status !== 'CANCELLED')) {
     res.status(403).json({ message: 'Ação não permitida' })
     return
   }
+  if ('scheduledAt' in input) {
+    if (barbershop.subscriptionStatus !== 'ACTIVE') {
+      res.status(402).json({ message: 'Agendamentos temporariamente indisponíveis: assinatura da barbearia inativa' })
+      return
+    }
+    const statusError = validateRescheduleStatus(appointment.status)
+    if (statusError) {
+      res.status(409).json({ message: statusError })
+      return
+    }
+
+    const now = new Date()
+    const scheduled = await prisma.appointment.findMany({
+      where: {
+        barbershopId: appointment.barbershopId,
+        barberId: appointment.barberId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        OR: [
+          { paymentStatus: { not: 'PENDING' } },
+          { paymentExpiresAt: { gt: now } },
+        ],
+      },
+      include: { service: true },
+    })
+    const scheduleError = validateAppointmentSchedule({
+      scheduledAt: input.scheduledAt,
+      duration: appointment.service.duration,
+      timezone: barbershop.timezone,
+      businessHours: barbershop.businessHours,
+      scheduled: scheduled.map((item) => ({
+        id: item.id,
+        scheduledAt: item.scheduledAt,
+        duration: item.service.duration,
+      })),
+      excludeAppointmentId: appointment.id,
+      now,
+    })
+    if (scheduleError) {
+      res.status(scheduleError.code === 'conflict' ? 409 : 400).json({ message: scheduleError.message })
+      return
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { scheduledAt: input.scheduledAt },
+      include: includeRelations,
+    })
+    res.json(publicAppointment(updated))
+    return
+  }
+
+  const { status } = input
   if (status === 'CONFIRMED' && !['APPROVED', 'NOT_REQUIRED'].includes(appointment.paymentStatus)) {
     res.status(409).json({ message: 'O pagamento do sinal ainda não foi aprovado' })
     return
@@ -219,6 +346,7 @@ function publicAppointment(appointment: {
   scheduledAt: Date
   status: string
   paymentStatus: string
+  paymentExpiresAt: Date | null
   paymentAmountCents: number
   commissionCents: number
   user: { id: string; name: string; email: string | null; role: string }
@@ -236,6 +364,7 @@ function publicAppointment(appointment: {
     scheduledAt: appointment.scheduledAt,
     status: appointment.status,
     paymentStatus: appointment.paymentStatus,
+    paymentExpiresAt: appointment.paymentExpiresAt,
     paymentAmount: appointment.paymentAmountCents / 100,
     commission: appointment.commissionCents / 100,
     user: mapUser(appointment.user),

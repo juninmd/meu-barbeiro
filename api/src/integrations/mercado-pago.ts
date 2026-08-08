@@ -6,7 +6,8 @@ import {
   type DepositPolicy,
 } from '../domain/billing.js'
 
-const API_URL = 'https://api.mercadopago.com'
+const API_URL = process.env.MERCADO_PAGO_API_URL || 'https://api.mercadopago.com'
+const AUTH_URL = process.env.MERCADO_PAGO_AUTH_URL || 'https://auth.mercadopago.com'
 
 export function verifyMercadoPagoSignature(input: {
   signature: string
@@ -57,7 +58,7 @@ export class MercadoPagoClient {
     state: string
     codeChallenge: string
   }): string {
-    const url = new URL('https://auth.mercadopago.com/authorization')
+    const url = new URL(`${AUTH_URL}/authorization`)
     url.search = new URLSearchParams({
       client_id: this.options.clientId,
       response_type: 'code',

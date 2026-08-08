@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { requireUser } from '../middleware/auth.js'
@@ -17,7 +18,7 @@ router.get('/', async (req, res) => {
   res.json(services.map(publicService))
 })
 
-router.post('/', requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'), async (req, res) => {
+router.post('/', requireBarbershopRole('OWNER', 'ADMIN'), async (req, res) => {
   const input = z.object({
     name: z.string().trim().min(3).max(80),
     duration: z.number().int().min(10).max(240),
@@ -33,18 +34,26 @@ router.post('/', requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'), async (req, 
     return
   }
 
-  const service = await prisma.service.create({
-    data: {
-      barbershopId: req.barbershop!.id,
-      name: input.name,
-      duration: input.duration,
-      priceCents,
-    },
-  })
-  res.status(201).json(publicService(service))
+  try {
+    const service = await prisma.service.create({
+      data: {
+        barbershopId: req.barbershop!.id,
+        name: input.name,
+        duration: input.duration,
+        priceCents,
+      },
+    })
+    res.status(201).json(publicService(service))
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      res.status(409).json({ message: 'Já existe um serviço com esse nome' })
+      return
+    }
+    throw error
+  }
 })
 
-router.delete('/:id', requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'), async (req, res) => {
+router.delete('/:id', requireBarbershopRole('OWNER', 'ADMIN'), async (req, res) => {
   const id = z.string().uuid().parse(req.params.id)
   const activeAppointments = await prisma.appointment.count({
     where: { barbershopId: req.barbershop!.id, serviceId: id, status: { in: ['PENDING', 'CONFIRMED'] } },

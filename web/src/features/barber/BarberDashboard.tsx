@@ -1,5 +1,6 @@
 import { CalendarCheck, Check, Clock3, Plus, Scissors, Trash2, TrendingUp, X } from 'lucide-react'
 import { useState } from 'react'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
@@ -19,14 +20,23 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
   const [serviceForm, setServiceForm] = useState<NewService>({ name: '', duration: 30, price: 0 })
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const active = appointments
     .filter((item) => item.status !== 'CANCELLED')
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
   const today = active.filter((item) => isToday(item.scheduledAt))
+  const upcoming = active.filter((item) => !isToday(item.scheduledAt) && new Date(item.scheduledAt) > new Date())
+  const previous = active.filter((item) => !isToday(item.scheduledAt) && new Date(item.scheduledAt) <= new Date())
   const pending = active.filter((item) => item.status === 'PENDING')
   const revenue = appointments
-    .filter((item) => item.status === 'DONE' || item.status === 'CONFIRMED')
+    .filter((item) => isToday(item.scheduledAt) && (item.status === 'DONE' || item.status === 'CONFIRMED'))
     .reduce((sum, item) => sum + item.service.price, 0)
+  const canManageBarbershop = barbershop?.membershipRole === 'OWNER' || barbershop?.membershipRole === 'ADMIN'
+  const nextAppointment = upcoming[0]
+  const nextDayCount = nextAppointment
+    ? upcoming.filter((item) => new Date(item.scheduledAt).toDateString() === new Date(nextAppointment.scheduledAt).toDateString()).length
+    : 0
 
   const changeStatus = async (id: string, status: AppointmentStatus) => {
     setBusy(true)
@@ -57,20 +67,29 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
     }
   }
 
-  const deleteService = async (id: string) => {
+  const deleteService = async () => {
+    if (!serviceToDelete) return
     setBusy(true)
-    setMessage(null)
+    setDeleteError(null)
     try {
-      await repository.deleteService(id)
+      await repository.deleteService(serviceToDelete.id)
+      setServiceToDelete(null)
       await onRefresh()
     } catch (error) {
-      setMessage(errorMessage(error, 'Não foi possível excluir'))
+      setDeleteError(errorMessage(error, 'Não foi possível excluir'))
     } finally {
       setBusy(false)
     }
   }
 
+  const timelineGroups = [
+    { title: 'Hoje', appointments: today, empty: 'Não há atendimento hoje.' },
+    { title: 'Próximos', appointments: upcoming },
+    { title: 'Anteriores', appointments: previous },
+  ]
+
   return (
+    <>
     <main id="top" className="page-wrap">
       <section className="hero barber-hero">
         <div>
@@ -84,8 +103,15 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
       <section className="metric-grid" aria-label="Resumo da agenda">
         <Metric icon={<CalendarCheck />} label="Hoje" value={String(today.length)} note="horários na cadeira" />
         <Metric icon={<Clock3 />} label="Aguardando" value={String(pending.length)} note="pedidos para confirmar" alert={pending.length > 0} />
-        <Metric icon={<TrendingUp />} label="Previsto" value={formatCurrency(revenue)} note="agenda confirmada" />
+        <Metric icon={<TrendingUp />} label="Previsto" value={formatCurrency(revenue)} note="confirmados e concluídos de hoje" />
       </section>
+      {today.length === 0 && (
+        <p className="empty-day-note" role="status">
+          Sem atendimentos hoje{nextAppointment
+            ? ` · próximo: ${new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))} (${nextDayCount} ${nextDayCount === 1 ? 'horário' : 'horários'})`
+            : ''}
+        </p>
+      )}
 
       {message && <p className="form-message global-message" role="status">{message}</p>}
 
@@ -96,37 +122,45 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
             <span className="count-badge">{active.length}</span>
           </div>
           <div className="timeline">
-            {active.length === 0 && <p className="empty-copy">Nenhum atendimento na agenda.</p>}
-            {active.map((appointment) => (
-              <article className="timeline-item" key={appointment.id}>
-                <time>
-                  <strong>{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(appointment.scheduledAt))}</strong>
-                  <small>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(appointment.scheduledAt))}</small>
-                </time>
-                <div className="timeline-line" />
-                <div className="timeline-content">
-                  <div className="appointment-top"><StatusBadge status={appointment.status} /><span>{formatCurrency(appointment.service.price)}</span></div>
-                  <h3>{appointment.user.name}</h3>
-                  <p><Scissors aria-hidden="true" /> {appointment.service.name} · {appointment.service.duration} min</p>
-                  <div className="action-row">
-                    {appointment.status === 'PENDING' && (
-                      <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}>
-                        <Check aria-hidden="true" /> Confirmar
-                      </button>
-                    )}
-                    {appointment.status === 'CONFIRMED' && (
-                      <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'DONE')}>
-                        <Check aria-hidden="true" /> Concluir
-                      </button>
-                    )}
-                    {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && (
-                      <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}>
-                        <X aria-hidden="true" /> Cancelar
-                      </button>
-                    )}
-                  </div>
+            {timelineGroups.map((group) => (group.appointments.length > 0 || group.empty) && (
+              <section className="timeline-group" aria-labelledby={`timeline-${group.title.toLowerCase()}`} key={group.title}>
+                <div className="timeline-group-heading">
+                  <h3 id={`timeline-${group.title.toLowerCase()}`}>{group.title}</h3>
+                  <span className="count-badge">{group.appointments.length}</span>
                 </div>
-              </article>
+                {group.appointments.length === 0 && <p className="empty-copy">{group.empty}</p>}
+                {group.appointments.map((appointment) => (
+                  <article className="timeline-item" key={appointment.id}>
+                    <time>
+                      <strong>{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(appointment.scheduledAt))}</strong>
+                      <small>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(appointment.scheduledAt))}</small>
+                    </time>
+                    <div className="timeline-line" />
+                    <div className="timeline-content">
+                      <div className="appointment-top"><StatusBadge status={appointment.status} /><span>{formatCurrency(appointment.service.price)}</span></div>
+                      <h3>{appointment.user.name}</h3>
+                      <p><Scissors aria-hidden="true" /> {appointment.service.name} · {appointment.service.duration} min</p>
+                      <div className="action-row">
+                        {appointment.status === 'PENDING' && (
+                          <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}>
+                            <Check aria-hidden="true" /> Confirmar
+                          </button>
+                        )}
+                        {appointment.status === 'CONFIRMED' && (
+                          <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'DONE')}>
+                            <Check aria-hidden="true" /> Concluir
+                          </button>
+                        )}
+                        {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && (
+                          <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}>
+                            <X aria-hidden="true" /> Cancelar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </section>
             ))}
           </div>
         </section>
@@ -139,25 +173,50 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
             {services.map((service) => (
               <article className="service-row" key={service.id}>
                 <div><strong>{service.name}</strong><span>{service.duration} min · {formatCurrency(service.price)}</span></div>
-                <button className="icon-button subtle" disabled={busy} onClick={() => deleteService(service.id)} aria-label={`Excluir ${service.name}`}>
-                  <Trash2 aria-hidden="true" />
-                </button>
+                {canManageBarbershop && (
+                  <button className="icon-button subtle" disabled={busy} onClick={() => {
+                    setMessage(null)
+                    setDeleteError(null)
+                    setServiceToDelete(service)
+                  }} aria-label={`Excluir ${service.name}`}>
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                )}
               </article>
             ))}
           </div>
-          <form className="service-form" onSubmit={createService}>
-            <h3><Plus aria-hidden="true" /> Novo serviço</h3>
-            <label>Nome<input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} required minLength={3} /></label>
-            <div className="form-row">
-              <label>Duração (min)<input type="number" min="10" max="240" step="5" value={serviceForm.duration} onChange={(event) => setServiceForm({ ...serviceForm, duration: Number(event.target.value) })} required /></label>
-              <label>Preço (R$)<input type="number" min="1" step="0.01" value={serviceForm.price || ''} onChange={(event) => setServiceForm({ ...serviceForm, price: Number(event.target.value) })} required /></label>
-            </div>
-            <button className="button button-dark button-wide" disabled={busy}><Plus aria-hidden="true" /> Adicionar ao menu</button>
-          </form>
+          {canManageBarbershop && (
+            <form className="service-form" onSubmit={createService}>
+              <h3><Plus aria-hidden="true" /> Novo serviço</h3>
+              <label>Nome<input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} required minLength={3} /></label>
+              <div className="form-row">
+                <label>Duração (min)<input type="number" min="10" max="240" step="5" value={serviceForm.duration} onChange={(event) => setServiceForm({ ...serviceForm, duration: Number(event.target.value) })} required /></label>
+                <label>Preço (R$)<input type="number" min="1" step="0.01" value={serviceForm.price || ''} onChange={(event) => setServiceForm({ ...serviceForm, price: Number(event.target.value) })} required /></label>
+              </div>
+              <button className="button button-dark button-wide" disabled={busy}><Plus aria-hidden="true" /> Adicionar ao menu</button>
+            </form>
+          )}
         </section>
       </div>
       {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
     </main>
+    {serviceToDelete && (
+      <ConfirmDialog
+        eyebrow="Confirmar exclusão"
+        title={`Excluir ${serviceToDelete.name}?`}
+        description="O serviço será removido do catálogo e não poderá ser escolhido em novos agendamentos."
+        cancelLabel="Manter serviço"
+        confirmLabel={busy ? 'Excluindo…' : 'Sim, excluir'}
+        busy={busy}
+        error={deleteError}
+        onCancel={() => {
+          setDeleteError(null)
+          setServiceToDelete(null)
+        }}
+        onConfirm={deleteService}
+      />
+    )}
+    </>
   )
 }
 

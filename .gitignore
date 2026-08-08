@@ -8,3 +8,5 @@ playwright-report/
 .DS_Store
 *.log
 web/dist/
+# saídas de homologação local (relatórios das personas e screenshots)
+local/reports/

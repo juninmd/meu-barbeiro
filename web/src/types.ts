@@ -29,6 +29,7 @@ export interface Appointment {
   scheduledAt: string
   status: AppointmentStatus
   paymentStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'REFUNDED'
+  paymentExpiresAt: string | null
   paymentAmount: number
   commission: number
   user: User
@@ -58,11 +59,25 @@ export interface Barbershop {
   businessHours: BusinessHour[]
   subscriptionStatus?: 'INACTIVE' | 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
   mercadoPagoConnected?: boolean
+  membershipRole: 'OWNER' | 'ADMIN' | 'BARBER' | null
 }
 
 export interface AppointmentCheckout {
   appointment: Appointment
   checkoutUrl: string | null
+}
+
+export interface AvailabilitySlot {
+  scheduledAt: string
+  label: string
+}
+
+export interface AppointmentAvailability {
+  date: string
+  timezone: string
+  open: boolean
+  reason: string | null
+  slots: AvailabilitySlot[]
 }
 
 export interface NewAppointment {
