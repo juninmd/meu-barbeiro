@@ -17,8 +17,12 @@
 
     // Other Outputs
     "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
+    // A api é aplicação, não biblioteca: ninguém consome os .d.ts dela. Emiti-los
+    // ainda obriga o tsc a nomear tipos de dependências transitivas (@types/
+    // express-serve-static-core), o que quebra com TS2742 no layout isolado do
+    // pnpm em instalação limpa.
+    "declaration": false,
+    "declarationMap": false,
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
