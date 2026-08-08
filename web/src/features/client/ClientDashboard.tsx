@@ -1,5 +1,6 @@
-import { BellRing, CalendarDays, Check, Clock3, MapPin, RotateCcw, Scissors, Sparkles, UserRound, X } from 'lucide-react'
+import { BellRing, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { AppointmentSlots } from '../../components/AppointmentSlots'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -28,11 +29,15 @@ const dateInTimezone = (timezone: string) => {
 }
 
 export function ClientDashboard({ appointments, barbers, barbershop, currentUser, services, onRefresh }: ClientDashboardProps) {
+  const { section } = useParams()
+  const navigate = useNavigate()
   const [form, setForm] = useState<NewAppointment>({ barberId: '', serviceId: '', scheduledAt: '' })
+  const [bookingStep, setBookingStep] = useState(1)
   const [date, setDate] = useState('')
   const [availability, setAvailability] = useState<AppointmentAvailability | null>(null)
   const [availabilityError, setAvailabilityError] = useState<string | null>(null)
   const [loadingAvailability, setLoadingAvailability] = useState(false)
+  const [availabilityRevision, setAvailabilityRevision] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
@@ -83,7 +88,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         if (active) setLoadingAvailability(false)
       })
     return () => { active = false }
-  }, [date, form.barberId, form.serviceId, rescheduleTarget?.id])
+  }, [availabilityRevision, date, form.barberId, form.serviceId, rescheduleTarget?.id])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -95,14 +100,17 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         setRescheduleTarget(null)
         setForm({ barberId: '', serviceId: '', scheduledAt: '' })
         setDate('')
+        setBookingStep(1)
         setMessage('Horário remarcado. O pagamento já feito continua valendo.')
         await onRefresh()
+        navigate('/cliente/horarios')
         return
       }
 
       const result = await repository.createAppointment(form)
       setForm({ barberId: '', serviceId: '', scheduledAt: '' })
       setDate('')
+      setBookingStep(1)
       if (result.checkoutUrl) {
         window.location.assign(result.checkoutUrl)
         return
@@ -111,6 +119,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         ? 'Pagamento aprovado. O barbeiro já recebeu seu horário.'
         : 'Pedido enviado. O barbeiro já recebeu seu horário.')
       await onRefresh()
+      navigate('/cliente/horarios')
     } catch (error) {
       setMessage(errorMessage(error, rescheduleTarget ? 'Não foi possível remarcar' : 'Não foi possível agendar'))
     } finally {
@@ -127,6 +136,8 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
     })
     setDate('')
     setMessage(null)
+    setBookingStep(3)
+    navigate('/cliente/agendar')
     window.requestAnimationFrame(() => bookingPanel.current?.scrollIntoView({ behavior: 'smooth' }))
   }
 
@@ -142,6 +153,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       setDate('')
       setMessage('Serviço e barbeiro preenchidos. Agora escolha a data e o horário.')
     }
+    setBookingStep(lastAppointment?.repeatable ? 3 : 1)
     window.requestAnimationFrame(() => bookingPanel.current?.scrollIntoView({ behavior: 'smooth' }))
   }
 
@@ -149,6 +161,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
     setRescheduleTarget(null)
     setForm({ barberId: '', serviceId: '', scheduledAt: '' })
     setDate('')
+    setBookingStep(1)
   }
 
   const cancel = async () => {
@@ -171,31 +184,77 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
     }
   }
 
+  if (!section || !['agendar', 'horarios', 'perfil'].includes(section)) {
+    return <Navigate replace to={upcoming.length > 0 ? '/cliente/horarios' : '/cliente/agendar'} />
+  }
+
+  const appointmentCard = (appointment: Appointment, spotlight = false) => (
+    <article className={`appointment-card ${spotlight ? 'appointment-spotlight' : ''}`} data-testid={spotlight ? 'client-next-appointment' : undefined} key={appointment.id}>
+      <div className="appointment-top"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
+      <h3>{appointment.service.name}</h3>
+      <p><UserRound aria-hidden="true" /> {appointment.barber.name}</p>
+      <p><Clock3 aria-hidden="true" /> {appointment.service.duration} min · {formatCurrency(appointment.service.price)}</p>
+      {appointment.paymentStatus === 'PENDING' ? (
+        <div className="payment-warning">
+          {appointment.paymentExpiresAt && new Date(appointment.paymentExpiresAt).getTime() <= now ? (
+            <p><span aria-hidden="true">$</span> Reserva expirada. O horário não está mais reservado.</p>
+          ) : (
+            <>
+              <p><span aria-hidden="true">$</span> {paymentLabel(appointment.paymentAmount, appointment.service.price)} {formatCurrency(appointment.paymentAmount)} · pendente{appointment.paymentExpiresAt ? ` · ${paymentTimeLeft(appointment.paymentExpiresAt, now)}` : ''}</p>
+              <p>O horário só fica garantido após o pagamento.</p>
+            </>
+          )}
+        </div>
+      ) : appointment.paymentStatus !== 'NOT_REQUIRED' && (
+        <p><span aria-hidden="true">$</span> {paymentLabel(appointment.paymentAmount, appointment.service.price)} {formatCurrency(appointment.paymentAmount)} · {appointment.paymentStatus === 'APPROVED' ? 'pago' : appointment.paymentStatus === 'REFUNDED' ? 'estornado' : 'não aprovado'}</p>
+      )}
+      <div className="appointment-actions">
+        <button className="text-button" disabled={busy} onClick={() => startReschedule(appointment)}>
+          <CalendarDays aria-hidden="true" /> Remarcar
+        </button>
+        <button className="text-button danger" disabled={busy} onClick={() => setCancelTarget(appointment)}>
+          <X aria-hidden="true" /> Cancelar horário
+        </button>
+      </div>
+    </article>
+  )
+
   return (
     <>
-    <main id="top" className="page-wrap" inert={cancelTarget ? true : undefined} aria-hidden={cancelTarget ? true : undefined}>
-      <section className="hero client-hero">
-        <div>
-          <p className="eyebrow"><Sparkles aria-hidden="true" /> Seu próximo visual</p>
-          <h1>Reserve sua cadeira.</h1>
-          <p>Escolha o serviço, o profissional e o melhor momento. Simples assim.</p>
-        </div>
-        <div className="hero-stamp" aria-label="Horários configurados pela barbearia">
-          <span>AGENDE</span><strong>ONLINE</strong><small>com hora marcada</small>
-        </div>
-      </section>
-
+    <main id="top" className="page-wrap section-page" data-section={section} inert={cancelTarget ? true : undefined} aria-hidden={cancelTarget ? true : undefined}>
       {message && <p className="form-message global-message" role="status">{message}</p>}
 
-      <div className="client-grid">
-        <section ref={bookingPanel} className="panel booking-panel" aria-labelledby="booking-title">
+      {section === 'agendar' && (
+        <>
+        <header className="page-heading">
+          <p className="eyebrow">Novo horário</p>
+          <h1>Reserve sua cadeira.</h1>
+          <p>Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</p>
+        </header>
+        {upcoming[0] && (
+          <section className="panel next-appointment-summary" aria-labelledby="next-before-booking">
+            <div className="section-heading compact">
+              <div><p className="eyebrow">Antes de agendar outro</p><h2 id="next-before-booking">Seu próximo horário</h2></div>
+              <Link className="button button-ghost button-small" to="/cliente/horarios">Ver agenda</Link>
+            </div>
+            {appointmentCard(upcoming[0], true)}
+          </section>
+        )}
+        <section ref={bookingPanel} className="panel booking-panel" data-testid="booking-form" aria-labelledby="booking-title">
           <div className="section-heading">
             <div>
               <p className="eyebrow">{rescheduleTarget ? 'Remarcar agendamento' : 'Novo agendamento'}</p>
               <h2 id="booking-title">{rescheduleTarget ? 'Escolha o novo horário' : 'Monte seu horário'}</h2>
             </div>
-            <span className="step-count">3 passos</span>
+            <span className="step-count">Passo {bookingStep} de 3</span>
           </div>
+          <ol className="booking-progress" aria-label="Progresso do agendamento">
+            {['Serviço', 'Barbeiro', 'Horário'].map((label, index) => (
+              <li className={bookingStep === index + 1 ? 'current' : bookingStep > index + 1 ? 'complete' : ''} aria-current={bookingStep === index + 1 ? 'step' : undefined} key={label}>
+                <span>{index + 1}</span>{label}
+              </li>
+            ))}
+          </ol>
           {rescheduleTarget && (
             <p className="form-message" role="status">
               Serviço e barbeiro serão mantidos. O pagamento já feito continua valendo.
@@ -208,9 +267,12 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
             </div>
           )}
           <form onSubmit={submit} className="booking-form">
-            <fieldset className={rescheduleTarget ? 'reschedule-locked' : undefined} disabled={Boolean(rescheduleTarget)}>
+            {bookingStep === 1 && <fieldset>
               <legend><span>01</span> O que vamos fazer?</legend>
               <div className="choice-grid">
+                {services.length === 0 && (
+                  <div className="empty-state"><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className="button button-ghost" type="button" onClick={() => void onRefresh()}>Tentar novamente</button></div>
+                )}
                 {services.map((service) => (
                   <label className={`choice-card ${form.serviceId === service.id ? 'selected' : ''}`} key={service.id}>
                     <input
@@ -227,9 +289,9 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                   </label>
                 ))}
               </div>
-            </fieldset>
+            </fieldset>}
 
-            <fieldset className={rescheduleTarget ? 'reschedule-locked' : undefined} disabled={Boolean(rescheduleTarget)}>
+            {bookingStep === 2 && <fieldset>
               <legend><span>02</span> Com quem?</legend>
               <div className="choice-grid choice-grid-small">
                 <label className={`choice-card ${form.barberId === 'any' ? 'selected' : ''}`}>
@@ -261,9 +323,9 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                   </label>
                 ))}
               </div>
-            </fieldset>
+            </fieldset>}
 
-            <fieldset>
+            {bookingStep === 3 && <fieldset>
               <legend><span>03</span> Quando?</legend>
               <label className="date-field">
                 <CalendarDays aria-hidden="true" />
@@ -284,63 +346,67 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                 selected={form.scheduledAt}
                 browserTimezone={browserTimezone}
                 onSelect={(scheduledAt) => setForm({ ...form, scheduledAt })}
+                onRetry={() => setAvailabilityRevision((revision) => revision + 1)}
               />
-            </fieldset>
+            </fieldset>}
 
-            <button className="button button-primary button-wide" disabled={busy || !form.scheduledAt}>
-              {busy ? (rescheduleTarget ? 'Remarcando…' : 'Reservando…') : (rescheduleTarget ? 'Confirmar novo horário' : 'Solicitar agendamento')} <CalendarDays aria-hidden="true" />
-            </button>
-            {rescheduleTarget && (
-              <button className="button button-ghost button-wide" disabled={busy} onClick={stopReschedule} type="button">
-                Manter horário atual
-              </button>
-            )}
+            <div className="form-action-bar">
+              {bookingStep > 1 && !rescheduleTarget && <button className="button button-ghost" type="button" onClick={() => setBookingStep((step) => step - 1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
+              {bookingStep < 3 ? (
+                <button className="button button-primary" type="button" disabled={bookingStep === 1 ? !form.serviceId : !form.barberId} onClick={() => setBookingStep((step) => step + 1)}>Continuar <ChevronRight aria-hidden="true" /></button>
+              ) : (
+                <button className="button button-primary" disabled={busy || !form.scheduledAt}>
+                  {busy ? (rescheduleTarget ? 'Remarcando…' : 'Reservando…') : (rescheduleTarget ? 'Confirmar novo horário' : 'Solicitar agendamento')} <CalendarDays aria-hidden="true" />
+                </button>
+              )}
+              {rescheduleTarget && <button className="button button-ghost" disabled={busy} onClick={stopReschedule} type="button">Manter horário atual</button>}
+            </div>
           </form>
         </section>
+        </>
+      )}
 
-        <aside className="schedule-column">
-          <LoyaltyCardPanel />
-          <section className="panel" aria-labelledby="upcoming-title">
+      {section === 'horarios' && (
+        <>
+          <header className="page-heading">
+            <p className="eyebrow">Sua agenda</p>
+            <h1>{upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}</h1>
+            <p>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</p>
+          </header>
+          <section className="panel appointments-section" aria-labelledby="upcoming-title">
             <div className="section-heading compact">
-              <div><p className="eyebrow">Sua agenda</p><h2 id="upcoming-title">Próximos horários</h2></div>
+              <div><p className="eyebrow">Confirmados e pendentes</p><h2 id="upcoming-title">Próximos horários</h2></div>
               <span className="count-badge">{upcoming.length}</span>
             </div>
             <div className="appointment-list">
               {upcoming.length === 0 && <EmptyAppointments />}
-              {upcoming.map((appointment) => (
-                <article className="appointment-card" key={appointment.id}>
-                  <div className="appointment-top"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
-                  <h3>{appointment.service.name}</h3>
-                  <p><UserRound aria-hidden="true" /> {appointment.barber.name}</p>
-                  <p><Clock3 aria-hidden="true" /> {appointment.service.duration} min · {formatCurrency(appointment.service.price)}</p>
-                  {appointment.paymentStatus === 'PENDING' ? (
-                    <div className="payment-warning">
-                      {appointment.paymentExpiresAt && new Date(appointment.paymentExpiresAt).getTime() <= now ? (
-                        <p><span aria-hidden="true">$</span> Reserva expirada. O horário não está mais reservado.</p>
-                      ) : (
-                        <>
-                          <p><span aria-hidden="true">$</span> {paymentLabel(appointment.paymentAmount, appointment.service.price)} {formatCurrency(appointment.paymentAmount)} · pendente{appointment.paymentExpiresAt ? ` · ${paymentTimeLeft(appointment.paymentExpiresAt, now)}` : ''}</p>
-                          <p>O horário só fica garantido após o pagamento.</p>
-                        </>
-                      )}
-                    </div>
-                  ) : appointment.paymentStatus !== 'NOT_REQUIRED' && (
-                    <p><span aria-hidden="true">$</span> {paymentLabel(appointment.paymentAmount, appointment.service.price)} {formatCurrency(appointment.paymentAmount)} · {appointment.paymentStatus === 'APPROVED' ? 'pago' : appointment.paymentStatus === 'REFUNDED' ? 'estornado' : 'não aprovado'}</p>
-                  )}
-                  <div className="appointment-actions">
-                    <button className="text-button" disabled={busy} onClick={() => startReschedule(appointment)}>
-                      <CalendarDays aria-hidden="true" /> Remarcar
-                    </button>
-                    <button className="text-button danger" disabled={busy} onClick={() => setCancelTarget(appointment)}>
-                      <X aria-hidden="true" /> Cancelar horário
-                    </button>
-                  </div>
-                </article>
-              ))}
+              {upcoming.map((appointment, index) => appointmentCard(appointment, index === 0))}
             </div>
+            <Link className="button button-primary section-primary-action" to="/cliente/agendar"><CalendarDays aria-hidden="true" /> {upcoming.length > 0 ? 'Agendar outro horário' : 'Agendar agora'}</Link>
           </section>
+          {history.length > 0 && (
+            <details className="history panel">
+              <summary>Ver histórico ({history.length})</summary>
+              {history.map((item) => (
+                <div className="history-item" key={item.id}>
+                  <StatusBadge status={item.status} />
+                  <p>{formatDate(item.scheduledAt)} · {item.service.name}</p>
+                  {item.paymentStatus === 'REFUNDED' && <strong>Pagamento estornado</strong>}
+                  {item.depositRetained && <strong>Falta registrada · sinal pago retido</strong>}
+                </div>
+              ))}
+            </details>
+          )}
+          {history.length === 0 && <p className="empty-copy">Seu histórico aparecerá aqui depois do primeiro atendimento concluído ou cancelado.</p>}
+        </>
+      )}
 
-          <div className="location-card">
+      {section === 'perfil' && (
+        <>
+          <header className="page-heading"><p className="eyebrow">Seu perfil</p><h1>Preferências e benefícios.</h1><p>Fidelidade, endereço e lembretes em um só lugar.</p></header>
+          <div className="profile-grid">
+            <LoyaltyCardPanel />
+            <div className="location-card">
             <MapPin aria-hidden="true" />
             <div>
               <strong>{barbershop?.name || 'Barbearia'}</strong>
@@ -348,8 +414,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               {barbershop && <span>Expediente: {formatBusinessHours(barbershop.businessHours)}</span>}
             </div>
           </div>
-
-          <div className="location-card">
+            <div className="location-card">
             <BellRing aria-hidden="true" />
             <div>
               <strong>Avisos do seu horário</strong>
@@ -362,22 +427,9 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               )}
             </div>
           </div>
-
-          {history.length > 0 && (
-            <details className="history">
-              <summary>Ver histórico ({history.length})</summary>
-              {history.map((item) => (
-                <div className="history-item" key={item.id}>
-                  <StatusBadge status={item.status} />
-                  <p>{formatDate(item.scheduledAt)} · {item.service.name}</p>
-                  {item.paymentStatus === 'REFUNDED' && <strong>Pagamento estornado</strong>}
-                  {item.depositRetained && <strong>Falta registrada · sinal pago retido</strong>}
-                </div>
-              ))}
-            </details>
-          )}
-        </aside>
-      </div>
+          </div>
+        </>
+      )}
     </main>
     {cancelTarget && (
       <ConfirmDialog

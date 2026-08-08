@@ -37,6 +37,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
   const [availability, setAvailability] = useState<AppointmentAvailability | null>(null)
   const [availabilityError, setAvailabilityError] = useState<string | null>(null)
   const [loadingAvailability, setLoadingAvailability] = useState(false)
+  const [availabilityRevision, setAvailabilityRevision] = useState(0)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const selectedCustomer = customers.find((customer) => customer.id === customerId)
@@ -61,7 +62,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
       .catch((error) => { if (active) setAvailabilityError(errorMessage(error, 'Não foi possível consultar os horários')) })
       .finally(() => { if (active) setLoadingAvailability(false) })
     return () => { active = false }
-  }, [barberId, date, serviceId])
+  }, [availabilityRevision, barberId, date, serviceId])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -140,7 +141,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
         <fieldset>
           <legend><span>03</span> Horário livre</legend>
           <label className="date-field"><CalendarDays aria-hidden="true" /><span><strong>Data</strong><small>Agenda da barbearia</small></span><input aria-label="Data do atendimento" type="date" value={date} min={todayInTimezone(barbershop.timezone)} onChange={(event) => setDate(event.target.value)} required /></label>
-          <AppointmentSlots availability={availability} error={availabilityError} loading={loadingAvailability} selected={scheduledAt} browserTimezone={Intl.DateTimeFormat().resolvedOptions().timeZone} onSelect={setScheduledAt} />
+          <AppointmentSlots availability={availability} error={availabilityError} loading={loadingAvailability} selected={scheduledAt} browserTimezone={Intl.DateTimeFormat().resolvedOptions().timeZone} onSelect={setScheduledAt} onRetry={() => setAvailabilityRevision((revision) => revision + 1)} />
         </fieldset>
         <button className="button button-primary button-wide" disabled={busy || !scheduledAt || (existing ? !customerId : !name.trim())}>{busy ? 'Lançando…' : 'Confirmar atendimento'} <CalendarDays aria-hidden="true" /></button>
       </form>
