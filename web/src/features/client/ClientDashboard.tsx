@@ -1,15 +1,18 @@
-import { CalendarDays, Check, Clock3, MapPin, Scissors, Sparkles, UserRound, X } from 'lucide-react'
+import { BellRing, CalendarDays, Check, Clock3, MapPin, RotateCcw, Scissors, Sparkles, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { AppointmentSlots } from '../../components/AppointmentSlots'
 import { StatusBadge } from '../../components/StatusBadge'
+import { LoyaltyCardPanel } from '../../components/LoyaltyCardPanel'
 import { formatBusinessHours, formatCurrency, formatDate, paymentLabel } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { Appointment, AppointmentAvailability, Barber, Barbershop, NewAppointment, Service } from '../../types'
+import type { Appointment, AppointmentAvailability, Barber, Barbershop, LastAppointment, NewAppointment, Service, User } from '../../types'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
   barbers: Barber[]
   barbershop: Barbershop | null
+  currentUser: User
   services: Service[]
   onRefresh: () => Promise<void>
 }
@@ -24,7 +27,7 @@ const dateInTimezone = (timezone: string) => {
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
-export function ClientDashboard({ appointments, barbers, barbershop, services, onRefresh }: ClientDashboardProps) {
+export function ClientDashboard({ appointments, barbers, barbershop, currentUser, services, onRefresh }: ClientDashboardProps) {
   const [form, setForm] = useState<NewAppointment>({ barberId: '', serviceId: '', scheduledAt: '' })
   const [date, setDate] = useState('')
   const [availability, setAvailability] = useState<AppointmentAvailability | null>(null)
@@ -35,6 +38,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null)
   const [now, setNow] = useState(Date.now())
+  const [lastAppointment, setLastAppointment] = useState<LastAppointment | null>(null)
   const bookingPanel = useRef<HTMLElement>(null)
   const upcoming = appointments
     .filter((item) => item.status !== 'CANCELLED' && item.status !== 'DONE' && new Date(item.scheduledAt) >= new Date())
@@ -43,12 +47,19 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
   const selectedService = services.find((item) => item.id === form.serviceId)
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const timezone = barbershop?.timezone || browserTimezone
-  const slotPeriods = groupSlotsByPeriod(availability?.slots || [])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000)
     return () => window.clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    let active = true
+    repository.lastAppointment()
+      .then((result) => { if (active) setLastAppointment(result) })
+      .catch(() => { if (active) setLastAppointment(null) })
+    return () => { active = false }
+  }, [appointments])
 
   useEffect(() => {
     setAvailability(null)
@@ -119,6 +130,21 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
     window.requestAnimationFrame(() => bookingPanel.current?.scrollIntoView({ behavior: 'smooth' }))
   }
 
+  const repeatLastAppointment = () => {
+    if (!lastAppointment?.repeatable
+      || !services.some((service) => service.id === lastAppointment.service.id)
+      || !barbers.some((barber) => barber.id === lastAppointment.barber.id)) {
+      setForm({ barberId: '', serviceId: '', scheduledAt: '' })
+      setDate('')
+      setMessage(lastAppointment?.unavailableReason || 'O último atendimento mudou. Escolha novamente o serviço e o barbeiro.')
+    } else {
+      setForm({ barberId: lastAppointment.barber.id, serviceId: lastAppointment.service.id, scheduledAt: '' })
+      setDate('')
+      setMessage('Serviço e barbeiro preenchidos. Agora escolha a data e o horário.')
+    }
+    window.requestAnimationFrame(() => bookingPanel.current?.scrollIntoView({ behavior: 'smooth' }))
+  }
+
   const stopReschedule = () => {
     setRescheduleTarget(null)
     setForm({ barberId: '', serviceId: '', scheduledAt: '' })
@@ -175,6 +201,12 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
               Serviço e barbeiro serão mantidos. O pagamento já feito continua valendo.
             </p>
           )}
+          {!rescheduleTarget && lastAppointment && (
+            <div className="repeat-booking">
+              <div><strong>{lastAppointment.service.name}</strong><span>com {lastAppointment.barber.name}</span></div>
+              <button className="button button-small button-dark" type="button" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</button>
+            </div>
+          )}
           <form onSubmit={submit} className="booking-form">
             <fieldset className={rescheduleTarget ? 'reschedule-locked' : undefined} disabled={Boolean(rescheduleTarget)}>
               <legend><span>01</span> O que vamos fazer?</legend>
@@ -200,6 +232,19 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
             <fieldset className={rescheduleTarget ? 'reschedule-locked' : undefined} disabled={Boolean(rescheduleTarget)}>
               <legend><span>02</span> Com quem?</legend>
               <div className="choice-grid choice-grid-small">
+                <label className={`choice-card ${form.barberId === 'any' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="barber"
+                    value="any"
+                    checked={form.barberId === 'any'}
+                    onChange={(event) => setForm({ ...form, barberId: event.target.value })}
+                    required
+                  />
+                  <UserRound aria-hidden="true" />
+                  <span><strong>Qualquer barbeiro</strong><small>Primeiro horário disponível</small></span>
+                  {form.barberId === 'any' && <Check className="choice-check" aria-hidden="true" />}
+                </label>
                 {barbers.map((barber) => (
                   <label className={`choice-card ${form.barberId === barber.id ? 'selected' : ''}`} key={barber.id}>
                     <input
@@ -232,42 +277,14 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
                   required
                 />
               </label>
-              {loadingAvailability && <p className="availability-status" role="status">Carregando horários disponíveis…</p>}
-              {!loadingAvailability && availabilityError && <p className="availability-status" role="status">{availabilityError}</p>}
-              {!loadingAvailability && availability && (!availability.open || availability.slots.length === 0) && (
-                <p className="availability-status" role="status">{availability.reason || 'Não há horários livres nesta data'}</p>
-              )}
-              {!loadingAvailability && availability?.open && availability.slots.length > 0 && (
-                <div className="availability-block">
-                  <div className="availability-heading">
-                    <strong>Horários disponíveis</strong>
-                    {availability.timezone !== browserTimezone && (
-                      <small>horários no fuso da barbearia · {availability.timezone}</small>
-                    )}
-                  </div>
-                  <div className="slot-periods" aria-label="Horários disponíveis">
-                    {slotPeriods.map((period) => period.slots.length > 0 && (
-                      <section className="slot-period" aria-labelledby={`slot-period-${period.key}`} key={period.key}>
-                        <h4 id={`slot-period-${period.key}`}>{period.label}</h4>
-                        <div className="slot-grid">
-                          {period.slots.map((slot) => (
-                            <button
-                              aria-label={`Selecionar horário ${slot.label}`}
-                              aria-pressed={form.scheduledAt === slot.scheduledAt}
-                              className={`slot-button ${form.scheduledAt === slot.scheduledAt ? 'selected' : ''}`}
-                              key={slot.scheduledAt}
-                              onClick={() => setForm({ ...form, scheduledAt: slot.scheduledAt })}
-                              type="button"
-                            >
-                              {slot.label}
-                            </button>
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <AppointmentSlots
+                availability={availability}
+                error={availabilityError}
+                loading={loadingAvailability}
+                selected={form.scheduledAt}
+                browserTimezone={browserTimezone}
+                onSelect={(scheduledAt) => setForm({ ...form, scheduledAt })}
+              />
             </fieldset>
 
             <button className="button button-primary button-wide" disabled={busy || !form.scheduledAt}>
@@ -282,6 +299,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
         </section>
 
         <aside className="schedule-column">
+          <LoyaltyCardPanel />
           <section className="panel" aria-labelledby="upcoming-title">
             <div className="section-heading compact">
               <div><p className="eyebrow">Sua agenda</p><h2 id="upcoming-title">Próximos horários</h2></div>
@@ -331,6 +349,20 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
             </div>
           </div>
 
+          <div className="location-card">
+            <BellRing aria-hidden="true" />
+            <div>
+              <strong>Avisos do seu horário</strong>
+              {barbershop?.remindersEnabled === false ? (
+                <span>Esta barbearia não está enviando lembretes automáticos.</span>
+              ) : currentUser.telegramId ? (
+                <span>Você recebe pelo Telegram {reminderSchedule(barbershop?.reminderHoursBefore)} antes do atendimento.</span>
+              ) : (
+                <span>Seu Telegram não está vinculado. Peça à barbearia para associar sua conta; sem o vínculo, o aviso não pode ser enviado.</span>
+              )}
+            </div>
+          </div>
+
           {history.length > 0 && (
             <details className="history">
               <summary>Ver histórico ({history.length})</summary>
@@ -339,6 +371,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
                   <StatusBadge status={item.status} />
                   <p>{formatDate(item.scheduledAt)} · {item.service.name}</p>
                   {item.paymentStatus === 'REFUNDED' && <strong>Pagamento estornado</strong>}
+                  {item.depositRetained && <strong>Falta registrada · sinal pago retido</strong>}
                 </div>
               ))}
             </details>
@@ -362,20 +395,10 @@ export function ClientDashboard({ appointments, barbers, barbershop, services, o
   )
 }
 
-function groupSlotsByPeriod(slots: AppointmentAvailability['slots']) {
-  const periods = [
-    { key: 'morning', label: 'Manhã', start: 0, end: 12 },
-    { key: 'afternoon', label: 'Tarde', start: 12, end: 18 },
-    { key: 'night', label: 'Noite', start: 18, end: 24 },
-  ]
-  return periods.map((period) => ({
-    ...period,
-    slots: slots.filter((slot) => {
-      const hour = Number(slot.label.slice(0, 2))
-      return hour >= period.start && hour < period.end
-    }),
-  }))
-}
+const reminderSchedule = (hours: number[] | undefined) => [...(hours ?? [24, 2])]
+  .sort((left, right) => right - left)
+  .map((hour) => hour === 24 ? '24 horas' : `${hour} horas`)
+  .join(' e ')
 
 function paymentTimeLeft(paymentExpiresAt: string, now: number) {
   const minutes = Math.max(1, Math.ceil((new Date(paymentExpiresAt).getTime() - now) / 60_000))

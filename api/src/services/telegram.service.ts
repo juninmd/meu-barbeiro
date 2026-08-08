@@ -1,5 +1,6 @@
 import { Telegraf } from 'telegraf'
 import { prisma } from '../lib/prisma.js'
+import { confirmAppointmentFromTelegram } from './appointment-reminders.service.js'
 
 const bot: Telegraf = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '')
 
@@ -42,6 +43,21 @@ bot.command('agendar', (ctx) => {
     `──────────────────────\n` +
     `<i>Selecione uma opção para continuar.</i>`
   )
+})
+
+bot.action(/^confirm:([0-9a-f-]{36})$/, async (ctx) => {
+  const appointmentId = ctx.match[1]!
+  const result = await confirmAppointmentFromTelegram(appointmentId, ctx.from.id.toString())
+  if (result === 'confirmed') {
+    await ctx.answerCbQuery('Presença confirmada!')
+    await ctx.reply('✅ Presença confirmada. A barbearia já foi avisada!')
+    return
+  }
+  if (result === 'not_found') {
+    await ctx.answerCbQuery('Este agendamento não pertence à sua conta.', { show_alert: true })
+    return
+  }
+  await ctx.answerCbQuery('Este agendamento não está mais aguardando confirmação.', { show_alert: true })
 })
 
 export { bot }

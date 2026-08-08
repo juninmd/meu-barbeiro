@@ -9,6 +9,10 @@ import { barbersRoutes } from './routes/barbers.routes.js'
 import { barbershopsRoutes } from './routes/barbershops.routes.js'
 import { billingRoutes } from './routes/billing.routes.js'
 import { devRoutes } from './routes/dev.routes.js'
+import { productsRoutes } from './routes/products.routes.js'
+import { customersRoutes } from './routes/customers.routes.js'
+import { loyaltyRoutes } from './routes/loyalty.routes.js'
+import { reportsRoutes } from './routes/reports.routes.js'
 import { errorHandler } from './middleware/errors.js'
 import { PrismaSessionStore } from './lib/session-store.js'
 
@@ -56,8 +60,12 @@ app.use('/auth', authRoutes)
 app.use('/barbershops', barbershopsRoutes)
 app.use('/billing/mercado-pago', billingRoutes)
 app.use('/services', servicesRoutes)
+app.use('/products', productsRoutes)
 app.use('/barbers', barbersRoutes)
+app.use('/customers', customersRoutes)
 app.use('/appointments', appointmentsRoutes)
+app.use('/reports', reportsRoutes)
+app.use('/loyalty', loyaltyRoutes)
 app.use(errorHandler)
 
 export { app }

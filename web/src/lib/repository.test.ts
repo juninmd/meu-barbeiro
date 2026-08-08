@@ -63,6 +63,40 @@ describe('development mock repository', () => {
     expect(barbershop.membershipRole).toBe('OWNER')
   })
 
+  it('builds the appointment calendar from mock state in the barbershop timezone', async () => {
+    await repository.createHoliday({ date: '2099-08-04', description: 'Aniversário da cidade' })
+    const { appointment } = await repository.createAppointment({
+      barberId: 'barber-demo',
+      serviceId: 'service-cut',
+      scheduledAt: '2099-08-05T13:00:00.000Z',
+    })
+    await repository.updateAppointment(appointment.id, 'CANCELLED')
+
+    const calendar = await repository.appointmentCalendar('2099-08-02', '2099-08-05')
+
+    expect(calendar).toMatchObject({
+      from: '2099-08-02',
+      to: '2099-08-05',
+      timezone: shopTimezone,
+    })
+    expect(calendar.days).toHaveLength(4)
+    expect(calendar.days[0]).toMatchObject({
+      date: '2099-08-02', open: false, reason: 'Fora do expediente', appointments: [],
+    })
+    expect(calendar.days[2]).toMatchObject({
+      date: '2099-08-04', open: false, reason: 'Feriado: Aniversário da cidade', appointments: [],
+    })
+    expect(calendar.days[3]?.appointments[0]).toMatchObject({
+      id: appointment.id,
+      time: '10:00',
+      status: 'CANCELLED',
+      user: { name: 'Marina Costa' },
+      barber: { name: 'Rafael Navalha' },
+      service: { name: 'Corte assinatura', duration: 45 },
+      paymentStatus: 'REFUNDED',
+    })
+  })
+
   it('persists tenant branding, hours and Mercado Pago connection', async () => {
     const current = await repository.barbershop()
     await repository.updateBarbershop({
@@ -71,10 +105,19 @@ describe('development mock repository', () => {
       primaryColor: '#112233',
       depositType: 'PERCENTAGE',
       depositValue: 30,
+      remindersEnabled: false,
+      reminderHoursBefore: [2],
+      businessHours: current.businessHours.map((hour) => hour.weekday === 2
+        ? { ...hour, breakStartsAt: '12:00', breakEndsAt: '13:00' }
+        : hour),
     })
     await repository.disconnectMercadoPago()
     expect(await repository.barbershop()).toMatchObject({
-      name: 'Navalha Club', primaryColor: '#112233', depositType: 'PERCENTAGE', depositValue: 30, mercadoPagoConnected: false,
+      name: 'Navalha Club', primaryColor: '#112233', depositType: 'PERCENTAGE', depositValue: 30,
+      remindersEnabled: false, reminderHoursBefore: [2], mercadoPagoConnected: false,
+    })
+    expect((await repository.barbershop()).businessHours.find((hour) => hour.weekday === 2)).toMatchObject({
+      breakStartsAt: '12:00', breakEndsAt: '13:00',
     })
     await repository.connectMercadoPago()
     expect((await repository.barbershop()).mercadoPagoConnected).toBe(true)
@@ -111,8 +154,92 @@ describe('development mock repository', () => {
     expect(barberAppointments.find((item) => item.id === created.appointment.id)?.status).toBe('CONFIRMED')
   })
 
+  it('creates a confirmed walk-in without online payment in the mock branch', async () => {
+    const service = (await repository.services())[0]
+    const barber = (await repository.barbers())[0]
+
+    const result = await repository.createWalkIn({
+      barberId: barber.id,
+      serviceId: service.id,
+      scheduledAt: nextOpenDate(13).toISOString(),
+      customer: { name: 'Cliente do balcão', phone: '(11) 98888-7777' },
+    })
+
+    expect(result.checkoutUrl).toBeNull()
+    expect(result.appointment).toMatchObject({
+      status: 'CONFIRMED',
+      paymentStatus: 'NOT_REQUIRED',
+      paymentAmount: 0,
+      commission: 0,
+      user: { name: 'Cliente do balcão', phone: '11988887777', noShowCount: 0 },
+    })
+  })
+
+  it('marks a mock appointment NO_SHOW and retains an approved deposit', async () => {
+    const updated = await repository.updateAppointment('appointment-1', 'NO_SHOW')
+
+    expect(updated).toMatchObject({ status: 'NO_SHOW', paymentStatus: 'APPROVED', depositRetained: true })
+    await expect(repository.updateAppointment('appointment-1', 'CANCELLED'))
+      .rejects.toThrow('Este agendamento não permite essa alteração')
+    expect((await repository.customers('Marina'))[0]).toMatchObject({ noShowCount: 1 })
+  })
+
   it('prevents deleting a service with active appointments', async () => {
     await expect(repository.deleteService('service-cut')).rejects.toThrow('agendamentos ativos')
+  })
+
+  it('creates, lists and removes holidays in date order', async () => {
+    const later = await repository.createHoliday({ date: '2099-12-25', description: 'Natal' })
+    const sooner = await repository.createHoliday({ date: '2099-01-01', description: 'Ano Novo' })
+
+    expect(await repository.holidays(2099)).toEqual([sooner, later])
+
+    await repository.deleteHoliday(sooner.id)
+    expect(await repository.holidays(2099)).toEqual([later])
+  })
+
+  it('rejects a duplicate mock holiday date without changing state', async () => {
+    await repository.createHoliday({ date: '2099-12-25', description: 'Natal' })
+
+    await expect(repository.createHoliday({ date: '2099-12-25', description: 'Recesso' }))
+      .rejects.toThrow('Já existe um feriado cadastrado nesta data')
+    expect(await repository.holidays(2099)).toHaveLength(1)
+  })
+
+  it('adds stock and persists the new product quantity', async () => {
+    const product = (await repository.products())[0]
+
+    await repository.addProductStock(product.id, 4)
+
+    expect((await repository.products()).find((item) => item.id === product.id)?.stockQuantity)
+      .toBe(product.stockQuantity + 4)
+  })
+
+  it('records a sale at the current price and decrements stock', async () => {
+    const product = (await repository.products())[0]
+
+    const sale = await repository.sellProduct(product.id, { quantity: 2 })
+
+    expect(sale).toMatchObject({
+      product: { id: product.id, name: product.name },
+      quantity: 2,
+      unitPrice: product.price,
+      total: product.price * 2,
+    })
+    expect((await repository.products()).find((item) => item.id === product.id)?.stockQuantity)
+      .toBe(product.stockQuantity - 2)
+    expect(await repository.productSales()).toContainEqual(sale)
+  })
+
+  it('rejects an insufficient-stock sale without mutating stock or sales', async () => {
+    const product = (await repository.products())[0]
+    const salesBefore = await repository.productSales()
+
+    await expect(repository.sellProduct(product.id, { quantity: product.stockQuantity + 1 }))
+      .rejects.toThrow(`Estoque insuficiente. Disponível: ${product.stockQuantity}`)
+
+    expect((await repository.products()).find((item) => item.id === product.id)).toEqual(product)
+    expect(await repository.productSales()).toEqual(salesBefore)
   })
 
   it('rejects past appointments without mutating state', async () => {
@@ -181,12 +308,98 @@ describe('development mock repository', () => {
     expect(availability.slots.map((slot) => slot.label)).not.toContain('10:00')
   })
 
+  it('persists barber schedules and restricts mock availability without expanding the shop', async () => {
+    await repository.updateBarberSchedule('barber-demo', [{
+      weekday: 3, startsAt: '10:00', endsAt: '22:00', enabled: true,
+    }])
+
+    const availability = await repository.availability('barber-demo', 'service-cut', '2099-08-05')
+
+    expect(availability.slots[0]?.label).toBe('10:00')
+    expect(availability.slots.at(-1)?.label).toBe('19:15')
+    await repository.updateBarberSchedule('barber-demo', [])
+    expect(await repository.barberSchedule('barber-demo')).toEqual([])
+  })
+
+  it('persists absences, blocks only overlapping slots and exposes the reason in the calendar', async () => {
+    const absence = await repository.createBarberAbsence('barber-demo', {
+      startsAt: '2099-08-05T13:00:00.000Z',
+      endsAt: '2099-08-05T13:45:00.000Z',
+      reason: 'Consulta médica',
+    })
+
+    const availability = await repository.availability('barber-demo', 'service-cut', '2099-08-05')
+    expect(availability.slots.map((slot) => slot.label)).not.toContain('10:00')
+    expect(availability.slots.map((slot) => slot.label)).toContain('10:45')
+    expect((await repository.appointmentCalendar('2099-08-05', '2099-08-05')).days[0]?.absences[0]).toMatchObject({
+      id: absence.id, reason: 'Consulta médica', barberName: 'Rafael Navalha',
+    })
+
+    await repository.deleteBarberAbsence('barber-demo', absence.id)
+    expect(await repository.barberAbsences('barber-demo')).toEqual([])
+  })
+
   it('converts mock availability from the barbershop timezone to UTC', async () => {
     const availability = await repository.availability('barber-demo', 'service-cut', '2099-08-05')
 
     expect(availability.slots[0]).toEqual({
       scheduledAt: '2099-08-05T12:00:00.000Z',
       label: '09:00',
+    })
+  })
+
+  it('removes mock availability slots that overlap lunch', async () => {
+    const availability = await repository.availability('barber-demo', 'service-cut', '2099-08-05')
+    const labels = availability.slots.map((slot) => slot.label)
+
+    expect(labels).not.toContain('11:30')
+    expect(labels).not.toContain('12:00')
+    expect(labels).not.toContain('12:45')
+    expect(labels).toContain('13:00')
+  })
+
+  it('unites any-barber slots and assigns the least-loaded available barber', async () => {
+    await repository.createAppointment({
+      barberId: 'barber-demo',
+      serviceId: 'service-cut',
+      scheduledAt: '2099-08-05T12:00:00.000Z',
+    })
+
+    const availability = await repository.availability('any', 'service-cut', '2099-08-05')
+    expect(availability.slots.find((slot) => slot.label === '09:00')?.barbers?.map((barber) => barber.id))
+      .toEqual(['barber-2'])
+
+    const created = await repository.createAppointment({
+      barberId: 'any',
+      serviceId: 'service-cut',
+      scheduledAt: '2099-08-05T13:00:00.000Z',
+    })
+    expect(created.appointment.barberId).toBe('barber-2')
+  })
+
+  it('falls back safely when the last completed service was deactivated', async () => {
+    const service = await repository.createService({ name: 'Serviço temporário', duration: 30, price: 40 })
+    const created = await repository.createAppointment({
+      barberId: 'barber-demo', serviceId: service.id, scheduledAt: '2099-08-05T13:00:00.000Z',
+    })
+    await repository.updateAppointment(created.appointment.id, 'CONFIRMED')
+    await repository.updateAppointment(created.appointment.id, 'DONE')
+    await repository.deleteService(service.id)
+
+    await expect(repository.lastAppointment()).resolves.toMatchObject({
+      service: { id: service.id, active: false }, repeatable: false,
+    })
+  })
+
+  it('persists a customer profile in the mock branch with tenant history', async () => {
+    const saved = await repository.saveCustomerProfile('customer-demo', {
+      preferences: 'Máquina 1 dos lados', notes: 'Não usar água quente', allergies: 'Produto Y',
+    })
+
+    expect(saved.profile).toMatchObject({ preferences: 'Máquina 1 dos lados', notes: 'Não usar água quente', allergies: 'Produto Y' })
+    await expect(repository.customerProfile('customer-demo')).resolves.toMatchObject({
+      profile: { preferences: 'Máquina 1 dos lados' },
+      history: { completedAppointments: 0 },
     })
   })
 
@@ -234,5 +447,40 @@ describe('development mock repository', () => {
       .rejects.toThrow('Este agendamento não permite essa alteração')
     const stored = await repository.appointments(repository.mockUser('CUSTOMER'))
     expect(stored.find((item) => item.id === 'appointment-1')?.status).toBe('DONE')
+  })
+
+  it('creates one mock loyalty stamp only when an appointment becomes DONE', async () => {
+    await repository.updateLoyaltyProgram({ enabled: true, requiredVisits: 1, rewardDescription: 'Corte grátis' })
+    expect((await repository.loyaltyMe()).availableStamps).toBe(0)
+
+    await repository.updateAppointment('appointment-1', 'DONE')
+    const card = await repository.loyaltyMe()
+    expect(card.availableStamps).toBe(1)
+    expect(card.availableRewards).toBe(1)
+    expect(card.stamps).toHaveLength(1)
+  })
+
+  it('refuses a mock loyalty redemption without consuming stamps', async () => {
+    await repository.updateLoyaltyProgram({ enabled: true, requiredVisits: 2, rewardDescription: 'Corte grátis' })
+    await repository.updateAppointment('appointment-1', 'DONE')
+
+    await expect(repository.redeemLoyalty('customer-demo')).rejects.toThrow('selos suficientes')
+    expect((await repository.loyaltyMe()).availableStamps).toBe(1)
+  })
+
+  it('builds mock closing from DONE services and recorded product sale prices', async () => {
+    await repository.updateAppointment('appointment-1', 'DONE')
+    await repository.sellProduct('product-pomade', { quantity: 2 })
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+      timeZone: shopTimezone, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date()).map((part) => [part.type, part.value]))
+    const today = `${parts.year}-${parts.month}-${parts.day}`
+
+    const report = await repository.report(today, today)
+
+    expect(report.cashBasis).toBe('DONE_ONLY')
+    expect(report.totals.serviceRevenueCents).toBe(8_500)
+    expect(report.totals.productRevenueCents).toBe(6_400)
+    expect(report.totals.netRevenueCents).toBe(14_815)
   })
 })

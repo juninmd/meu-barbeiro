@@ -1,8 +1,8 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test'
 
 const fixedNow = new Date('2026-07-17T12:00:00-03:00')
-const saturdayAtEleven = '2026-07-18T11:00'
-const closedSunday = '2026-07-19T11:00'
+const saturday = '2026-07-18'
+const closedSunday = '2026-07-19'
 
 async function openCleanApp(page: Page) {
   await page.clock.setFixedTime(fixedNow)
@@ -35,12 +35,6 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { path, contentType: 'image/png' })
 }
 
-async function selectBooking(page: Page, date = saturdayAtEleven) {
-  await page.getByRole('group', { name: /O que vamos fazer/ }).getByText('Corte assinatura', { exact: true }).click()
-  await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
-  await page.getByLabel('Data e horário').fill(date)
-}
-
 test('registra acesso, troca de perfil e logout', async ({ page }, testInfo) => {
   await openCleanApp(page)
   await capture(page, testInfo, '01-login-com-acessos-mock')
@@ -69,7 +63,8 @@ test('registra agendamento, validações, cancelamento e histórico do cliente',
   await capture(page, testInfo, '06-cliente-servico-selecionado')
 
   await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
-  await page.getByLabel('Data e horário').fill(saturdayAtEleven)
+  await page.getByLabel('Data').fill(saturday)
+  await page.getByRole('button', { name: 'Selecionar horário 11:00' }).click()
   await capture(page, testInfo, '07-cliente-agendamento-preenchido')
 
   await page.getByRole('button', { name: /Solicitar agendamento/i }).click()
@@ -78,24 +73,20 @@ test('registra agendamento, validações, cancelamento e histórico do cliente',
   await expect(createdAppointment).toContainText('Aguardando')
   await capture(page, testInfo, '08-cliente-agendamento-criado')
 
-  await selectBooking(page)
-  await page.getByRole('button', { name: /Solicitar agendamento/i }).click()
-  await expect(page.getByText('Este horário acabou de ser reservado')).toBeVisible()
-  await expect(createdAppointment).toHaveCount(1)
-  await capture(page, testInfo, '09-cliente-conflito-de-horario')
-
-  await page.getByLabel('Data e horário').fill(closedSunday)
-  await page.getByRole('button', { name: /Solicitar agendamento/i }).click()
+  await page.getByRole('group', { name: /O que vamos fazer/ }).getByText('Corte assinatura', { exact: true }).click()
+  await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
+  await page.getByLabel('Data').fill(closedSunday)
   await expect(page.getByText('A barbearia não atende neste dia')).toBeVisible()
   await capture(page, testInfo, '10-cliente-dia-fora-do-expediente')
 
   await createdAppointment.getByRole('button', { name: 'Cancelar horário' }).click()
+  await page.getByRole('button', { name: 'Sim, cancelar' }).click()
   await expect(createdAppointment).toHaveCount(0)
-  await expect(page.getByText('A barbearia não atende neste dia')).toHaveCount(0)
   await capture(page, testInfo, '11-cliente-agendamento-cancelado')
 
   const confirmedAppointment = page.locator('article').filter({ hasText: 'Corte + barba' })
   await confirmedAppointment.getByRole('button', { name: 'Cancelar horário' }).click()
+  await page.getByRole('button', { name: 'Sim, cancelar' }).click()
   await expect(page.getByText('Nenhum horário marcado')).toBeVisible()
   await capture(page, testInfo, '12-cliente-agenda-vazia')
 
@@ -143,10 +134,12 @@ test('registra cadastro, exclusão e proteção de serviços', async ({ page }, 
   await capture(page, testInfo, '20-barbeiro-servico-adicionado')
 
   await servicePanel.getByRole('button', { name: 'Excluir Hidratação premium' }).click()
+  await page.getByRole('button', { name: 'Sim, excluir' }).click()
   await expect(servicePanel.getByText('Hidratação premium')).toHaveCount(0)
   await capture(page, testInfo, '21-barbeiro-servico-excluido')
 
   await servicePanel.getByRole('button', { name: 'Excluir Corte assinatura' }).click()
+  await page.getByRole('button', { name: 'Sim, excluir' }).click()
   await expect(page.getByText('Serviço possui agendamentos ativos')).toBeVisible()
   await expect(servicePanel.getByText('Corte assinatura')).toBeVisible()
   await capture(page, testInfo, '22-barbeiro-exclusao-de-servico-bloqueada')
@@ -163,7 +156,7 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
   expect(scheduleBox).not.toBeNull()
   expect(bookingBox).not.toBeNull()
   expect(scheduleBox!.y).toBeLessThan(bookingBox!.y)
-  await expect(page.locator('.location-card')).toContainText('Expediente: Ter a Sáb · 09:00–20:00')
+  await expect(page.locator('.location-card').filter({ hasText: 'Expediente:' })).toContainText('Expediente: Ter a Sáb · 09:00–20:00')
 
   await page.getByRole('radio', { name: /Corte assinatura/ }).check()
   await page.getByRole('radio', { name: /Rafael Navalha/ }).check()
@@ -221,6 +214,7 @@ test('registra personalização, horários, sinal e conexão Mercado Pago', asyn
   await capture(page, testInfo, '26-saas-configuracao-inicial')
 
   await settings.getByRole('button', { name: 'Desconectar' }).click()
+  await page.getByRole('button', { name: 'Sim, desconectar' }).click()
   await expect(settings.getByRole('button', { name: 'Conectar Mercado Pago' })).toBeVisible()
   await capture(page, testInfo, '27-mercado-pago-desconectado')
 
@@ -241,7 +235,7 @@ test('registra personalização, horários, sinal e conexão Mercado Pago', asyn
   await capture(page, testInfo, '29-barbeiro-marca-horarios-e-sinal-personalizados')
 
   await page.getByLabel('Trocar perfil mock').selectOption('CUSTOMER')
-  await expect(page.locator('.location-card')).toContainText('Navalha Club')
+  await expect(page.locator('.location-card').filter({ hasText: 'Expediente:' })).toContainText('Navalha Club')
   await expect(page.getByText('Rua do Corte, 100 · Centro')).toBeVisible()
   await capture(page, testInfo, '30-cliente-experiencia-personalizada')
 })
@@ -251,6 +245,7 @@ test('registra ativação da assinatura mensal', async ({ page }, testInfo) => {
   await loginAs(page, 'barbeiro')
   const settings = page.getByRole('region', { name: 'Sua barbearia' })
   await settings.getByRole('button', { name: 'Desconectar' }).click()
+  await page.getByRole('button', { name: 'Sim, desconectar' }).click()
   await page.evaluate(() => {
     const key = 'meu-barbeiro:mock-state:v2'
     const state = JSON.parse(localStorage.getItem(key) || '{}')

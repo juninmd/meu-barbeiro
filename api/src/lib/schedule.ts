@@ -2,7 +2,27 @@ interface BusinessHourWindow {
   weekday: number
   opensAt: string
   closesAt: string
+  breakStartsAt?: string | null
+  breakEndsAt?: string | null
   enabled: boolean
+}
+
+interface HolidayWindow {
+  date: Date
+  description: string
+}
+
+interface BarberScheduleWindow {
+  weekday: number
+  startsAt: string
+  endsAt: string
+  enabled: boolean
+}
+
+interface BarberAbsenceWindow {
+  startsAt: Date
+  endsAt: Date
+  reason: string
 }
 
 interface ScheduleWindow {
@@ -17,10 +37,13 @@ interface ScheduleWindow {
 interface AppointmentScheduleOptions extends ScheduleWindow {
   scheduled?: ScheduleWindow[]
   excludeAppointmentId?: string
+  holidays?: HolidayWindow[]
+  barberSchedule?: BarberScheduleWindow[]
+  absences?: BarberAbsenceWindow[]
 }
 
 interface AppointmentScheduleError {
-  code: 'conflict' | 'hours'
+  code: 'conflict' | 'holiday' | 'hours' | 'barber_schedule' | 'barber_absence'
   message: string
 }
 
@@ -30,6 +53,9 @@ interface AvailabilityOptions {
   timezone?: string
   businessHours?: BusinessHourWindow[]
   scheduled?: ScheduleWindow[]
+  holidays?: HolidayWindow[]
+  barberSchedule?: BarberScheduleWindow[]
+  absences?: BarberAbsenceWindow[]
   now?: Date
 }
 
@@ -63,7 +89,7 @@ const minutes = (value: string): number => {
   return (hour ?? 0) * 60 + (minute ?? 0)
 }
 
-const dateAtLocalTime = (date: string, time: string, timezone: string): Date => {
+export const dateAtLocalTime = (date: string, time: string, timezone: string): Date => {
   const [year, month, day] = date.split('-').map(Number)
   const [hour, minute] = time.split(':').map(Number)
   const target = Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0)
@@ -84,14 +110,27 @@ const dateAtLocalTime = (date: string, time: string, timezone: string): Date => 
   return new Date(timestamp)
 }
 
+const holidayMessage = (date: string, holidays: HolidayWindow[]): string | null => {
+  const holiday = holidays.find((item) => item.date.toISOString().slice(0, 10) === date)
+  if (!holiday) return null
+  const [, month, day] = date.split('-')
+  return `A barbearia não abre em ${day}/${month} (${holiday.description})`
+}
+
 export function availabilitySlots({
   date,
   duration,
   timezone = 'America/Sao_Paulo',
   businessHours = defaultHours,
   scheduled = [],
+  holidays = [],
+  barberSchedule = [],
+  absences = [],
   now = new Date(),
 }: AvailabilityOptions) {
+  const holiday = holidayMessage(date, holidays)
+  if (holiday) return { open: false, reason: holiday, slots: [] }
+
   const weekday = weekdayNumbers[localParts(dateAtLocalTime(date, '12:00', timezone), timezone).weekday ?? '']
   const configured = businessHours.find((item) => item.weekday === weekday)
   if (!configured?.enabled) {
@@ -104,7 +143,7 @@ export function availabilitySlots({
     const minute = String(start % 60).padStart(2, '0')
     const label = `${hour}:${minute}`
     const scheduledAt = dateAtLocalTime(date, label, timezone)
-    if (validateBusinessHours({ scheduledAt, duration, timezone, businessHours, now })) continue
+    if (validateAppointmentSchedule({ scheduledAt, duration, timezone, businessHours, barberSchedule, absences, now })) continue
     if (scheduled.some((item) => schedulesOverlap(item, { scheduledAt, duration }))) continue
     slots.push({ scheduledAt, label })
   }
@@ -134,6 +173,14 @@ export function validateBusinessHours({
   if (startMinutes < minutes(configured.opensAt) || startMinutes + duration > minutes(configured.closesAt)) {
     return `Escolha um horário entre ${configured.opensAt} e ${configured.closesAt}`
   }
+  if (configured.breakStartsAt && configured.breakEndsAt) {
+    const endMinutes = startMinutes + duration
+    const breakStartMinutes = minutes(configured.breakStartsAt)
+    const breakEndMinutes = minutes(configured.breakEndsAt)
+    if (startMinutes < breakEndMinutes && breakStartMinutes < endMinutes) {
+      return `Escolha um horário fora do intervalo de ${configured.breakStartsAt} a ${configured.breakEndsAt}`
+    }
+  }
   return null
 }
 
@@ -146,8 +193,30 @@ export function schedulesOverlap(first: ScheduleWindow, second: ScheduleWindow):
 }
 
 export function validateAppointmentSchedule(options: AppointmentScheduleOptions): AppointmentScheduleError | null {
+  const parts = localParts(options.scheduledAt, options.timezone ?? 'America/Sao_Paulo')
+  const date = `${parts.year}-${parts.month}-${parts.day}`
+  const holiday = holidayMessage(date, options.holidays ?? [])
+  if (holiday) return { code: 'holiday', message: holiday }
+
   const scheduleError = validateBusinessHours(options)
   if (scheduleError) return { code: 'hours', message: scheduleError }
+
+  if (options.barberSchedule?.length) {
+    const weekday = weekdayNumbers[parts.weekday ?? '']
+    const configured = options.barberSchedule.find((item) => item.weekday === weekday)
+    const startMinutes = Number(parts.hour) * 60 + Number(parts.minute)
+    if (!configured?.enabled
+      || startMinutes < minutes(configured.startsAt)
+      || startMinutes + options.duration > minutes(configured.endsAt)) {
+      return { code: 'barber_schedule', message: 'Este barbeiro não atende neste horário' }
+    }
+  }
+
+  const absence = options.absences?.find((item) => schedulesOverlap({
+    scheduledAt: item.startsAt,
+    duration: (item.endsAt.getTime() - item.startsAt.getTime()) / 60_000,
+  }, options))
+  if (absence) return { code: 'barber_absence', message: `Barbeiro indisponível: ${absence.reason}` }
 
   const conflict = options.scheduled?.some((item) => (
     (!options.excludeAppointmentId || item.id !== options.excludeAppointmentId) && schedulesOverlap(item, options)

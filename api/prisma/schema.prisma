@@ -43,17 +43,23 @@ enum PaymentStatus {
 }
 
 model User {
-  id                 String        @id @default(uuid())
+  id                 String            @id @default(uuid())
   name               String
-  email              String?       @unique
-  googleId           String?       @unique
-  phone              String?       @unique
-  telegramId         String?       @unique
-  role               Role          @default(CUSTOMER)
-  appointments       Appointment[] @relation("UserAppointments")
-  barberAppointments Appointment[] @relation("BarberAppointments")
+  email              String?           @unique
+  googleId           String?           @unique
+  phone              String?           @unique
+  telegramId         String?           @unique
+  role               Role              @default(CUSTOMER)
+  appointments       Appointment[]     @relation("UserAppointments")
+  barberAppointments Appointment[]     @relation("BarberAppointments")
+  productSales       ProductSale[]
   memberships        Membership[]
-  createdAt          DateTime      @default(now())
+  barberAbsences     BarberAbsence[]
+  barberSchedules    BarberSchedule[]
+  customerProfiles   CustomerProfile[] @relation("CustomerProfiles")
+  updatedProfiles    CustomerProfile[] @relation("CustomerProfileUpdates")
+  loyaltyStamps      LoyaltyStamp[]
+  createdAt          DateTime          @default(now())
 }
 
 model Barbershop {
@@ -77,9 +83,19 @@ model Barbershop {
   memberships                      Membership[]
   businessHours                    BusinessHour[]
   services                         Service[]
+  products                         Product[]
+  productSales                     ProductSale[]
+  holidays                         Holiday[]
+  barberAbsences                   BarberAbsence[]
+  barberSchedules                  BarberSchedule[]
   appointments                     Appointment[]
+  customerProfiles                 CustomerProfile[]
+  loyaltyProgram                   LoyaltyProgram?
+  loyaltyStamps                    LoyaltyStamp[]
+  remindersEnabled                 Boolean            @default(true)
+  reminderHoursBefore              Int[]              @default([24, 2])
   createdAt                        DateTime           @default(now())
-  updatedAt                        DateTime           @updatedAt
+  updatedAt                        DateTime           @default(now()) @updatedAt
 }
 
 model Membership {
@@ -95,15 +111,45 @@ model Membership {
 }
 
 model BusinessHour {
-  id           String     @id @default(uuid())
-  barbershopId String
-  weekday      Int
-  opensAt      String
-  closesAt     String
-  enabled      Boolean    @default(true)
-  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  id            String     @id @default(uuid())
+  barbershopId  String
+  weekday       Int
+  opensAt       String
+  closesAt      String
+  breakStartsAt String?
+  breakEndsAt   String?
+  enabled       Boolean    @default(true)
+  barbershop    Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
 
   @@unique([barbershopId, weekday])
+}
+
+model BarberAbsence {
+  id           String     @id @default(uuid())
+  barbershopId String
+  barberId     String
+  startsAt     DateTime
+  endsAt       DateTime
+  reason       String
+  createdAt    DateTime   @default(now())
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  barber       User       @relation(fields: [barberId], references: [id])
+
+  @@index([barbershopId, barberId, startsAt])
+}
+
+model BarberSchedule {
+  id           String     @id @default(uuid())
+  barbershopId String
+  barberId     String
+  weekday      Int
+  startsAt     String
+  endsAt       String
+  enabled      Boolean    @default(true)
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  barber       User       @relation(fields: [barberId], references: [id])
+
+  @@unique([barbershopId, barberId, weekday])
 }
 
 model Service {
@@ -112,12 +158,76 @@ model Service {
   name         String
   duration     Int
   priceCents   Int
+  active       Boolean       @default(true)
   barbershop   Barbershop    @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
   appointments Appointment[]
 
   @@unique([barbershopId, name])
   @@unique([barbershopId, id])
   @@index([barbershopId])
+}
+
+model CustomerProfile {
+  id           String     @id @default(uuid())
+  barbershopId String
+  userId       String
+  preferences  String?
+  notes        String?
+  allergies    String?
+  updatedAt    DateTime   @updatedAt
+  updatedById  String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user         User       @relation("CustomerProfiles", fields: [userId], references: [id], onDelete: Cascade)
+  updatedBy    User       @relation("CustomerProfileUpdates", fields: [updatedById], references: [id])
+
+  @@unique([barbershopId, userId])
+  @@index([userId])
+}
+
+model Product {
+  id            String        @id @default(uuid())
+  barbershopId  String
+  name          String
+  priceCents    Int
+  stockQuantity Int           @default(0)
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  barbershop    Barbershop    @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  sales         ProductSale[]
+
+  @@unique([barbershopId, name])
+  @@unique([barbershopId, id])
+  @@index([barbershopId])
+}
+
+model ProductSale {
+  id             String       @id @default(uuid())
+  barbershopId   String
+  productId      String
+  quantity       Int
+  unitPriceCents Int
+  soldById       String
+  appointmentId  String?
+  createdAt      DateTime     @default(now())
+  barbershop     Barbershop   @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  product        Product      @relation(fields: [barbershopId, productId], references: [barbershopId, id], map: "ProductSale_product_tenant_fkey")
+  soldBy         User         @relation(fields: [soldById], references: [id])
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([barbershopId])
+  @@index([productId])
+}
+
+model Holiday {
+  id           String     @id @default(uuid())
+  barbershopId String
+  date         DateTime   @db.Date
+  description  String
+  createdAt    DateTime   @default(now())
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([barbershopId, date])
 }
 
 model Appointment {
@@ -134,15 +244,58 @@ model Appointment {
   paymentExpiresAt        DateTime?
   mercadoPagoPreferenceId String?       @unique
   mercadoPagoPaymentId    String?       @unique
+  customerConfirmedAt     DateTime?
 
-  barbershop Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
-  user       User       @relation("UserAppointments", fields: [userId], references: [id])
-  barber     User       @relation("BarberAppointments", fields: [barberId], references: [id])
-  service    Service    @relation(fields: [serviceId], references: [id])
-  createdAt  DateTime   @default(now())
+  barbershop   Barbershop            @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user         User                  @relation("UserAppointments", fields: [userId], references: [id])
+  barber       User                  @relation("BarberAppointments", fields: [barberId], references: [id])
+  service      Service               @relation(fields: [barbershopId, serviceId], references: [barbershopId, id], map: "Appointment_service_tenant_fkey")
+  productSales ProductSale[]
+  reminders    AppointmentReminder[]
+  loyaltyStamp LoyaltyStamp?
+  createdAt    DateTime              @default(now())
 
   @@index([barbershopId, barberId, scheduledAt])
   @@index([barbershopId, userId])
+}
+
+model LoyaltyProgram {
+  id                String     @id @default(uuid())
+  barbershopId      String     @unique
+  enabled           Boolean    @default(false)
+  requiredVisits    Int        @default(10)
+  rewardDescription String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  barbershop        Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+}
+
+model LoyaltyStamp {
+  id            String      @id @default(uuid())
+  barbershopId  String
+  userId        String
+  appointmentId String      @unique
+  redeemedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  barbershop    Barbershop  @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([barbershopId, userId, redeemedAt])
+}
+
+model AppointmentReminder {
+  id            String      @id @default(uuid())
+  appointmentId String
+  kind          String
+  channel       String      @default("telegram")
+  sentAt        DateTime    @default(now())
+  deliveredOk   Boolean
+  error         String?
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, kind, channel])
+  @@index([appointmentId])
 }
 
 model WebhookEvent {
