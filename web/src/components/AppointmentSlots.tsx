@@ -7,12 +7,13 @@ interface AppointmentSlotsProps {
   selected: string
   browserTimezone: string
   onSelect: (scheduledAt: string) => void
+  onRetry?: () => void
 }
 
-export function AppointmentSlots({ availability, error, loading, selected, browserTimezone, onSelect }: AppointmentSlotsProps) {
+export function AppointmentSlots({ availability, error, loading, selected, browserTimezone, onSelect, onRetry }: AppointmentSlotsProps) {
   const periods = groupSlotsByPeriod(availability?.slots || [])
   if (loading) return <p className="availability-status" role="status">Carregando horários disponíveis…</p>
-  if (error) return <p className="availability-status" role="status">{error}</p>
+  if (error) return <div className="list-feedback" role="alert"><p>{error}</p>{onRetry && <button className="button button-small button-ghost" type="button" onClick={onRetry}>Tentar novamente</button>}</div>
   if (availability && (!availability.open || availability.slots.length === 0)) {
     return <p className="availability-status" role="status">{availability.reason || 'Não há horários livres nesta data'}</p>
   }
