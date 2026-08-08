@@ -52,7 +52,7 @@ export function Shell({ user, barbershop, children, onLogout, onSwitchRole }: Sh
   const isBarber = user.role === 'BARBER' || user.role === 'ADMIN'
   const canManage = barbershop?.membershipRole === 'OWNER' || barbershop?.membershipRole === 'ADMIN'
   const navigation = isBarber
-    ? barberNavigation.filter((item) => canManage || (item.label !== 'Financeiro' && item.label !== 'Ajustes'))
+    ? barberNavigation.filter((item) => canManage || item.label !== 'Financeiro')
     : clientNavigation
   const visibleMobile = isBarber ? navigation.slice(0, 4) : navigation
   const overflowMobile = isBarber ? navigation.slice(4) : []

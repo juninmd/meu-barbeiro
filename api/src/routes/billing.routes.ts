@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma.js'
 import { encryptSellerToken, mercadoPagoClient, sellerAccessToken } from '../lib/mercado-pago-config.js'
 import { resolveBarbershop, requireBarbershopRole } from '../middleware/barbershop.js'
 import { requireUser, type SessionUser } from '../middleware/auth.js'
-import { verifyMercadoPagoSignature } from '../integrations/mercado-pago.js'
+import { parseSubscriptionReference, verifyMercadoPagoSignature } from '../integrations/mercado-pago.js'
 
 const router = Router()
 const frontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173'
@@ -185,12 +185,23 @@ async function processPayment(paymentId: string, sellerId: string | number | und
 
 async function processSubscription(subscriptionId: string): Promise<void> {
   const subscription = await mercadoPagoClient().getSubscription(subscriptionId)
-  if (!subscription.external_reference) throw new Error('Assinatura sem barbearia vinculada')
+  if (!subscription.external_reference) throw new Error('Assinatura sem referência vinculada')
+  const reference = parseSubscriptionReference(subscription.external_reference)
+  if (reference.kind === 'customer') {
+    const status = ({
+      authorized: 'ACTIVE', pending: 'PAST_DUE', paused: 'PAST_DUE', cancelled: 'CANCELLED',
+    } as const)[subscription.status] ?? 'PAST_DUE'
+    await prisma.customerSubscription.update({
+      where: { id: reference.id },
+      data: { status, mercadoPagoSubscriptionId: subscription.id, ...(status === 'CANCELLED' ? { cancelledAt: new Date() } : {}) },
+    })
+    return
+  }
   const status = ({
     authorized: 'ACTIVE', pending: 'PENDING', paused: 'PAST_DUE', cancelled: 'CANCELED',
   } as const)[subscription.status] ?? 'PENDING'
   await prisma.barbershop.update({
-    where: { id: subscription.external_reference },
+    where: { id: reference.id },
     data: { subscriptionStatus: status, mercadoPagoSubscriptionId: subscription.id },
   })
 }

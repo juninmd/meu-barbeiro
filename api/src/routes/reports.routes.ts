@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { dateAtLocalTime } from '../lib/schedule.js'
+import { buildCancellationReport } from '../lib/cancellation-report.js'
 import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { requireBarbershopRole, resolveBarbershop } from '../middleware/barbershop.js'
 
@@ -10,6 +11,43 @@ const reportRoles = requireBarbershopRole('OWNER', 'ADMIN', 'BARBER')
 const dateSchema = z.iso.date()
 
 router.use(requireUser, resolveBarbershop)
+
+router.get('/cancellations', reportRoles, async (req, res) => {
+  const input = z.object({ from: dateSchema, to: dateSchema }).parse(req.query)
+  if (input.from > input.to || daysBetween(input.from, input.to) > 366) {
+    res.status(400).json({ message: 'O período deve ter no máximo 366 dias' })
+    return
+  }
+  const user = req.user as SessionUser
+  const barbershop = req.barbershop!
+  const range = reportRange(input.from, input.to, barbershop.timezone)
+  const cancellations = await prisma.appointmentCancellation.findMany({
+    where: {
+      barbershopId: barbershop.id,
+      createdAt: { gte: range.start, lt: range.end },
+      ...(req.membership!.role === 'BARBER' ? { appointment: { barberId: user.id } } : {}),
+    },
+    select: {
+      cancelledByRole: true,
+      hoursBefore: true,
+      feeCents: true,
+      appointment: {
+        select: {
+          scheduledAt: true,
+          service: { select: { priceCents: true } },
+          user: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+  res.json(buildCancellationReport({
+    ...input,
+    timezone: barbershop.timezone,
+    cancellationWindowHours: barbershop.cancellationWindowHours,
+    cancellations,
+  }))
+})
 
 router.get('/daily', reportRoles, async (req, res) => {
   const { date } = z.object({ date: dateSchema }).parse(req.query)

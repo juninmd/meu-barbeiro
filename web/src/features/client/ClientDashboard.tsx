@@ -5,9 +5,11 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { AppointmentSlots } from '../../components/AppointmentSlots'
 import { StatusBadge } from '../../components/StatusBadge'
 import { LoyaltyCardPanel } from '../../components/LoyaltyCardPanel'
+import { WalkInQueuePanel } from '../../components/WalkInQueuePanel'
+import { MembershipPanel } from '../../components/MembershipPanel'
 import { formatBusinessHours, formatCurrency, formatDate, paymentLabel } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { Appointment, AppointmentAvailability, Barber, Barbershop, LastAppointment, NewAppointment, Service, User } from '../../types'
+import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, NewAppointment, Service, User } from '../../types'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
@@ -50,10 +52,22 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
+  const [cancelQuote, setCancelQuote] = useState<CancellationQuote | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState<string | null>(null)
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null)
   const [now, setNow] = useState(Date.now())
   const [lastAppointment, setLastAppointment] = useState<LastAppointment | null>(null)
+  const [membershipVisit, setMembershipVisit] = useState<{ covered: boolean; remainingVisits: number } | null>(null)
   const bookingPanel = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!form.serviceId || rescheduleTarget) { setMembershipVisit(null); return }
+    let active = true
+    void repository.membershipBenefit(form.serviceId).then((benefit) => { if (active) setMembershipVisit(benefit) })
+      .catch(() => { if (active) setMembershipVisit(null) })
+    return () => { active = false }
+  }, [form.serviceId, rescheduleTarget])
   const upcoming = appointments
     .filter((item) => item.status !== 'CANCELLED' && item.status !== 'DONE' && new Date(item.scheduledAt) >= new Date())
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
@@ -213,16 +227,31 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
     setBusy(true)
     setMessage(null)
     try {
-      await repository.updateAppointment(cancelTarget.id, 'CANCELLED')
+      await repository.updateAppointment(cancelTarget.id, 'CANCELLED', cancelReason)
       await onRefresh()
-      setMessage(cancelTarget.paymentStatus === 'APPROVED'
-        ? `Cancelamento concluído. O estorno do ${paymentLabel(cancelTarget.paymentAmount, cancelTarget.service.price).toLowerCase()} foi solicitado ao Mercado Pago.`
+      setMessage(cancelQuote
+        ? `Cancelamento concluído. Estorno: ${formatCurrency(cancelQuote.refundedCents / 100)}. Retenção: ${formatCurrency(cancelQuote.feeCents / 100)}.`
         : cancelTarget.paymentStatus === 'PENDING'
           ? 'Cancelamento concluído. A reserva foi liberada e nada será cobrado.'
           : 'Horário cancelado.')
       setCancelTarget(null)
     } catch (error) {
-      setMessage(errorMessage(error, 'Não foi possível cancelar'))
+      setCancelError(errorMessage(error, 'Não foi possível cancelar'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openCancellation = async (appointment: Appointment) => {
+    setBusy(true)
+    setMessage(null)
+    try {
+      setCancelQuote(await repository.cancellationPreview(appointment.id))
+      setCancelReason('')
+      setCancelError(null)
+      setCancelTarget(appointment)
+    } catch (error) {
+      setMessage(errorMessage(error, 'Não foi possível calcular o cancelamento'))
     } finally {
       setBusy(false)
     }
@@ -256,7 +285,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         <button className="text-button" disabled={busy} onClick={() => startReschedule(appointment)}>
           <CalendarDays aria-hidden="true" /> Remarcar
         </button>
-        <button className="text-button danger" disabled={busy} onClick={() => setCancelTarget(appointment)}>
+        <button className="text-button danger" disabled={busy} onClick={() => void openCancellation(appointment)}>
           <X aria-hidden="true" /> Cancelar horário
         </button>
       </div>
@@ -267,6 +296,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
     <>
     <main id="top" className="page-wrap section-page" data-section={section} inert={cancelTarget ? true : undefined} aria-hidden={cancelTarget ? true : undefined}>
       {message && <p className="form-message global-message" role="status">{message}</p>}
+      <WalkInQueuePanel hideWhenEmpty />
 
       {section === 'agendar' && (
         <>
@@ -333,6 +363,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                   </label>
                 ))}
               </div>
+              {membershipVisit && <p className="form-message" role="status">{membershipVisit.covered ? `Esta visita está incluída na sua assinatura: nenhum sinal será cobrado. Depois dela, restará(ão) ${Math.max(0, membershipVisit.remainingVisits - 1)} visita(s).` : 'Esta visita não está incluída ou o limite do período acabou. A política normal de sinal será aplicada.'}</p>}
             </fieldset>}
 
             {bookingStep === 2 && <fieldset>
@@ -477,6 +508,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         <>
           <header className="page-heading"><p className="eyebrow">Seu perfil</p><h1>Preferências e benefícios.</h1><p>Fidelidade, endereço e lembretes em um só lugar.</p></header>
           <div className="profile-grid">
+            <MembershipPanel mode="customer" services={services} barbers={barbers} />
             <LoyaltyCardPanel />
             <div className="location-card">
             <MapPin aria-hidden="true" />
@@ -507,13 +539,16 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       <ConfirmDialog
         eyebrow="Confirmar cancelamento"
         title="Cancelar este horário?"
-        description={cancelDescription(cancelTarget)}
+        description={cancelDescription(cancelTarget, cancelQuote)}
         cancelLabel="Manter horário"
         confirmLabel={busy ? 'Cancelando…' : 'Sim, cancelar'}
         busy={busy}
-        onCancel={() => setCancelTarget(null)}
+        error={cancelError}
+        onCancel={() => { setCancelTarget(null); setCancelQuote(null); setCancelError(null) }}
         onConfirm={cancel}
-      />
+      >
+        <label>Motivo (opcional)<textarea maxLength={500} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></label>
+      </ConfirmDialog>
     )}
     </>
   )
@@ -529,9 +564,9 @@ function paymentTimeLeft(paymentExpiresAt: string, now: number) {
   return minutes === 1 ? 'resta 1 minuto para pagar' : `restam ${minutes} minutos para pagar`
 }
 
-function cancelDescription(appointment: Appointment) {
-  if (appointment.paymentStatus === 'APPROVED') {
-    return `O ${paymentLabel(appointment.paymentAmount, appointment.service.price).toLowerCase()} de ${formatCurrency(appointment.paymentAmount)} será estornado pelo Mercado Pago.`
+function cancelDescription(appointment: Appointment, quote: CancellationQuote | null) {
+  if (appointment.paymentStatus === 'APPROVED' && quote) {
+    return `Você receberá ${formatCurrency(quote.refundedCents / 100)} de volta. A barbearia ficará com ${formatCurrency(quote.feeCents / 100)}${quote.late ? ' porque o cancelamento está dentro da janela configurada.' : '.'}`
   }
   if (appointment.paymentStatus === 'PENDING') {
     return 'A reserva será liberada e nada será cobrado.'

@@ -223,6 +223,13 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
           </fieldset>
 
           <fieldset>
+            <legend>Cancelamento</legend>
+            <label>Janela de cancelamento tardio (horas)<input type="number" min="0" max="720" value={form.cancellationWindowHours} onChange={(event) => updateForm({ ...form, cancellationWindowHours: Number(event.target.value) })} required /></label>
+            <label>Percentual do sinal retido<input type="number" min="0" max="100" step="0.01" value={form.lateCancellationFeeBps / 100} onChange={(event) => updateForm({ ...form, lateCancellationFeeBps: Math.round(Number(event.target.value) * 100) })} required /></label>
+            <p className="settings-hint">Se o cliente cancelar faltando até {form.cancellationWindowHours} hora(s), a barbearia retém {form.lateCancellationFeeBps / 100}% do sinal. Fora dessa janela, ou quando a própria barbearia cancela, o valor é devolvido integralmente.</p>
+          </fieldset>
+
+          <fieldset>
             <legend><BellRing aria-hidden="true" /> Lembretes automáticos</legend>
             <label className="hour-toggle"><input type="checkbox" checked={form.remindersEnabled ?? true} onChange={(event) => updateForm({ ...form, remindersEnabled: event.target.checked })} /> Enviar pelo Telegram</label>
             <p className="settings-hint">Escolha quando o cliente deve receber o aviso. O lembrete de 24 horas permite confirmar presença.</p>

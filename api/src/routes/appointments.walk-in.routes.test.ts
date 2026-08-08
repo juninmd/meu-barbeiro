@@ -16,6 +16,7 @@ const ids = {
 const originals = {
   findBarbershop: prisma.barbershop.findUnique,
   findMembership: prisma.membership.findUnique,
+  findMemberships: prisma.membership.findMany,
   findService: prisma.service.findUnique,
   findUser: prisma.user.findFirst,
   findUserByPhone: prisma.user.findUnique,
@@ -94,6 +95,7 @@ describe('walk-in appointments and no-show', () => {
     updatedData = undefined
     Object.defineProperty(prisma.barbershop, 'findUnique', { configurable: true, value: async () => barbershop })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: async () => ({ role: membershipRole }) })
+    Object.defineProperty(prisma.membership, 'findMany', { configurable: true, value: async () => [] })
     Object.defineProperty(prisma.service, 'findUnique', { configurable: true, value: async () => service })
     Object.defineProperty(prisma.user, 'findFirst', { configurable: true, value: async ({ where }: { where: { id?: string } }) => (
       where.id === ids.otherBarber ? { ...barber, id: ids.otherBarber } : where.id === ids.customer ? customer : barber
@@ -117,6 +119,7 @@ describe('walk-in appointments and no-show', () => {
   afterEach(() => {
     Object.defineProperty(prisma.barbershop, 'findUnique', { configurable: true, value: originals.findBarbershop })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: originals.findMembership })
+    Object.defineProperty(prisma.membership, 'findMany', { configurable: true, value: originals.findMemberships })
     Object.defineProperty(prisma.service, 'findUnique', { configurable: true, value: originals.findService })
     Object.defineProperty(prisma.user, 'findFirst', { configurable: true, value: originals.findUser })
     Object.defineProperty(prisma.user, 'findUnique', { configurable: true, value: originals.findUserByPhone })
