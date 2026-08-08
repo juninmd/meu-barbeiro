@@ -95,6 +95,7 @@ interface MockState {
 }
 
 const storageKey = 'meu-barbeiro:mock-state:v2'
+const mockSessionKey = 'meu-barbeiro:mock-role'
 
 const initialBarbershop: Barbershop = {
   id: 'barbershop-demo',
@@ -391,7 +392,10 @@ const mockCustomerProfile = (state: MockState, userId: string): CustomerProfileR
 
 export const repository = {
   async currentUser(): Promise<User | null> {
-    if (mockEnabled) return null
+    if (mockEnabled) {
+      const role = sessionStorage.getItem(mockSessionKey)
+      return role && ['ADMIN', 'BARBER', 'CUSTOMER'].includes(role) ? selectedMockUser(role as Role) : null
+    }
     const { data } = await api.get<User | null>('/auth/me')
     if (!data || typeof data !== 'object' || !('role' in data) || !['ADMIN', 'BARBER', 'CUSTOMER'].includes(data.role)) return null
     return data
@@ -399,6 +403,7 @@ export const repository = {
 
   mockUser(role: Role): User {
     if (!mockEnabled) throw new Error('Acesso de demonstração indisponível')
+    sessionStorage.setItem(mockSessionKey, role)
     return selectedMockUser(role)
   },
 
@@ -407,7 +412,8 @@ export const repository = {
   },
 
   async logout(): Promise<void> {
-    if (!mockEnabled) await api.post('/auth/logout')
+    if (mockEnabled) sessionStorage.removeItem(mockSessionKey)
+    else await api.post('/auth/logout')
   },
 
   async services(): Promise<Service[]> {
@@ -416,7 +422,7 @@ export const repository = {
   },
 
   async barbershop(): Promise<Barbershop> {
-    if (mockEnabled) return { ...readState().barbershop, membershipRole: 'OWNER' }
+    if (mockEnabled) return readState().barbershop
     return (await api.get<Barbershop>('/barbershops/current')).data
   },
 
