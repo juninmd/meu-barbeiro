@@ -9,6 +9,8 @@ interface ConfirmDialogProps {
   confirmLabel: string
   busy?: boolean
   error?: string | null
+  confirmDisabled?: boolean
+  children?: ReactNode
   onCancel: () => void
   onConfirm: () => void
 }
@@ -23,6 +25,8 @@ export function ConfirmDialog({
   confirmLabel,
   busy = false,
   error,
+  confirmDisabled = false,
+  children,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -82,12 +86,13 @@ export function ConfirmDialog({
         <p className="eyebrow">{eyebrow}</p>
         <h2 id={titleId}>{title}</h2>
         <p id={descriptionId}>{description}</p>
+        {children}
         {error && <p className="form-message" role="alert">{error}</p>}
         <div className="dialog-actions">
           <button ref={safeButton} className="button button-ghost" disabled={busy} onClick={onCancel} type="button">
             {cancelLabel}
           </button>
-          <button className="button button-danger" disabled={busy} onClick={onConfirm} type="button">
+          <button className="button button-danger" disabled={busy || confirmDisabled} onClick={onConfirm} type="button">
             {confirmLabel}
           </button>
         </div>

@@ -16,6 +16,7 @@ const ids = {
 const originals = {
   findBarbershop: prisma.barbershop.findUnique,
   findMembership: prisma.membership.findUnique,
+  findMemberships: prisma.membership.findMany,
   findAppointment: prisma.appointment.findFirst,
   updateAppointment: prisma.appointment.update,
   transaction: prisma.$transaction,
@@ -53,11 +54,13 @@ describe('loyalty', () => {
     membershipRole = 'BARBER'
     Object.defineProperty(prisma.barbershop, 'findUnique', { configurable: true, value: async () => barbershop as never })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: async () => ({ role: membershipRole }) as never })
+    Object.defineProperty(prisma.membership, 'findMany', { configurable: true, value: async () => [] })
   })
 
   afterEach(() => {
     Object.defineProperty(prisma.barbershop, 'findUnique', { configurable: true, value: originals.findBarbershop })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: originals.findMembership })
+    Object.defineProperty(prisma.membership, 'findMany', { configurable: true, value: originals.findMemberships })
     Object.defineProperty(prisma.appointment, 'findFirst', { configurable: true, value: originals.findAppointment })
     Object.defineProperty(prisma.appointment, 'update', { configurable: true, value: originals.updateAppointment })
     Object.defineProperty(prisma, '$transaction', { configurable: true, value: originals.transaction })
@@ -130,11 +133,17 @@ describe('loyalty', () => {
       status = data.status
       return appointment(status)
     } })
-    Object.defineProperty(prisma, '$transaction', { configurable: true, value: async () => { transactionCalls += 1 } })
+    Object.defineProperty(prisma, '$transaction', { configurable: true, value: async (operation: (tx: object) => unknown) => {
+      transactionCalls += 1
+      return operation({
+        appointment: { update: async ({ data }: { data: { status: string } }) => { status = data.status; return appointment(status) } },
+        appointmentCancellation: { create: async () => ({}) },
+      })
+    } })
     const { server, url } = await startApp('/appointments', appointmentsRoutes)
     try {
       const cancelled = await fetch(`${url}/${ids.appointment}`, {
-        method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'CANCELLED' }),
+        method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'CANCELLED', reason: 'Cliente avisou a loja' }),
       })
       assert.equal(cancelled.status, 200)
       status = 'CONFIRMED'
@@ -142,7 +151,7 @@ describe('loyalty', () => {
         method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'NO_SHOW' }),
       })
       assert.equal(noShow.status, 200)
-      assert.equal(transactionCalls, 0)
+      assert.equal(transactionCalls, 1)
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
     }

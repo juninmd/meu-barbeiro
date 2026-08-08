@@ -2,20 +2,34 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { calculateCommissionCents, calculateDepositCents } from '../domain/billing.js'
 import { mercadoPagoClient, sellerAccessToken } from '../lib/mercado-pago-config.js'
+import { cancellationQuote, cancellationReasonError, type CancellationRole } from '../lib/cancellation-policy.js'
+import { claimMembershipVisit, membershipBenefit, type MembershipVisitDatabase } from '../lib/customer-membership.js'
 import { prisma } from '../lib/prisma.js'
 import { availabilitySlots, dateAtLocalTime, validateAppointmentSchedule, validateRescheduleStatus } from '../lib/schedule.js'
 import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { requireBarbershopRole, resolveBarbershop } from '../middleware/barbershop.js'
+import { enqueueStaffAppointmentNotification, type StaffAppointmentEvent } from '../services/appointment-reminders.service.js'
 
 const router = Router()
 const includeRelations = {
   user: true,
   barber: true,
   service: true,
-  reminders: { orderBy: { sentAt: 'asc' } },
+  cancellation: true,
+  reminders: { where: { kind: { in: ['24h', '2h'] as string[] } }, orderBy: { sentAt: 'asc' } },
 } as const
 
 router.use(requireUser, resolveBarbershop)
+
+router.get('/membership-benefit', async (req, res) => {
+  const user = req.user as SessionUser
+  const serviceId = z.string().uuid().parse(req.query.serviceId)
+  const subscription = await prisma.customerSubscription.findFirst({
+    where: { barbershopId: req.barbershop!.id, userId: user.id }, include: { plan: true }, orderBy: { createdAt: 'desc' },
+  })
+  if (!subscription) { res.json({ covered: false, remainingVisits: 0 }); return }
+  res.json(membershipBenefit(subscription, subscription.plan, serviceId, new Date()))
+})
 
 router.get('/customers', requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'), async (req, res) => {
   const input = z.object({ q: z.string().trim().max(80).optional() }).parse(req.query)
@@ -443,8 +457,11 @@ router.post('/', async (req, res) => {
     return
   }
 
+  const membershipVisit = await claimMembershipVisit({
+    database: membershipVisitDatabase, barbershopId: barbershop.id, userId: user.id, serviceId: service.id, now: new Date(),
+  })
   const depositPolicy = { type: barbershop.depositType, value: barbershop.depositValue }
-  const paymentAmountCents = calculateDepositCents(service.priceCents, depositPolicy)
+  const paymentAmountCents = membershipVisit.covered ? 0 : calculateDepositCents(service.priceCents, depositPolicy)
   const commissionCents = paymentAmountCents > 0
     ? calculateCommissionCents(service.priceCents, barbershop.commissionBps)
     : 0
@@ -459,6 +476,7 @@ router.post('/', async (req, res) => {
       ...appointmentInput,
       barbershopId: barbershop.id,
       userId: user.id,
+      ...(membershipVisit.covered ? { customerSubscriptionId: membershipVisit.subscriptionId } : {}),
       paymentStatus: paymentAmountCents > 0 ? 'PENDING' : 'NOT_REQUIRED',
       paymentAmountCents,
       commissionCents,
@@ -494,6 +512,19 @@ router.post('/', async (req, res) => {
       throw error
     }
   }
+
+  await queueStaffNotificationSafely({
+    type: 'NEW_APPOINTMENT',
+    actorId: user.id,
+    appointmentId: appointment.id,
+    barberId: appointment.barberId,
+    barbershopId: barbershop.id,
+    barbershopName: barbershop.name,
+    timezone: barbershop.timezone,
+    customerName: appointment.user.name,
+    serviceName: appointment.service.name,
+    scheduledAt: appointment.scheduledAt,
+  })
 
   res.status(201).json({ appointment: publicAppointment(appointment), checkoutUrl })
 })
@@ -599,7 +630,48 @@ router.post('/walk-in', requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'), async
     },
     include: includeRelations,
   })
+  await queueStaffNotificationSafely({
+    type: 'NEW_APPOINTMENT',
+    actorId: user.id,
+    appointmentId: appointment.id,
+    barberId: appointment.barberId,
+    barbershopId: barbershop.id,
+    barbershopName: barbershop.name,
+    timezone: barbershop.timezone,
+    customerName: appointment.user.name,
+    serviceName: appointment.service.name,
+    scheduledAt: appointment.scheduledAt,
+  })
   res.status(201).json({ appointment: publicAppointment(appointment), checkoutUrl: null })
+})
+
+router.get('/:id/cancellation-preview', async (req, res) => {
+  const user = req.user as SessionUser
+  const barbershop = req.barbershop!
+  const id = z.string().uuid().parse(req.params.id)
+  const appointment = await prisma.appointment.findFirst({ where: { id, barbershopId: barbershop.id } })
+  if (!appointment) {
+    res.status(404).json({ message: 'Agendamento não encontrado' })
+    return
+  }
+  const membership = user.role === 'CUSTOMER' ? null : await prisma.membership.findUnique({
+    where: { barbershopId_userId: { barbershopId: barbershop.id, userId: user.id } },
+  })
+  const allowed = user.role === 'CUSTOMER'
+    ? appointment.userId === user.id
+    : Boolean(membership && (membership.role !== 'BARBER' || appointment.barberId === user.id))
+  if (!allowed) {
+    res.status(403).json({ message: 'Ação não permitida' })
+    return
+  }
+  res.json(cancellationQuote({
+    scheduledAt: appointment.scheduledAt,
+    cancelledAt: new Date(),
+    cancellationWindowHours: barbershop.cancellationWindowHours,
+    lateCancellationFeeBps: barbershop.lateCancellationFeeBps,
+    paidDepositCents: appointment.paymentStatus === 'APPROVED' ? appointment.paymentAmountCents : 0,
+    cancelledByRole: cancellationRole(user, membership?.role),
+  }))
 })
 
 router.patch('/:id', async (req, res) => {
@@ -607,7 +679,8 @@ router.patch('/:id', async (req, res) => {
   const barbershop = req.barbershop!
   const id = z.string().uuid().parse(req.params.id)
   const input = z.union([
-    z.object({ status: z.enum(['CONFIRMED', 'CANCELLED', 'DONE', 'NO_SHOW']) }).strict(),
+    z.object({ status: z.enum(['CONFIRMED', 'DONE', 'NO_SHOW']) }).strict(),
+    z.object({ status: z.literal('CANCELLED'), reason: z.string().trim().max(500).optional() }).strict(),
     z.object({ scheduledAt: z.coerce.date() }).strict(),
   ]).parse(req.body)
 
@@ -689,6 +762,19 @@ router.patch('/:id', async (req, res) => {
       data: { scheduledAt: input.scheduledAt, customerConfirmedAt: null },
       include: includeRelations,
     })
+    await queueStaffNotificationSafely({
+      type: 'RESCHEDULE',
+      actorId: user.id,
+      appointmentId: updated.id,
+      barberId: updated.barberId,
+      barbershopId: barbershop.id,
+      barbershopName: barbershop.name,
+      timezone: barbershop.timezone,
+      customerName: updated.user.name,
+      serviceName: updated.service.name,
+      scheduledAt: updated.scheduledAt,
+      previousScheduledAt: appointment.scheduledAt,
+    })
     res.json(publicAppointment(updated))
     return
   }
@@ -716,21 +802,54 @@ router.patch('/:id', async (req, res) => {
     return
   }
 
-  if (status === 'CANCELLED' && appointment.paymentStatus === 'APPROVED' && appointment.mercadoPagoPaymentId) {
+  const cancelledByRole = cancellationRole(user, membership?.role)
+  const cancellationReason = 'reason' in input ? input.reason : undefined
+  const reasonError = status === 'CANCELLED' ? cancellationReasonError(cancelledByRole, cancellationReason) : null
+  if (reasonError) {
+    res.status(400).json({ message: reasonError })
+    return
+  }
+  const quote = status === 'CANCELLED' ? cancellationQuote({
+    scheduledAt: appointment.scheduledAt,
+    cancelledAt: new Date(),
+    cancellationWindowHours: barbershop.cancellationWindowHours,
+    lateCancellationFeeBps: barbershop.lateCancellationFeeBps,
+    paidDepositCents: appointment.paymentStatus === 'APPROVED' ? appointment.paymentAmountCents : 0,
+    cancelledByRole,
+  }) : null
+
+  if (quote && quote.refundedCents > 0 && appointment.mercadoPagoPaymentId) {
     await mercadoPagoClient().refundPayment(
       appointment.mercadoPagoPaymentId,
       await sellerAccessToken(appointment.barbershop),
       `appointment-${appointment.id}-refund`,
+      quote.feeCents > 0 ? quote.refundedCents : undefined,
     )
   }
   const appointmentData = {
     status,
-    ...(status === 'CANCELLED' && appointment.paymentStatus === 'APPROVED' ? { paymentStatus: 'REFUNDED' as const } : {}),
+    ...(quote && quote.refundedCents === appointment.paymentAmountCents && appointment.paymentStatus === 'APPROVED'
+      ? { paymentStatus: 'REFUNDED' as const }
+      : {}),
   }
-  const updated = appointment.status === 'DONE' || status === 'DONE'
+  const updated = appointment.status === 'DONE' || status === 'DONE' || status === 'CANCELLED'
     ? await prisma.$transaction(async (tx) => {
       if (appointment.status === 'DONE' && status !== 'DONE') {
         await tx.loyaltyStamp.deleteMany({ where: { barbershopId: barbershop.id, appointmentId: appointment.id } })
+      }
+      if (quote) {
+        await tx.appointmentCancellation.create({
+          data: {
+            appointmentId: appointment.id,
+            barbershopId: barbershop.id,
+            cancelledById: user.id,
+            cancelledByRole,
+            reason: cancellationReason?.trim() || null,
+            hoursBefore: quote.hoursBefore,
+            refundedCents: quote.refundedCents,
+            feeCents: quote.feeCents,
+          },
+        })
       }
       const result = await tx.appointment.update({
         where: { id: appointment.id },
@@ -754,8 +873,46 @@ router.patch('/:id', async (req, res) => {
       data: appointmentData,
       include: includeRelations,
     })
+  if (status === 'DONE' && appointment.walkInQueueId) {
+    const unfinishedItems = await prisma.appointment.count({
+      where: { walkInQueueId: appointment.walkInQueueId, status: { not: 'DONE' } },
+    })
+    if (unfinishedItems === 0) {
+      await prisma.walkInQueue.updateMany({
+        where: { id: appointment.walkInQueueId, status: 'IN_SERVICE' },
+        data: { status: 'DONE', finishedAt: new Date() },
+      })
+    }
+  }
+  if (status === 'CANCELLED' || status === 'NO_SHOW') {
+    await queueStaffNotificationSafely({
+      type: status === 'CANCELLED' ? 'CANCELLATION' : 'NO_SHOW',
+      actorId: user.id,
+      appointmentId: updated.id,
+      barberId: updated.barberId,
+      barbershopId: barbershop.id,
+      barbershopName: barbershop.name,
+      timezone: barbershop.timezone,
+      customerName: updated.user.name,
+      serviceName: updated.service.name,
+      scheduledAt: updated.scheduledAt,
+    })
+  }
   res.json(publicAppointment(updated))
 })
+
+function cancellationRole(user: SessionUser, membershipRole: string | undefined): CancellationRole {
+  if (user.role === 'CUSTOMER') return 'CUSTOMER'
+  return membershipRole === 'OWNER' || membershipRole === 'ADMIN' ? membershipRole : 'BARBER'
+}
+
+async function queueStaffNotificationSafely(event: StaffAppointmentEvent): Promise<void> {
+  try {
+    await enqueueStaffAppointmentNotification(event)
+  } catch (error) {
+    console.error('Falha ao enfileirar aviso de agenda', error)
+  }
+}
 
 function publicAppointment(appointment: {
   id: string
@@ -779,6 +936,14 @@ function publicAppointment(appointment: {
     deliveredOk: boolean
     error: string | null
   }>
+  cancellation?: {
+    cancelledByRole: string
+    reason: string | null
+    hoursBefore: number
+    refundedCents: number
+    feeCents: number
+    createdAt: Date
+  } | null
 }, noShowCount = 0) {
   const mapUser = (value: typeof appointment.user) => ({
     id: value.id, name: value.name, email: value.email, phone: value.phone ?? null, role: value.role,
@@ -809,6 +974,7 @@ function publicAppointment(appointment: {
       deliveredOk: reminder.deliveredOk,
       error: reminder.error,
     })),
+    cancellation: appointment.cancellation ?? null,
     clientConfirmed: Boolean(appointment.customerConfirmedAt),
     depositRetained: appointment.status === 'NO_SHOW' && appointment.paymentStatus === 'APPROVED',
   }
@@ -929,3 +1095,16 @@ function weekdayInTimezone(date: string, timezone: string): number {
 }
 
 export { router as appointmentsRoutes }
+
+const membershipVisitDatabase: MembershipVisitDatabase = {
+  findSubscription: (barbershopId, userId) => prisma.customerSubscription.findFirst({
+    where: { barbershopId, userId }, include: { plan: true }, orderBy: { createdAt: 'desc' },
+  }),
+  updatePeriod: async (id, period) => { await prisma.customerSubscription.update({ where: { id }, data: period }) },
+  incrementVisit: async (id, expectedVisitsUsed) => {
+    const updated = await prisma.customerSubscription.updateMany({
+      where: { id, status: 'ACTIVE', visitsUsed: expectedVisitsUsed }, data: { visitsUsed: { increment: 1 } },
+    })
+    return updated.count === 1
+  },
+}

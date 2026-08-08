@@ -4,6 +4,8 @@ import { Navigate, useParams } from 'react-router-dom'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { CustomerProfileCard } from '../../components/CustomerProfileCard'
+import { WalkInQueuePanel } from '../../components/WalkInQueuePanel'
+import { MembershipPanel } from '../../components/MembershipPanel'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Appointment, AppointmentStatus, Barber, Barbershop, NewService, Product, Service, User } from '../../types'
@@ -11,7 +13,9 @@ import { AppointmentCalendar } from './AppointmentCalendar'
 import { BarberAvailability } from './BarberAvailability'
 import { BarbershopSettings } from './BarbershopSettings'
 import { DailyClosing } from './DailyClosing'
+import { CancellationReportPanel } from './CancellationReportPanel'
 import { ProductsPanel } from './ProductsPanel'
+import { NotificationSettings } from './NotificationSettings'
 import { WalkInForm } from './WalkInForm'
 
 interface BarberDashboardProps {
@@ -34,7 +38,11 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [noShowTarget, setNoShowTarget] = useState<Appointment | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState<string | null>(null)
   const [calendarRevision, setCalendarRevision] = useState(0)
+  const [queueRevision, setQueueRevision] = useState(0)
   const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null)
   const active = appointments
     .filter((item) => item.status !== 'CANCELLED')
@@ -111,10 +119,31 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
     }
   }
 
+  const confirmCancellation = async () => {
+    if (!cancelTarget) return
+    setBusy(true)
+    setCancelError(null)
+    try {
+      await repository.updateAppointment(cancelTarget.id, 'CANCELLED', cancelReason)
+      setCancelTarget(null)
+      setCancelReason('')
+      setMessage('Horário cancelado. Se havia sinal pago, o estorno integral foi solicitado.')
+      await onRefresh()
+    } catch (error) {
+      setCancelError(errorMessage(error, 'Não foi possível cancelar'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const refreshAfterWalkIn = async () => {
+    setQueueRevision((current) => current + 1)
+    setMessage('Entrada registrada. A espera será recalculada automaticamente.')
+  }
+
+  const refreshAfterQueueCall = async () => {
     await onRefresh()
     setCalendarRevision((current) => current + 1)
-    setMessage('Atendimento lançado e confirmado. O pagamento será feito no balcão.')
   }
 
   const timelineGroups = [
@@ -148,7 +177,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
           {appointment.status === 'PENDING' && <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}><Check aria-hidden="true" /> Confirmar</button>}
           {appointment.status === 'CONFIRMED' && <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'DONE')}><Check aria-hidden="true" /> Concluir</button>}
           {!compact && appointment.status === 'CONFIRMED' && new Date(appointment.scheduledAt).getTime() < Date.now() && <button className="button button-small button-danger" disabled={busy} onClick={() => setNoShowTarget(appointment)}><X aria-hidden="true" /> Faltou</button>}
-          {!compact && (appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}><X aria-hidden="true" /> Cancelar</button>}
+          {!compact && (appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && <button className="button button-small button-ghost" disabled={busy} onClick={() => { setCancelTarget(appointment); setCancelReason(''); setCancelError(null) }}><X aria-hidden="true" /> Cancelar</button>}
         </div>
         {!compact && profileCustomerId === appointment.userId && <CustomerProfileCard userId={appointment.userId} />}
       </div>
@@ -177,6 +206,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
             <div className="section-heading compact"><div><p className="eyebrow">Na sequência</p><h2 id="next-client-title">{nextToday ? 'Próximo cliente' : 'Agenda livre agora'}</h2></div><span className="count-badge">{remainingToday.length}</span></div>
             {nextToday ? appointmentItem(nextToday, true) : <div className="empty-state"><CalendarCheck aria-hidden="true" /><strong>Ninguém aguardando hoje</strong><p>{nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Use Agenda para lançar um encaixe.'}</p></div>}
           </section>
+          <WalkInQueuePanel canCall callerBarberId={barbershop?.membershipRole === 'BARBER' ? currentUser.id : undefined} onCalled={refreshAfterQueueCall} refreshKey={queueRevision} />
         </>
       )}
 
@@ -231,7 +261,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
       )}
 
       {section === 'financeiro' && barbershop && (
-        <><header className="page-heading"><p className="eyebrow">Resultados</p><h1>Financeiro.</h1><p>Feche o período e acompanhe o que entrou.</p></header><DailyClosing barbershop={barbershop} /></>
+        <><header className="page-heading"><p className="eyebrow">Resultados</p><h1>Financeiro.</h1><p>Feche o período e acompanhe o que entrou.</p></header><DailyClosing barbershop={barbershop} /><CancellationReportPanel /></>
       )}
 
       {section === 'ajustes' && (
@@ -270,6 +300,9 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
             </form>
           )}
           </section>
+          {canManageBarbershop && <MembershipPanel mode="management" services={services} barbers={barbers} />}
+          <NotificationSettings />
+          {canManageBarbershop && <MembershipPanel mode="management" services={services} barbers={barbers} />}
           {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
         </>
       )}
@@ -303,6 +336,22 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
         onCancel={() => setNoShowTarget(null)}
         onConfirm={confirmNoShow}
       />
+    )}
+    {cancelTarget && (
+      <ConfirmDialog
+        eyebrow="Cancelar pela barbearia"
+        title={`Cancelar o horário de ${cancelTarget.user.name}?`}
+        description="A barbearia devolverá integralmente qualquer sinal pago. Informe o motivo para manter o histórico confiável."
+        cancelLabel="Manter horário"
+        confirmLabel={busy ? 'Cancelando…' : 'Cancelar horário'}
+        busy={busy}
+        confirmDisabled={!cancelReason.trim()}
+        error={cancelError}
+        onCancel={() => { setCancelTarget(null); setCancelReason(''); setCancelError(null) }}
+        onConfirm={confirmCancellation}
+      >
+        <label>Motivo<textarea required maxLength={500} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></label>
+      </ConfirmDialog>
     )}
     </>
   )
