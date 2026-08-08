@@ -10,9 +10,10 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: meubarbeiro
-      POSTGRES_PASSWORD: meubarbeiro
       POSTGRES_DB: meubarbeiro
-    ports: ["5433:5432"]
+      # Sem senha: o banco so existe dentro da rede do compose e nao publica
+      # porta. Assim nada com cara de credencial precisa ser versionado.
+      POSTGRES_HOST_AUTH_METHOD: trust
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U meubarbeiro"]
       interval: 3s
@@ -37,8 +38,12 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
+    # Os segredos sao sorteados a cada subida e vivem so nesta execucao: nao ha
+    # valor secreto versionado, e o seed regrava os tokens com a chave da vez.
     command: >
-      sh -c "pnpm prisma migrate deploy &&
+      sh -c "export SESSION_SECRET=$$(node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\") &&
+             export TOKEN_ENCRYPTION_KEY=$$(node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\") &&
+             pnpm prisma migrate deploy &&
              pnpm exec tsx src/seed.ts &&
              pnpm exec tsx watch src/server.ts"
     volumes:
@@ -48,9 +53,7 @@ services:
       <<: *mock-env
       NODE_ENV: development
       PORT: "3333"
-      DATABASE_URL: postgresql://meubarbeiro:meubarbeiro@db:5432/meubarbeiro?schema=public
-      SESSION_SECRET: local-homolog-secret
-      TOKEN_ENCRYPTION_KEY: Bw4VHCMqMTg/Rk1UW2JpcHd+hYyTmqGor7a9xMvS2eA=
+      DATABASE_URL: postgresql://meubarbeiro@db:5432/meubarbeiro?schema=public
       FRONTEND_URL: http://localhost:8080
       API_PUBLIC_URL: http://localhost:8080/api
       DEFAULT_BARBERSHOP_SLUG: barbearia-central
