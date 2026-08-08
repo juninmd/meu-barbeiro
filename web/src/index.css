@@ -153,6 +153,9 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .choice-grid-small { grid-template-columns: repeat(2, 1fr); }
 .choice-card { position: relative; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; gap: .65rem; padding: 1rem; border: 1px solid var(--line); background: #faf7ef; transition: .18s ease; }
 .choice-card:hover, .choice-card.selected { border-color: #ae7720; background: #f8ecd2; transform: translateY(-2px); }
+.choice-card.unavailable { cursor: not-allowed; opacity: .58; transform: none; }
+.choice-card.recommended { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.barber-empty-state { grid-column: 1 / -1; }
 .choice-card input { position: absolute; opacity: 0; }
 .reschedule-locked .choice-card input:checked { top: .8rem; right: .8rem; opacity: 1; accent-color: #9d6d20; }
 .reschedule-locked .choice-card .choice-check { display: none; }

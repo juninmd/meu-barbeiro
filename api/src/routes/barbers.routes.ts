@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
-import { schedulesOverlap } from '../lib/schedule.js'
+import { availabilitySlots, dateAtLocalTime, schedulesOverlap } from '../lib/schedule.js'
 import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { requireBarbershopRole, resolveBarbershop } from '../middleware/barbershop.js'
 
@@ -26,6 +26,7 @@ const scheduleSchema = z.object({
 router.use(requireUser, resolveBarbershop)
 
 router.get('/', async (req, res) => {
+  const input = z.object({ date: z.iso.date().optional() }).parse(req.query)
   const users = await prisma.user.findMany({
     where: {
       memberships: {
@@ -35,8 +36,121 @@ router.get('/', async (req, res) => {
     select: { id: true, name: true, email: true, role: true },
     orderBy: { name: 'asc' },
   })
-  res.json(users.map((user) => ({ ...user, specialty: 'Cortes e barba' })))
+  const barbers = users.map((user) => ({ ...user, specialty: 'Cortes e barba' }))
+  if (!input.date) {
+    res.json(barbers)
+    return
+  }
+
+  const date = input.date
+  const serviceIds = parseServiceIds(req.query.serviceIds ?? req.query['serviceIds[]'])
+  const rangeEnd = addDays(date, 61)
+  const now = new Date()
+  const [services, scheduled, holidays, schedules, absences] = await Promise.all([
+    serviceIds.length > 0
+      ? prisma.service.findMany({ where: { id: { in: serviceIds }, barbershopId: req.barbershop!.id, active: true } })
+      : Promise.resolve([]),
+    prisma.appointment.findMany({
+      where: {
+        barbershopId: req.barbershop!.id,
+        scheduledAt: {
+          gte: dateAtLocalTime(date, '00:00', req.barbershop!.timezone),
+          lt: dateAtLocalTime(rangeEnd, '00:00', req.barbershop!.timezone),
+        },
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        OR: [{ paymentStatus: { not: 'PENDING' } }, { paymentExpiresAt: { gt: now } }],
+      },
+      include: { service: true },
+    }),
+    prisma.holiday.findMany({
+      where: {
+        barbershopId: req.barbershop!.id,
+        date: { gte: new Date(`${date}T00:00:00.000Z`), lt: new Date(`${rangeEnd}T00:00:00.000Z`) },
+      },
+      select: { date: true, description: true },
+    }),
+    prisma.barberSchedule.findMany({ where: { barbershopId: req.barbershop!.id } }),
+    prisma.barberAbsence.findMany({
+      where: {
+        barbershopId: req.barbershop!.id,
+        startsAt: { lt: dateAtLocalTime(rangeEnd, '00:00', req.barbershop!.timezone) },
+        endsAt: { gt: dateAtLocalTime(date, '00:00', req.barbershop!.timezone) },
+      },
+    }),
+  ])
+  if (services.length !== serviceIds.length) {
+    res.status(400).json({ message: 'Serviço inválido' })
+    return
+  }
+
+  const duration = services.reduce((total, service) => total + service.duration, 0) || 15
+  const availabilityFor = (barberId: string, date: string, options: { schedule?: boolean; absence?: boolean; appointments?: boolean } = {}) => availabilitySlots({
+    date,
+    duration,
+    timezone: req.barbershop!.timezone,
+    businessHours: req.barbershop!.businessHours,
+    holidays,
+    barberSchedule: options.schedule === false ? [] : schedules.filter((item) => item.barberId === barberId),
+    absences: options.absence === false ? [] : absences.filter((item) => item.barberId === barberId),
+    scheduled: options.appointments === false ? [] : scheduled.filter((item) => item.barberId === barberId).map((item) => ({
+      scheduledAt: item.scheduledAt,
+      duration: item.service.duration,
+    })),
+    now,
+  })
+
+  res.json(barbers.map((barber) => {
+    const availability = availabilityFor(barber.id, date)
+    if (availability.slots.length > 0) {
+      return {
+        ...barber,
+        available: true,
+        unavailableReason: null,
+        slotCount: availability.slots.length,
+        firstAvailableTime: availability.slots[0]!.label,
+        nextAvailableDate: null,
+      }
+    }
+
+    const withoutRestrictions = availabilityFor(barber.id, date, { schedule: false, absence: false, appointments: false })
+    const withinSchedule = availabilityFor(barber.id, date, { absence: false, appointments: false })
+    const withoutAppointments = availabilityFor(barber.id, date, { appointments: false })
+    const unavailableReason = withoutRestrictions.slots.length === 0
+      ? 'folga'
+      : withinSchedule.slots.length === 0
+        ? 'fora da escala'
+        : withoutAppointments.slots.length === 0
+          ? 'ausência'
+          : 'agenda cheia'
+    let nextAvailableDate: string | null = null
+    for (let offset = 1; offset <= 60; offset += 1) {
+      const candidate = addDays(date, offset)
+      if (availabilityFor(barber.id, candidate).slots.length > 0) {
+        nextAvailableDate = candidate
+        break
+      }
+    }
+    return {
+      ...barber,
+      available: false,
+      unavailableReason,
+      slotCount: 0,
+      firstAvailableTime: null,
+      nextAvailableDate,
+    }
+  }))
 })
+
+function parseServiceIds(value: unknown): string[] {
+  const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
+  return [...new Set(values.flatMap((item) => typeof item === 'string' ? item.split(',') : []).filter(Boolean).map((item) => idSchema.parse(item)))]
+}
+
+function addDays(date: string, days: number): string {
+  const instant = new Date(`${date}T00:00:00.000Z`)
+  instant.setUTCDate(instant.getUTCDate() + days)
+  return instant.toISOString().slice(0, 10)
+}
 
 router.get('/:id/absences', requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'), async (req, res) => {
   const barberId = idSchema.parse(req.params.id)
