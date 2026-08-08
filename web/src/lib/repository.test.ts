@@ -20,6 +20,7 @@ describe('development mock repository', () => {
     const barbershop = await repository.barbershop()
     expect(barbershop.monthlyFeeCents).toBe(2_000)
     expect(barbershop.commissionBps).toBe(100)
+    expect(barbershop.membershipRole).toBe('OWNER')
   })
 
   it('persists tenant branding, hours and Mercado Pago connection', async () => {
@@ -116,6 +117,75 @@ describe('development mock repository', () => {
     await expect(repository.createAppointment(input)).rejects.toThrow('Este horário acabou de ser reservado')
     const stored = await repository.appointments(repository.mockUser('CUSTOMER'))
     expect(stored.filter((item) => item.scheduledAt === input.scheduledAt)).toEqual([first.appointment])
+  })
+
+  it('returns no availability on a closed day', async () => {
+    await expect(repository.availability('barber-demo', 'service-cut', '2099-08-02')).resolves.toEqual({
+      date: '2099-08-02',
+      timezone: 'America/Sao_Paulo',
+      open: false,
+      reason: 'A barbearia não atende neste dia',
+      slots: [],
+    })
+  })
+
+  it('removes availability slots that conflict with an appointment', async () => {
+    await repository.createAppointment({
+      barberId: 'barber-demo',
+      serviceId: 'service-cut',
+      scheduledAt: '2099-08-05T13:00:00.000Z',
+    })
+
+    const availability = await repository.availability('barber-demo', 'service-cut', '2099-08-05')
+
+    expect(availability.slots.map((slot) => slot.label)).not.toContain('10:00')
+  })
+
+  it('converts mock availability from the barbershop timezone to UTC', async () => {
+    const availability = await repository.availability('barber-demo', 'service-cut', '2099-08-05')
+
+    expect(availability.slots[0]).toEqual({
+      scheduledAt: '2099-08-05T12:00:00.000Z',
+      label: '09:00',
+    })
+  })
+
+  it('reschedules without conflicting with itself or changing payment data', async () => {
+    const input = {
+      barberId: 'barber-demo',
+      serviceId: 'service-cut',
+      scheduledAt: nextOpenDate(13).toISOString(),
+    }
+    const { appointment } = await repository.createAppointment(input)
+
+    const updated = await repository.rescheduleAppointment(appointment.id, appointment.scheduledAt)
+
+    expect(updated).toMatchObject({
+      scheduledAt: appointment.scheduledAt,
+      barberId: appointment.barberId,
+      serviceId: appointment.serviceId,
+      paymentStatus: appointment.paymentStatus,
+      paymentExpiresAt: appointment.paymentExpiresAt,
+      paymentAmount: appointment.paymentAmount,
+      commission: appointment.commission,
+    })
+  })
+
+  it('rejects rescheduling outside business hours without changing the appointment', async () => {
+    const before = (await repository.appointments(repository.mockUser('CUSTOMER')))[0]
+    const sunday = nextOpenDate()
+    while (sunday.getDay() !== 0) sunday.setDate(sunday.getDate() + 1)
+
+    await expect(repository.rescheduleAppointment(before.id, sunday.toISOString()))
+      .rejects.toThrow('A barbearia não atende neste dia')
+    expect((await repository.appointments(repository.mockUser('CUSTOMER')))[0]).toEqual(before)
+  })
+
+  it('rejects rescheduling a terminal appointment', async () => {
+    await repository.updateAppointment('appointment-1', 'DONE')
+
+    await expect(repository.rescheduleAppointment('appointment-1', nextOpenDate(13).toISOString()))
+      .rejects.toThrow('Este agendamento não pode ser remarcado')
   })
 
   it('rejects changes to a terminal appointment and preserves its status', async () => {

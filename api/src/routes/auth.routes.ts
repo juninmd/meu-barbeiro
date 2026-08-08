@@ -3,8 +3,14 @@ import { googleAuthConfigured, passport } from '../lib/passport.js'
 
 const router = Router()
 
+const devLoginEnabled = () => process.env.ENABLE_DEV_LOGIN === 'true' && process.env.NODE_ENV !== 'production'
+
 router.get('/google', (req, res, next) => {
   if (!googleAuthConfigured) {
+    if (devLoginEnabled()) {
+      res.redirect(`${process.env.API_PUBLIC_URL || 'http://localhost:3333'}/dev/google`)
+      return
+    }
     res.status(503).json({ message: 'Login com Google não configurado' })
     return
   }

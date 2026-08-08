@@ -61,7 +61,10 @@ router.get('/current', resolveBarbershop, async (req, res) => {
   const membership = user ? await prisma.membership.findUnique({
     where: { barbershopId_userId: { barbershopId: req.barbershop!.id, userId: user.id } },
   }) : null
-  res.json(publicBarbershop(req.barbershop!, Boolean(membership)))
+  res.json({
+    ...publicBarbershop(req.barbershop!, Boolean(membership)),
+    membershipRole: membership?.role ?? null,
+  })
 })
 
 router.patch(
@@ -97,7 +100,10 @@ router.patch(
         include: { businessHours: { orderBy: { weekday: 'asc' } } },
       })
     })
-    res.json(publicBarbershop(barbershop, true))
+    res.json({
+      ...publicBarbershop(barbershop, true),
+      membershipRole: req.membership?.role ?? null,
+    })
   },
 )
 

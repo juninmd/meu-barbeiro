@@ -8,6 +8,7 @@ import { authRoutes } from './routes/auth.routes.js'
 import { barbersRoutes } from './routes/barbers.routes.js'
 import { barbershopsRoutes } from './routes/barbershops.routes.js'
 import { billingRoutes } from './routes/billing.routes.js'
+import { devRoutes } from './routes/dev.routes.js'
 import { errorHandler } from './middleware/errors.js'
 import { PrismaSessionStore } from './lib/session-store.js'
 
@@ -45,6 +46,11 @@ app.use(passport.session())
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
+
+if (process.env.ENABLE_DEV_LOGIN === 'true' && process.env.NODE_ENV !== 'production') {
+  app.use('/dev', devRoutes)
+  console.warn('ENABLE_DEV_LOGIN=true — rotas /dev habilitadas (uso local apenas)')
+}
 
 app.use('/auth', authRoutes)
 app.use('/barbershops', barbershopsRoutes)
