@@ -308,6 +308,18 @@ describe('development mock repository', () => {
     expect(availability.slots.map((slot) => slot.label)).not.toContain('10:00')
   })
 
+  it('keeps the dated barber list aligned with the slot selector', async () => {
+    const availability = await repository.availability('barber-demo', 'service-cut', '2099-08-05')
+    const listed = (await repository.barbers('2099-08-05', ['service-cut']))
+      .find((barber) => barber.id === 'barber-demo')
+
+    expect(listed).toMatchObject({
+      available: availability.slots.length > 0,
+      slotCount: availability.slots.length,
+      firstAvailableTime: availability.slots[0]?.label,
+    })
+  })
+
   it('persists barber schedules and restricts mock availability without expanding the shop', async () => {
     await repository.updateBarberSchedule('barber-demo', [{
       weekday: 3, startsAt: '10:00', endsAt: '22:00', enabled: true,

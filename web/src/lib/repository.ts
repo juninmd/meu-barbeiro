@@ -493,9 +493,51 @@ export const repository = {
     writeState(state)
   },
 
-  async barbers(): Promise<Barber[]> {
+  async barbers(date?: string, serviceIds: string[] = []): Promise<Barber[]> {
+    if (mockEnabled && date) {
+      const state = readState()
+      const results = await Promise.all(barbers.map(async (barber) => {
+        const availability = await repository.availability(barber.id, serviceIds[0] ?? 'service-cut', date)
+        const weekday = weekdayNumbers[localParts(dateAtLocalTime(date, '12:00', state.barbershop.timezone), state.barbershop.timezone).weekday ?? '']
+        const barberSchedule = state.barberSchedules.filter((item) => item.barberId === barber.id)
+        const dayStart = dateAtLocalTime(date, '00:00', state.barbershop.timezone).getTime()
+        const dayEnd = dateAtLocalTime(new Date(Date.parse(`${date}T00:00:00.000Z`) + dayMs).toISOString().slice(0, 10), '00:00', state.barbershop.timezone).getTime()
+        const hasAbsence = state.barberAbsences.some((item) => item.barberId === barber.id
+          && new Date(item.startsAt).getTime() < dayEnd && dayStart < new Date(item.endsAt).getTime())
+        const unavailableReason = availability.slots.length > 0
+          ? null
+          : availability.reason?.includes('barbearia')
+            ? 'folga' as const
+            : barberSchedule.length > 0 && !barberSchedule.some((item) => item.weekday === weekday && item.enabled)
+              ? 'fora da escala' as const
+              : hasAbsence
+                ? 'ausência' as const
+                : 'agenda cheia' as const
+        let nextAvailableDate: string | null = null
+        if (availability.slots.length === 0) {
+          for (let offset = 1; offset <= 60; offset += 1) {
+            const candidate = new Date(Date.parse(`${date}T00:00:00.000Z`) + offset * dayMs).toISOString().slice(0, 10)
+            if ((await repository.availability(barber.id, serviceIds[0] ?? 'service-cut', candidate)).slots.length > 0) {
+              nextAvailableDate = candidate
+              break
+            }
+          }
+        }
+        return {
+          ...barber,
+          available: availability.slots.length > 0,
+          unavailableReason,
+          slotCount: availability.slots.length,
+          firstAvailableTime: availability.slots[0]?.label ?? null,
+          nextAvailableDate,
+        }
+      }))
+      return results
+    }
     if (mockEnabled) return barbers
-    return (await api.get<Barber[]>('/barbers')).data
+    return (await api.get<Barber[]>('/barbers', {
+      params: { date, serviceIds: serviceIds.length > 0 ? serviceIds.join(',') : undefined },
+    })).data
   },
 
   async barberAbsences(barberId: string): Promise<BarberAbsence[]> {

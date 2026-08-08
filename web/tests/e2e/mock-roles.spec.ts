@@ -62,9 +62,9 @@ test('registra agendamento, validações, cancelamento e histórico do cliente',
   await page.getByRole('button', { name: 'Continuar' }).click()
   await capture(page, testInfo, '06-cliente-servico-selecionado')
 
-  await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
-  await page.getByRole('button', { name: 'Continuar' }).click()
   await page.getByLabel('Data').fill(saturday)
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
   await page.getByRole('button', { name: 'Selecionar horário 11:00' }).click()
   await capture(page, testInfo, '07-cliente-agendamento-preenchido')
 
@@ -77,10 +77,9 @@ test('registra agendamento, validações, cancelamento e histórico do cliente',
   await page.getByRole('link', { name: 'Agendar', exact: true }).click()
   await page.getByRole('group', { name: /O que vamos fazer/ }).getByText('Corte assinatura', { exact: true }).click()
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
-  await page.getByRole('button', { name: 'Continuar' }).click()
   await page.getByLabel('Data').fill(closedSunday)
-  await expect(page.getByText('A barbearia não atende neste dia')).toBeVisible()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await expect(page.getByText('Ninguém disponível nesta data')).toBeVisible()
   await capture(page, testInfo, '10-cliente-dia-fora-do-expediente')
 
   await page.getByRole('link', { name: 'Meus horários' }).click()
@@ -170,9 +169,9 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
 
   await page.getByRole('radio', { name: /Corte assinatura/ }).check()
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByRole('radio', { name: /Rafael Navalha/ }).check()
-  await page.getByRole('button', { name: 'Continuar' }).click()
   await page.getByLabel('Data').fill('2026-07-18')
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('radio', { name: /Rafael Navalha/ }).check()
   await expect(page.getByRole('heading', { name: 'Manhã' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Tarde' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Noite' })).toBeVisible()
@@ -186,7 +185,7 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
 
   await page.getByRole('button', { name: 'Remarcar' }).click()
   await expect(page.getByText('Serviço e barbeiro serão mantidos. O pagamento já feito continua valendo.')).toBeVisible()
-  await expect(page.getByText('Passo 3 de 3')).toBeVisible()
+  await expect(page.getByText('Passo 2 de 3')).toBeVisible()
   await page.getByRole('button', { name: 'Manter horário atual' }).click()
 
   await page.getByRole('button', { name: 'Cancelar horário' }).click()
