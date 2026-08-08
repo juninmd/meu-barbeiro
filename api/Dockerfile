@@ -6,9 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY api/package.json ./api/
-RUN pnpm install --filter api --frozen-lockfile
+# o schema precisa existir antes do install: o postinstall roda prisma generate
 COPY api/prisma ./api/prisma
-RUN pnpm --filter api exec prisma generate
+RUN pnpm install --filter api --frozen-lockfile
 COPY api/tsconfig.json ./api/
 COPY api/src ./api/src
 WORKDIR /app/api
