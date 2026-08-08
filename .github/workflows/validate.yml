@@ -8,4 +8,10 @@ concurrency:
   cancel-in-progress: true
 jobs:
   check:
+    # O workflow reutilizado pede pull-requests:read. Como a permissao padrao do
+    # repositorio e somente leitura de conteudo, e o job aninhado nao pode ampliar
+    # o que o chamador recebeu, sem isto a execucao falha em startup_failure.
+    permissions:
+      contents: read
+      pull-requests: read
     uses: juninmd/base-actions/.github/workflows/reusable-validate.yml@main
