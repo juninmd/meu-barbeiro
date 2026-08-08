@@ -42,6 +42,7 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
   const [calendar, setCalendar] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [requestRevision, setRequestRevision] = useState(0)
   const canViewAll = barbershop.membershipRole === 'OWNER' || barbershop.membershipRole === 'ADMIN'
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
       })
       .catch((caught) => setError(errorMessage(caught, 'Não foi possível carregar o calendário')))
       .finally(() => setLoading(false))
-  }, [month, refreshKey])
+  }, [month, refreshKey, requestRevision])
 
   const selectWithKeyboard = (event: React.KeyboardEvent<HTMLButtonElement>, day: AppointmentCalendarDay) => {
     const index = calendar?.days.findIndex((item) => item.date === day.date) ?? -1
@@ -86,7 +87,7 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
       </div>
 
       {loading && <p className="calendar-feedback" role="status">Carregando calendário…</p>}
-      {error && <p className="calendar-feedback" role="alert">{error}</p>}
+      {error && <div className="list-feedback" role="alert"><p>{error}</p><button className="button button-small button-ghost" type="button" onClick={() => setRequestRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
       {calendar && !loading && (
         <>
           <div className="calendar-weekdays" aria-hidden="true">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div>

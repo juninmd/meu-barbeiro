@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { Login } from './components/Login'
 import { Shell } from './components/Shell'
 import { BarberDashboard } from './features/barber/BarberDashboard'
@@ -72,14 +73,27 @@ export default function App() {
 
   if (!user) return <Login onMockLogin={enterMock} />
 
+  const isBarber = user.role === 'BARBER' || user.role === 'ADMIN'
+  const hasUpcomingAppointment = data.appointments.some((appointment) => (
+    appointment.status !== 'CANCELLED'
+    && appointment.status !== 'DONE'
+    && new Date(appointment.scheduledAt) >= new Date()
+  ))
+  const defaultPath = isBarber
+    ? '/barbeiro/hoje'
+    : hasUpcomingAppointment ? '/cliente/horarios' : '/cliente/agendar'
+
   return (
     <Shell user={user} barbershop={data.barbershop} onLogout={logout} onSwitchRole={enterMock}>
       {error && <div className="error-banner" role="alert">{error}<button onClick={() => refresh()}>Tentar novamente</button></div>}
-      {user.role === 'BARBER' || user.role === 'ADMIN' ? (
-        <BarberDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} products={data.products} services={data.services} onRefresh={refresh} />
-      ) : (
-        <ClientDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} services={data.services} onRefresh={refresh} />
-      )}
+      <Routes>
+        {isBarber ? (
+          <Route path="/barbeiro/:section" element={<BarberDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} products={data.products} services={data.services} onRefresh={refresh} />} />
+        ) : (
+          <Route path="/cliente/:section" element={<ClientDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} services={data.services} onRefresh={refresh} />} />
+        )}
+        <Route path="*" element={<Navigate replace to={defaultPath} />} />
+      </Routes>
     </Shell>
   )
 }

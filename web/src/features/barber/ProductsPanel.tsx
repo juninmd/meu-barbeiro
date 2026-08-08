@@ -122,7 +122,7 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
         </div>
         {message && <p className="form-message" role="status">{message}</p>}
         <div className="product-list">
-          {products.length === 0 && <p className="empty-copy">Nenhum produto cadastrado.</p>}
+          {products.length === 0 && <p className="empty-copy">{canManage ? 'Nenhum produto cadastrado. Use o formulário abaixo para adicionar o primeiro.' : 'Nenhum produto disponível. Peça ao responsável para cadastrar o estoque.'}</p>}
           {products.map((product) => {
             const stockLevel = product.stockQuantity === 0 ? 'empty' : product.stockQuantity <= 3 ? 'low' : 'ok'
             return (

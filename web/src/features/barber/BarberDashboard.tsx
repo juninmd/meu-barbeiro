@@ -1,5 +1,6 @@
-import { CalendarCheck, Check, Clock3, Plus, Scissors, Trash2, TrendingUp, X } from 'lucide-react'
+import { CalendarCheck, Check, Clock3, Plus, Scissors, Trash2, TrendingUp, UserRound, X } from 'lucide-react'
 import { useState } from 'react'
+import { Navigate, useParams } from 'react-router-dom'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { CustomerProfileCard } from '../../components/CustomerProfileCard'
@@ -26,6 +27,7 @@ interface BarberDashboardProps {
 const isToday = (value: string) => new Date(value).toDateString() === new Date().toDateString()
 
 export function BarberDashboard({ appointments, barbers, barbershop, currentUser, products, services, onRefresh }: BarberDashboardProps) {
+  const { section } = useParams()
   const [serviceForm, setServiceForm] = useState<NewService>({ name: '', duration: 30, price: 0 })
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -45,10 +47,9 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
     .filter((item) => isToday(item.scheduledAt) && item.status === 'DONE')
     .reduce((sum, item) => sum + item.service.price, 0)
   const canManageBarbershop = barbershop?.membershipRole === 'OWNER' || barbershop?.membershipRole === 'ADMIN'
+  const remainingToday = today.filter((item) => new Date(item.scheduledAt) >= new Date() && item.status !== 'DONE')
+  const nextToday = remainingToday[0]
   const nextAppointment = upcoming[0]
-  const nextDayCount = nextAppointment
-    ? upcoming.filter((item) => new Date(item.scheduledAt).toDateString() === new Date(nextAppointment.scheduledAt).toDateString()).length
-    : 0
 
   const changeStatus = async (id: string, status: AppointmentStatus) => {
     setBusy(true)
@@ -122,42 +123,69 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
     { title: 'Anteriores', appointments: previous },
   ]
 
+  const allowedSections = canManageBarbershop
+    ? ['hoje', 'agenda', 'clientes', 'produtos', 'financeiro', 'ajustes']
+    : ['hoje', 'agenda', 'clientes', 'produtos']
+
+  if (!section || !allowedSections.includes(section)) return <Navigate replace to="/barbeiro/hoje" />
+
+  const appointmentItem = (appointment: Appointment, compact = false) => (
+    <article className={`timeline-item ${compact ? 'timeline-item-compact' : ''}`} key={appointment.id}>
+      <time>
+        <strong>{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(appointment.scheduledAt))}</strong>
+        <small>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(appointment.scheduledAt))}</small>
+      </time>
+      {!compact && <div className="timeline-line" />}
+      <div className="timeline-content">
+        <div className="appointment-top"><StatusBadge status={appointment.status} /><span>{formatCurrency(appointment.service.price)}</span></div>
+        <h3>{appointment.user.name}</h3>
+        <p><Scissors aria-hidden="true" /> {appointment.service.name} · {appointment.service.duration} min</p>
+        {!compact && <p className="reminder-note">{reminderStatus(appointment)}</p>}
+        {(appointment.user.noShowCount ?? 0) > 0 && <p className="no-show-note">Histórico: {appointment.user.noShowCount} falta(s) nesta barbearia</p>}
+        {appointment.depositRetained && <p className="no-show-note">Sinal pago retido</p>}
+        <div className="action-row">
+          {!compact && <button className="button button-small button-ghost" type="button" onClick={() => setProfileCustomerId((current) => current === appointment.userId ? null : appointment.userId)}>{profileCustomerId === appointment.userId ? 'Fechar ficha' : 'Abrir ficha'}</button>}
+          {appointment.status === 'PENDING' && <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}><Check aria-hidden="true" /> Confirmar</button>}
+          {appointment.status === 'CONFIRMED' && <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'DONE')}><Check aria-hidden="true" /> Concluir</button>}
+          {!compact && appointment.status === 'CONFIRMED' && new Date(appointment.scheduledAt).getTime() < Date.now() && <button className="button button-small button-danger" disabled={busy} onClick={() => setNoShowTarget(appointment)}><X aria-hidden="true" /> Faltou</button>}
+          {!compact && (appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}><X aria-hidden="true" /> Cancelar</button>}
+        </div>
+        {!compact && profileCustomerId === appointment.userId && <CustomerProfileCard userId={appointment.userId} />}
+      </div>
+    </article>
+  )
+
+  const customers = [...new Map(appointments.map((appointment) => [appointment.userId, appointment.user])).values()]
+
   return (
     <>
-    <main id="top" className="page-wrap">
-      <section className="hero barber-hero">
-        <div>
-          <p className="eyebrow"><Scissors aria-hidden="true" /> Central do profissional</p>
-          <h1>A cadeira está pronta.</h1>
-          <p>Confirme pedidos, acompanhe o dia e mantenha seu catálogo em ordem.</p>
-        </div>
-        <div className="hero-date"><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(new Date())}</span><strong>{new Date().getDate()}</strong></div>
-      </section>
-
-      <section className="metric-grid" aria-label="Resumo da agenda">
-        <Metric icon={<CalendarCheck />} label="Hoje" value={String(today.length)} note="horários na cadeira" />
-        <Metric icon={<Clock3 />} label="Aguardando" value={String(pending.length)} note="pedidos para confirmar" alert={pending.length > 0} />
-        <Metric icon={<TrendingUp />} label="Caixa hoje" value={formatCurrency(revenue)} note="somente serviços concluídos" />
-      </section>
-      {today.length === 0 && (
-        <p className="empty-day-note" role="status">
-          Sem atendimentos hoje{nextAppointment
-            ? ` · próximo: ${new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))} (${nextDayCount} ${nextDayCount === 1 ? 'horário' : 'horários'})`
-            : ''}
-        </p>
-      )}
-
+    <main id="top" className="page-wrap section-page" data-section={section}>
       {message && <p className="form-message global-message" role="status">{message}</p>}
 
-      {barbershop && <DailyClosing barbershop={barbershop} />}
+      {section === 'hoje' && (
+        <>
+          <header className="page-heading today-heading">
+            <div><p className="eyebrow"><Scissors aria-hidden="true" /> {new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(new Date())}</p><h1>A cadeira está pronta.</h1></div>
+            <time><strong>{new Date().getDate()}</strong><span>{new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date())}</span></time>
+          </header>
+          <section className="metric-grid today-metrics" aria-label="Resumo da agenda">
+            <Metric icon={<Clock3 />} label="Faltam" value={String(remainingToday.length)} note="clientes hoje" />
+            <Metric icon={<CalendarCheck />} label="Aguardando" value={String(pending.length)} note="para confirmar" alert={pending.length > 0} />
+            <Metric icon={<TrendingUp />} label="Entrou" value={formatCurrency(revenue)} note="concluído hoje" />
+          </section>
+          <section className="panel next-client-panel" aria-labelledby="next-client-title">
+            <div className="section-heading compact"><div><p className="eyebrow">Na sequência</p><h2 id="next-client-title">{nextToday ? 'Próximo cliente' : 'Agenda livre agora'}</h2></div><span className="count-badge">{remainingToday.length}</span></div>
+            {nextToday ? appointmentItem(nextToday, true) : <div className="empty-state"><CalendarCheck aria-hidden="true" /><strong>Ninguém aguardando hoje</strong><p>{nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Use Agenda para lançar um encaixe.'}</p></div>}
+          </section>
+        </>
+      )}
 
-      {barbershop && <WalkInForm barbers={barbers} barbershop={barbershop} currentUser={currentUser} services={services} onCreated={refreshAfterWalkIn} />}
-
-      {barbershop && <BarberAvailability barbers={barbers} barbershop={barbershop} currentUser={currentUser} onChanged={() => setCalendarRevision((current) => current + 1)} />}
-
-      {barbershop && <AppointmentCalendar barbershop={barbershop} refreshKey={`${calendarRevision}:${appointments.map((item) => `${item.id}:${item.status}`).join(',')}`} />}
-
-      <div className="barber-grid">
+      {section === 'agenda' && (
+        <>
+          <header className="page-heading"><p className="eyebrow">Operação</p><h1>Agenda e disponibilidade.</h1><p>Atendimentos, encaixes, calendário e ausências reunidos.</p></header>
+          {barbershop && <WalkInForm barbers={barbers} barbershop={barbershop} currentUser={currentUser} services={services} onCreated={refreshAfterWalkIn} />}
+          {barbershop && <BarberAvailability barbers={barbers} barbershop={barbershop} currentUser={currentUser} onChanged={() => setCalendarRevision((current) => current + 1)} />}
+          {barbershop && <AppointmentCalendar barbershop={barbershop} refreshKey={`${calendarRevision}:${appointments.map((item) => `${item.id}:${item.status}`).join(',')}`} />}
         <section className="panel agenda-panel" aria-labelledby="agenda-title">
           <div className="section-heading">
             <div><p className="eyebrow">Linha do tempo</p><h2 id="agenda-title">Agenda de atendimento</h2></div>
@@ -171,60 +199,50 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
                   <span className="count-badge">{group.appointments.length}</span>
                 </div>
                 {group.appointments.length === 0 && <p className="empty-copy">{group.empty}</p>}
-                {group.appointments.map((appointment) => (
-                  <article className="timeline-item" key={appointment.id}>
-                    <time>
-                      <strong>{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(appointment.scheduledAt))}</strong>
-                      <small>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(appointment.scheduledAt))}</small>
-                    </time>
-                    <div className="timeline-line" />
-                    <div className="timeline-content">
-                      <div className="appointment-top"><StatusBadge status={appointment.status} /><span>{formatCurrency(appointment.service.price)}</span></div>
-                      <h3>{appointment.user.name}</h3>
-                      <p><Scissors aria-hidden="true" /> {appointment.service.name} · {appointment.service.duration} min</p>
-                      <p className="reminder-note">{reminderStatus(appointment)}</p>
-                      {(appointment.user.noShowCount ?? 0) > 0 && <p className="no-show-note">Histórico: {appointment.user.noShowCount} falta(s) nesta barbearia</p>}
-                      {appointment.depositRetained && <p className="no-show-note">Sinal pago retido</p>}
-                      <div className="action-row">
-                        <button className="button button-small button-ghost" type="button" onClick={() => setProfileCustomerId((current) => current === appointment.userId ? null : appointment.userId)}>
-                          {profileCustomerId === appointment.userId ? 'Fechar ficha' : 'Abrir ficha'}
-                        </button>
-                        {appointment.status === 'PENDING' && (
-                          <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}>
-                            <Check aria-hidden="true" /> Confirmar
-                          </button>
-                        )}
-                        {appointment.status === 'CONFIRMED' && (
-                          <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'DONE')}>
-                            <Check aria-hidden="true" /> Concluir
-                          </button>
-                        )}
-                        {appointment.status === 'CONFIRMED' && new Date(appointment.scheduledAt).getTime() < Date.now() && (
-                          <button className="button button-small button-danger" disabled={busy} onClick={() => setNoShowTarget(appointment)}>
-                            <X aria-hidden="true" /> Faltou
-                          </button>
-                        )}
-                        {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && (
-                          <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}>
-                            <X aria-hidden="true" /> Cancelar
-                          </button>
-                        )}
-                      </div>
-                      {profileCustomerId === appointment.userId && <CustomerProfileCard userId={appointment.userId} />}
-                    </div>
-                  </article>
-                ))}
+                {group.appointments.map((appointment) => appointmentItem(appointment))}
               </section>
             ))}
           </div>
         </section>
+        </>
+      )}
 
-        <div className="catalog-stack">
+      {section === 'clientes' && (
+        <>
+          <header className="page-heading"><p className="eyebrow">Relacionamento</p><h1>Clientes.</h1><p>Abra a ficha, consulte fidelidade e registre preferências sem procurar na agenda.</p></header>
+          <section className="panel customers-panel" aria-labelledby="customers-title">
+            <div className="section-heading compact"><div><p className="eyebrow">Base atendida</p><h2 id="customers-title">Fichas de clientes</h2></div><span className="count-badge">{customers.length}</span></div>
+            {customers.length === 0 && <div className="empty-state"><UserRound aria-hidden="true" /><strong>Nenhum cliente ainda</strong><p>As fichas aparecem depois do primeiro agendamento.</p></div>}
+            <div className="customer-card-list">
+              {customers.map((customer) => (
+                <article className="customer-card" key={customer.id}>
+                  <div><strong>{customer.name}</strong><span>{appointments.filter((appointment) => appointment.userId === customer.id).length} atendimento(s)</span></div>
+                  <button className="button button-small button-ghost" type="button" onClick={() => setProfileCustomerId((current) => current === customer.id ? null : customer.id)}>{profileCustomerId === customer.id ? 'Fechar ficha' : 'Abrir ficha'}</button>
+                  {profileCustomerId === customer.id && <CustomerProfileCard userId={customer.id} />}
+                </article>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {section === 'produtos' && (
+        <><header className="page-heading"><p className="eyebrow">Estoque e balcão</p><h1>Produtos.</h1><p>Venda, entrada e catálogo em uma área própria.</p></header><ProductsPanel canManage={canManageBarbershop} products={products} onRefresh={onRefresh} /></>
+      )}
+
+      {section === 'financeiro' && barbershop && (
+        <><header className="page-heading"><p className="eyebrow">Resultados</p><h1>Financeiro.</h1><p>Feche o período e acompanhe o que entrou.</p></header><DailyClosing barbershop={barbershop} /></>
+      )}
+
+      {section === 'ajustes' && (
+        <>
+          <header className="page-heading"><p className="eyebrow">Administração</p><h1>Ajustes.</h1><p>Serviços, marca, horários, sinal, lembretes e fidelidade.</p></header>
           <section className="panel services-panel" aria-labelledby="services-title">
           <div className="section-heading compact">
             <div><p className="eyebrow">Seu menu</p><h2 id="services-title">Serviços</h2></div>
           </div>
           <div className="service-list">
+            {services.length === 0 && <p className="empty-copy">Nenhum serviço cadastrado. Adicione o primeiro serviço abaixo.</p>}
             {services.map((service) => (
               <article className="service-row" key={service.id}>
                 <div><strong>{service.name}</strong><span>{service.duration} min · {formatCurrency(service.price)}</span></div>
@@ -252,10 +270,9 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
             </form>
           )}
           </section>
-          <ProductsPanel canManage={canManageBarbershop} products={products} onRefresh={onRefresh} />
-        </div>
-      </div>
-      {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
+          {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
+        </>
+      )}
     </main>
     {serviceToDelete && (
       <ConfirmDialog
