@@ -1,0 +1,10 @@
+# Valores descartaveis da stack local de homologacao, introduzidos em 4cff9f1 e
+# removidos do HEAD logo em seguida: a senha do Postgres era igual ao usuario num
+# banco sem porta publicada, e a chave de criptografia era gerada so para o
+# ambiente local. Nada disso existe fora da maquina de quem sobe o docker
+# compose, entao nao ha o que rotacionar.
+#
+# A supressao e por fingerprint, presa a esse commit: qualquer ocorrencia nova,
+# em qualquer outro lugar, continua reprovando a varredura.
+4cff9f1e0b47191cdd78b42668e50ac9241d03dc:docker-compose.yml:juninmd-db-uri-credentials:51
+4cff9f1e0b47191cdd78b42668e50ac9241d03dc:docker-compose.yml:generic-api-key:53
