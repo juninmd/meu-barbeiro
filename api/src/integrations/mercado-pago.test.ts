@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { describe, it } from 'node:test'
-import { MercadoPagoClient, verifyMercadoPagoSignature } from './mercado-pago.js'
+import { MercadoPagoClient, parseSubscriptionReference, verifyMercadoPagoSignature } from './mercado-pago.js'
 
 describe('MercadoPagoClient', () => {
   it('creates the R$ 20 monthly SaaS subscription', async () => {
@@ -29,7 +29,7 @@ describe('MercadoPagoClient', () => {
     assert.equal(new Headers(calls[0]?.init?.headers).get('authorization'), 'Bearer platform-token')
     assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
       reason: 'Meu Barbeiro - assinatura mensal',
-      external_reference: 'shop-1',
+      external_reference: 'saas:shop-1',
       payer_email: 'owner@example.com',
       auto_recurring: {
         frequency: 1,
@@ -39,6 +39,23 @@ describe('MercadoPagoClient', () => {
       },
       back_url: 'https://app.example.com/settings/billing',
     })
+  })
+
+  it('creates a customer membership through the same preapproval API with an unambiguous reference', async () => {
+    let request: RequestInit | undefined
+    const client = new MercadoPagoClient({
+      accessToken: 'platform-token', clientId: 'client-id', clientSecret: 'client-secret',
+      fetch: async (_input, init) => { request = init; return Response.json({ id: 'customer-preapproval', init_point: 'https://mp.test/customer' }) },
+    })
+
+    await client.createCustomerSubscription({
+      subscriptionId: 'membership-1', planName: 'Clube Quinzenal', priceCents: 9_900,
+      intervalDays: 15, payerEmail: 'customer@example.com', backUrl: 'https://app.example.com',
+    })
+
+    const body = JSON.parse(String(request?.body))
+    assert.equal(body.external_reference, 'customer:membership-1')
+    assert.deepEqual(body.auto_recurring, { frequency: 15, frequency_type: 'days', transaction_amount: 99, currency_id: 'BRL' })
   })
 
   it('authorizes a seller with OAuth PKCE without exposing credentials', async () => {
@@ -111,6 +128,19 @@ describe('MercadoPagoClient', () => {
     assert.equal(body.external_reference, 'appointment-1')
   })
 
+  it('sends the exact partial refund amount in reais', async () => {
+    let request: RequestInit | undefined
+    const client = new MercadoPagoClient({
+      accessToken: 'platform-token', clientId: 'client-id', clientSecret: 'client-secret',
+      fetch: async (_input, init) => { request = init; return Response.json({ id: 'refund-1' }) },
+    })
+
+    await client.refundPayment('payment-1', 'seller-token', 'refund-key', 3_334)
+
+    assert.deepEqual(JSON.parse(String(request?.body)), { amount: 33.34 })
+    assert.equal(new Headers(request?.headers).get('x-idempotency-key'), 'refund-key')
+  })
+
   it('accepts only authentic Mercado Pago webhook signatures', () => {
     const secret = 'webhook-secret'
     const manifest = 'id:payment-1;request-id:request-1;ts:1704908010;'
@@ -120,5 +150,11 @@ describe('MercadoPagoClient', () => {
     assert.equal(verifyMercadoPagoSignature({ signature, requestId: 'request-1', dataId: 'payment-1', secret }), true)
     assert.equal(verifyMercadoPagoSignature({ signature, requestId: 'request-1', dataId: 'tampered', secret }), false)
     assert.equal(verifyMercadoPagoSignature({ signature: 'invalid', requestId: 'request-1', dataId: 'payment-1', secret }), false)
+  })
+
+  it('keeps platform and customer subscription webhooks isolated', () => {
+    assert.deepEqual(parseSubscriptionReference('saas:shop-1'), { kind: 'saas', id: 'shop-1' })
+    assert.deepEqual(parseSubscriptionReference('customer:subscription-1'), { kind: 'customer', id: 'subscription-1' })
+    assert.deepEqual(parseSubscriptionReference('legacy-shop'), { kind: 'saas', id: 'legacy-shop' })
   })
 })

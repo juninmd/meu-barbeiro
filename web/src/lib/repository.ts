@@ -9,9 +9,13 @@ import type {
   BarberAbsence,
   BarberSchedule,
   Barbershop,
+  CancellationQuote,
+  CancellationReport,
+  CustomerSubscription,
   CustomerProfileFields,
   CustomerProfileResponse,
   CustomerSummary,
+  FitNowResponse,
   Holiday,
   LastAppointment,
   LoyaltyCard,
@@ -23,14 +27,21 @@ import type {
   NewProduct,
   NewProductSale,
   NewWalkInAppointment,
+  NewWalkInQueueEntry,
   NewService,
+  NotificationPreferences,
+  MembershipPlan,
+  NewMembershipPlan,
+  NewRecurringBooking,
   Product,
   ProductSale,
   Role,
   RevenueReport,
+  RecurringBooking,
   Service,
   UpdateProduct,
   User,
+  WalkInQueueEntry,
 } from '../types'
 
 const tenantSlug = window.location.pathname.match(/^\/b\/([a-z0-9-]+)/)?.[1]
@@ -92,6 +103,11 @@ interface MockState {
   customerProfiles: Record<string, CustomerProfileFields>
   loyaltyProgram: LoyaltyProgram
   loyaltyStamps: Array<LoyaltyCard['stamps'][number] & { userId: string }>
+  notificationPreferences: NotificationPreferences
+  walkInQueue: WalkInQueueEntry[]
+  membershipPlans: MembershipPlan[]
+  customerSubscriptions: CustomerSubscription[]
+  recurringBookings: RecurringBooking[]
 }
 
 const storageKey = 'meu-barbeiro:mock-state:v2'
@@ -107,6 +123,8 @@ const initialBarbershop: Barbershop = {
   timezone: 'America/Sao_Paulo',
   depositType: 'FULL',
   depositValue: 0,
+  cancellationWindowHours: 6,
+  lateCancellationFeeBps: 2_500,
   monthlyFeeCents: 2_000,
   commissionBps: 100,
   remindersEnabled: true,
@@ -144,6 +162,18 @@ const seedState = (): MockState => ({
   },
   loyaltyProgram: { id: 'loyalty-demo', enabled: true, requiredVisits: 10, rewardDescription: 'Um corte por nossa conta' },
   loyaltyStamps: [],
+  notificationPreferences: {
+    notificationTypes: ['NEW_APPOINTMENT', 'CANCELLATION', 'RESCHEDULE', 'NO_SHOW', 'DAILY_SUMMARY'],
+    dailySummaryTime: '07:00',
+    telegramLinked: Boolean(barbers[0].telegramId),
+  },
+  walkInQueue: [],
+  membershipPlans: [{
+    id: 'plan-clube', name: 'Clube do Corte', priceCents: 9_900, intervalDays: 30,
+    includedVisits: 2, serviceIds: ['service-cut'], active: true,
+  }],
+  customerSubscriptions: [],
+  recurringBookings: [],
   appointments: [
     {
       id: 'appointment-1',
@@ -227,6 +257,11 @@ const readState = (): MockState => {
       customerProfiles: parsed.customerProfiles ?? seeded.customerProfiles,
       loyaltyProgram: parsed.loyaltyProgram ?? seeded.loyaltyProgram,
       loyaltyStamps: parsed.loyaltyStamps ?? seeded.loyaltyStamps,
+      notificationPreferences: parsed.notificationPreferences ?? seeded.notificationPreferences,
+      walkInQueue: parsed.walkInQueue ?? seeded.walkInQueue,
+      membershipPlans: parsed.membershipPlans ?? seeded.membershipPlans,
+      customerSubscriptions: parsed.customerSubscriptions ?? seeded.customerSubscriptions,
+      recurringBookings: parsed.recurringBookings ?? seeded.recurringBookings,
     }
   } catch {
     localStorage.removeItem(storageKey)
@@ -315,10 +350,11 @@ const validateMockSchedule = (
   service: Service,
   value: string,
   excludeAppointmentId?: string,
+  now = Date.now(),
 ) => {
   const scheduledAt = new Date(value)
   if (Number.isNaN(scheduledAt.getTime())) throw new Error('Horário inválido')
-  if (scheduledAt.getTime() <= Date.now()) throw new Error('Horário deve estar no futuro')
+  if (scheduledAt.getTime() <= now) throw new Error('Horário deve estar no futuro')
   const scheduledParts = localParts(scheduledAt, state.barbershop.timezone)
   const configuredHours = state.barbershop.businessHours.find((item) => item.weekday === weekdayNumbers[scheduledParts.weekday ?? ''])
   const startAt = Number(scheduledParts.hour) * 60 + Number(scheduledParts.minute)
@@ -359,6 +395,81 @@ const validateMockSchedule = (
   })
   if (conflict) throw new Error('Este horário acabou de ser reservado')
   return scheduledAt
+}
+
+const aggregateService = (state: MockState, serviceIds: string[]): Service => {
+  const services = serviceIds.map((id) => state.services.find((service) => service.id === id && service.active !== false))
+  if (services.some((service) => !service)) throw new Error('Serviço inválido ou inativo')
+  return {
+    id: serviceIds.join(':'),
+    name: services.map((service) => service!.name).join(' + '),
+    duration: services.reduce((total, service) => total + service!.duration, 0),
+    price: services.reduce((total, service) => total + service!.price, 0),
+  }
+}
+
+const mockQueueView = (state: MockState, now = new Date()): WalkInQueueEntry[] => {
+  const today = localParts(now, state.barbershop.timezone)
+  const todayLabel = `${today.year}-${today.month}-${today.day}`
+  const entries = state.walkInQueue.filter((entry) => {
+    const arrived = localParts(new Date(entry.arrivedAt), state.barbershop.timezone)
+    return `${arrived.year}-${arrived.month}-${arrived.day}` === todayLabel
+  })
+  const waiting = entries.filter((entry) => entry.status === 'WAITING')
+    .sort((left, right) => left.arrivedAt.localeCompare(right.arrivedAt) || left.id.localeCompare(right.id))
+  const virtualState: MockState = { ...state, appointments: [...state.appointments] }
+  const estimates = new Map<string, { position: number; startsAt: Date | null; barberId: string | null }>()
+  const nextQueueAt = new Map<string, number>()
+  const tomorrow = new Date(`${todayLabel}T12:00:00.000Z`)
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+  const endOfDay = dateAtLocalTime(tomorrow.toISOString().slice(0, 10), '00:00', state.barbershop.timezone)
+
+  waiting.forEach((entry, index) => {
+    const service = aggregateService(state, entry.serviceIds)
+    const eligible = entry.barberId ? barbers.filter((barber) => barber.id === entry.barberId) : barbers
+    let selected: { startsAt: Date; barber: Barber } | null = null
+    for (const barber of eligible) {
+      const first = Math.max(now.getTime(), nextQueueAt.get(barber.id) ?? now.getTime())
+      for (let timestamp = first; timestamp + service.duration * 60_000 <= endOfDay.getTime(); timestamp += 60_000) {
+        try {
+          validateMockSchedule(virtualState, barber.id, service, new Date(timestamp).toISOString(), undefined, now.getTime() - 1)
+          if (!selected || timestamp < selected.startsAt.getTime()) selected = { startsAt: new Date(timestamp), barber }
+          break
+        } catch { /* try the next minute */ }
+      }
+    }
+    estimates.set(entry.id, { position: index + 1, startsAt: selected?.startsAt ?? null, barberId: selected?.barber.id ?? null })
+    if (selected) {
+      nextQueueAt.set(selected.barber.id, selected.startsAt.getTime() + service.duration * 60_000)
+      virtualState.appointments.push({
+        id: `queue-${entry.id}`,
+        userId: entry.userId ?? `guest-${entry.id}`,
+        barberId: selected.barber.id,
+        serviceId: service.id,
+        scheduledAt: selected.startsAt.toISOString(),
+        status: 'CONFIRMED',
+        paymentStatus: 'NOT_REQUIRED',
+        paymentExpiresAt: null,
+        paymentAmount: 0,
+        commission: 0,
+        user: { id: entry.userId ?? `guest-${entry.id}`, name: entry.name, role: 'CUSTOMER' },
+        barber: selected.barber,
+        service,
+      })
+    }
+  })
+
+  return entries.map((entry) => {
+    const estimate = estimates.get(entry.id)
+    return {
+      ...entry,
+      services: entry.serviceIds.flatMap((id) => state.services.filter((service) => service.id === id)),
+      position: estimate?.position ?? null,
+      estimatedMinutes: estimate?.startsAt ? Math.max(0, Math.ceil((estimate.startsAt.getTime() - now.getTime()) / 60_000)) : null,
+      estimatedStartAt: estimate?.startsAt?.toISOString() ?? null,
+      assignedBarber: estimate?.barberId ? barbers.find((barber) => barber.id === estimate.barberId) ?? null : null,
+    }
+  })
 }
 
 const selectedMockUser = (role: Role): User => role === 'BARBER' ? barbers[0] : customer
@@ -429,9 +540,26 @@ export const repository = {
   async updateBarbershop(input: Barbershop): Promise<Barbershop> {
     if (!mockEnabled) return (await api.patch<Barbershop>('/barbershops/current', input)).data
     const state = readState()
+    if (!Number.isInteger(input.cancellationWindowHours) || input.cancellationWindowHours < 0 || input.cancellationWindowHours > 720) throw new Error('Janela de cancelamento inválida')
+    if (!Number.isInteger(input.lateCancellationFeeBps) || input.lateCancellationFeeBps < 0 || input.lateCancellationFeeBps > 10_000) throw new Error('Percentual de retenção inválido')
     state.barbershop = { ...state.barbershop, ...input }
     writeState(state)
     return state.barbershop
+  },
+
+  async notificationPreferences(): Promise<NotificationPreferences> {
+    if (mockEnabled) return readState().notificationPreferences
+    return (await api.get<NotificationPreferences>('/barbershops/current/notification-preferences')).data
+  },
+
+  async updateNotificationPreferences(input: Omit<NotificationPreferences, 'telegramLinked'>): Promise<NotificationPreferences> {
+    if (!mockEnabled) {
+      return (await api.patch<NotificationPreferences>('/barbershops/current/notification-preferences', input)).data
+    }
+    const state = readState()
+    state.notificationPreferences = { ...input, telegramLinked: state.notificationPreferences.telegramLinked }
+    writeState(state)
+    return state.notificationPreferences
   },
 
   async holidays(year?: number): Promise<Holiday[]> {
@@ -831,16 +959,27 @@ export const repository = {
     }
     if (!barber) throw new Error('Este horário acabou de ser reservado')
     validateMockSchedule(state, barber.id, service, input.scheduledAt)
+    const subscription = state.customerSubscriptions.find((item) => item.userId === customer.id && item.status === 'ACTIVE')
+    if (subscription && new Date() >= new Date(subscription.currentPeriodEnd)) {
+      subscription.currentPeriodStart = subscription.currentPeriodEnd
+      subscription.currentPeriodEnd = new Date(new Date(subscription.currentPeriodStart).getTime() + subscription.plan.intervalDays * 86_400_000).toISOString()
+      subscription.visitsUsed = 0
+    }
+    const covered = Boolean(subscription
+      && subscription.plan.serviceIds.includes(service.id)
+      && subscription.visitsUsed < subscription.plan.includedVisits)
+    if (covered) subscription!.visitsUsed += 1
     const appointment: Appointment = {
       id: crypto.randomUUID(),
       userId: customer.id,
       ...input,
       barberId: barber.id,
       status: 'PENDING',
-      paymentStatus: state.barbershop.depositType === 'NONE' ? 'NOT_REQUIRED' : 'APPROVED',
+      ...(covered ? { customerSubscriptionId: subscription!.id } : {}),
+      paymentStatus: covered || state.barbershop.depositType === 'NONE' ? 'NOT_REQUIRED' : 'APPROVED',
       paymentExpiresAt: null,
-      paymentAmount: depositAmount(service.price, state.barbershop),
-      commission: state.barbershop.depositType === 'NONE' ? 0 : commissionAmount(service.price, state.barbershop),
+      paymentAmount: covered ? 0 : depositAmount(service.price, state.barbershop),
+      commission: covered || state.barbershop.depositType === 'NONE' ? 0 : commissionAmount(service.price, state.barbershop),
       clientConfirmed: false,
       reminders: [],
       user: customer,
@@ -850,6 +989,234 @@ export const repository = {
     state.appointments.push(appointment)
     writeState(state)
     return { appointment, checkoutUrl: null }
+  },
+
+  async membershipBenefit(serviceId: string): Promise<{ covered: boolean; remainingVisits: number }> {
+    if (!mockEnabled) return (await api.get<{ covered: boolean; remainingVisits: number }>('/appointments/membership-benefit', { params: { serviceId } })).data
+    const subscription = readState().customerSubscriptions.find((item) => item.userId === customer.id && item.status === 'ACTIVE')
+    const remainingVisits = subscription ? Math.max(0, subscription.plan.includedVisits - subscription.visitsUsed) : 0
+    return { covered: Boolean(subscription?.plan.serviceIds.includes(serviceId) && remainingVisits > 0), remainingVisits }
+  },
+
+  async membershipPlans(): Promise<MembershipPlan[]> {
+    if (!mockEnabled) return (await api.get<MembershipPlan[]>('/plans')).data
+    return readState().membershipPlans
+  },
+
+  async createMembershipPlan(input: NewMembershipPlan): Promise<MembershipPlan> {
+    if (!mockEnabled) return (await api.post<MembershipPlan>('/plans', input)).data
+    const state = readState()
+    const plan: MembershipPlan = { id: crypto.randomUUID(), active: true, ...input }
+    state.membershipPlans.unshift(plan)
+    writeState(state)
+    return plan
+  },
+
+  async customerSubscription(): Promise<CustomerSubscription | null> {
+    if (!mockEnabled) return (await api.get<CustomerSubscription | null>('/subscriptions/me')).data
+    return readState().customerSubscriptions.find((item) => item.userId === customer.id) ?? null
+  },
+
+  async customerSubscriptions(): Promise<CustomerSubscription[]> {
+    if (!mockEnabled) return (await api.get<CustomerSubscription[]>('/subscriptions')).data
+    return readState().customerSubscriptions
+  },
+
+  async subscribeMembership(planId: string): Promise<{ checkoutUrl: string | null }> {
+    if (!mockEnabled) return (await api.post<{ checkoutUrl: string | null }>('/subscriptions', { planId })).data
+    const state = readState()
+    if (state.customerSubscriptions.some((item) => item.userId === customer.id && item.status !== 'CANCELLED')) throw new Error('Você já possui uma assinatura neste estabelecimento')
+    const plan = state.membershipPlans.find((item) => item.id === planId && item.active)
+    if (!plan) throw new Error('Plano não encontrado')
+    const start = new Date()
+    state.customerSubscriptions.unshift({
+      id: crypto.randomUUID(), userId: customer.id, status: 'ACTIVE', currentPeriodStart: start.toISOString(),
+      currentPeriodEnd: new Date(start.getTime() + plan.intervalDays * 86_400_000).toISOString(), visitsUsed: 0, plan, user: customer,
+    })
+    writeState(state)
+    return { checkoutUrl: null }
+  },
+
+  async cancelCustomerSubscription(id: string): Promise<void> {
+    if (!mockEnabled) { await api.post(`/subscriptions/${id}/cancel`); return }
+    const state = readState()
+    const subscription = state.customerSubscriptions.find((item) => item.id === id)
+    if (!subscription) throw new Error('Assinatura não encontrada')
+    subscription.status = 'CANCELLED'
+    for (const booking of state.recurringBookings.filter((item) => item.subscriptionId === id)) booking.active = false
+    writeState(state)
+  },
+
+  async recurringBookings(): Promise<RecurringBooking[]> {
+    if (!mockEnabled) return (await api.get<RecurringBooking[]>('/recurring-bookings')).data
+    const state = readState()
+    const role = sessionStorage.getItem(mockSessionKey)
+    return role === 'CUSTOMER' ? state.recurringBookings.filter((item) => item.userId === customer.id) : state.recurringBookings
+  },
+
+  async createRecurringBooking(input: NewRecurringBooking): Promise<RecurringBooking> {
+    if (!mockEnabled) return (await api.post<RecurringBooking>('/recurring-bookings', input)).data
+    const state = readState()
+    const subscription = state.customerSubscriptions.find((item) => item.id === input.subscriptionId && item.status === 'ACTIVE')
+    if (!subscription) throw new Error('Assinatura ativa não encontrada')
+    const booking: RecurringBooking = {
+      id: crypto.randomUUID(), ...input, userId: input.userId ?? customer.id, active: true, occurrences: [],
+      user: customer, barber: barbers.find((item) => item.id === input.barberId), subscription,
+    }
+    state.recurringBookings.unshift(booking)
+    writeState(state)
+    return booking
+  },
+
+  async deleteRecurringBooking(id: string): Promise<void> {
+    if (!mockEnabled) { await api.delete(`/recurring-bookings/${id}`); return }
+    const state = readState()
+    const booking = state.recurringBookings.find((item) => item.id === id)
+    if (!booking) throw new Error('Horário fixo não encontrado')
+    booking.active = false
+    writeState(state)
+  },
+
+  async fitNow(serviceIds: string[], barberId?: string): Promise<FitNowResponse> {
+    if (!mockEnabled) {
+      return (await api.get<FitNowResponse>('/appointments/fit-now', {
+        params: { serviceIds: serviceIds.join(','), barberId },
+      })).data
+    }
+    const state = readState()
+    const service = aggregateService(state, serviceIds)
+    const now = new Date()
+    const today = localParts(now, state.barbershop.timezone)
+    const date = `${today.year}-${today.month}-${today.day}`
+    const next = new Date(`${date}T12:00:00.000Z`)
+    next.setUTCDate(next.getUTCDate() + 1)
+    const endOfDay = dateAtLocalTime(next.toISOString().slice(0, 10), '00:00', state.barbershop.timezone)
+    const selectedBarbers = barberId ? barbers.filter((barber) => barber.id === barberId) : barbers
+    if (selectedBarbers.length === 0) throw new Error('Barbeiro inválido')
+    return {
+      serviceIds,
+      duration: service.duration,
+      checkedAt: now.toISOString(),
+      timezone: state.barbershop.timezone,
+      barbers: selectedBarbers.map((barber) => {
+        const current = state.appointments.find((appointment) => {
+          const startsAt = new Date(appointment.scheduledAt).getTime()
+          return appointment.barberId === barber.id && appointment.status === 'CONFIRMED'
+            && startsAt <= now.getTime() && startsAt + appointment.service.duration * 60_000 > now.getTime()
+        })
+        let nextAvailableAt: Date | null = null
+        for (let timestamp = now.getTime(); timestamp + service.duration * 60_000 <= endOfDay.getTime(); timestamp += 60_000) {
+          if (timestamp !== now.getTime()) {
+            const candidateParts = localParts(new Date(timestamp), state.barbershop.timezone)
+            const hours = state.barbershop.businessHours.find((item) => item.weekday === weekdayNumbers[candidateParts.weekday ?? ''])
+            const candidateMinutes = Number(candidateParts.hour) * 60 + Number(candidateParts.minute)
+            if (!hours || (candidateMinutes - minutes(hours.opensAt)) % 15 !== 0) continue
+          }
+          try {
+            nextAvailableAt = validateMockSchedule(state, barber.id, service, new Date(timestamp).toISOString(), undefined, now.getTime() - 1)
+            break
+          } catch { /* try the next minute */ }
+        }
+        return {
+          barber: { id: barber.id, name: barber.name },
+          fitsNow: nextAvailableAt?.getTime() === now.getTime(),
+          nextAvailableAt: nextAvailableAt?.toISOString() ?? null,
+          currentServiceMinutesLeft: current
+            ? Math.ceil((new Date(current.scheduledAt).getTime() + current.service.duration * 60_000 - now.getTime()) / 60_000)
+            : 0,
+        }
+      }),
+    }
+  },
+
+  async walkInQueue(): Promise<WalkInQueueEntry[]> {
+    if (!mockEnabled) return (await api.get<WalkInQueueEntry[]>('/walk-in-queue')).data
+    const entries = mockQueueView(readState())
+    return sessionStorage.getItem(mockSessionKey) === 'CUSTOMER'
+      ? entries.filter((entry) => entry.userId === customer.id)
+      : entries
+  },
+
+  async joinWalkInQueue(input: NewWalkInQueueEntry): Promise<WalkInQueueEntry> {
+    if (!mockEnabled) return (await api.post<WalkInQueueEntry>('/walk-in-queue', input)).data
+    const state = readState()
+    aggregateService(state, input.serviceIds)
+    if (input.barberId && !barbers.some((barber) => barber.id === input.barberId)) throw new Error('Barbeiro inválido')
+    if (!input.userId && !input.guestName?.trim()) throw new Error('Informe um cliente cadastrado ou o nome do visitante')
+    const knownUser = input.userId
+      ? state.appointments.find((appointment) => appointment.userId === input.userId)?.user
+      : null
+    if (input.userId && !knownUser) throw new Error('Cliente inválido')
+    const now = new Date().toISOString()
+    const entry: WalkInQueueEntry = {
+      id: crypto.randomUUID(),
+      userId: input.userId ?? null,
+      guestName: input.guestName?.trim() ?? null,
+      name: knownUser?.name ?? input.guestName!.trim(),
+      serviceIds: input.serviceIds,
+      services: input.serviceIds.map((id) => state.services.find((service) => service.id === id)!),
+      barberId: input.barberId ?? null,
+      barber: input.barberId ? barbers.find((barber) => barber.id === input.barberId) ?? null : null,
+      assignedBarber: null,
+      status: 'WAITING',
+      arrivedAt: now,
+      calledAt: null,
+      finishedAt: null,
+      position: null,
+      estimatedMinutes: null,
+      estimatedStartAt: null,
+      createdAt: now,
+    }
+    state.walkInQueue.push(entry)
+    writeState(state)
+    return mockQueueView(state).find((item) => item.id === entry.id)!
+  },
+
+  async callWalkInQueue(id: string, barberId?: string): Promise<void> {
+    if (!mockEnabled) {
+      await api.post(`/walk-in-queue/${id}/call`, barberId ? { barberId } : {})
+      return
+    }
+    const state = readState()
+    const entry = mockQueueView(state).find((item) => item.id === id)
+    if (!entry || entry.status !== 'WAITING') throw new Error('Esta pessoa não está mais aguardando')
+    if (entry.estimatedMinutes !== 0 || !entry.assignedBarber) throw new Error(entry.estimatedMinutes == null ? 'Não há encaixe disponível hoje' : `Aguarde aproximadamente ${entry.estimatedMinutes} min`)
+    const selectedBarber = barbers.find((barber) => barber.id === (barberId ?? entry.assignedBarber?.id))
+    if (!selectedBarber || selectedBarber.id !== entry.assignedBarber.id) throw new Error('Esta cadeira ainda não está disponível')
+    const queueEntry = state.walkInQueue.find((item) => item.id === id)!
+    const user = queueEntry.userId
+      ? state.appointments.find((appointment) => appointment.userId === queueEntry.userId)?.user
+      : { id: crypto.randomUUID(), name: queueEntry.name, role: 'CUSTOMER' as const }
+    if (!user) throw new Error('Cliente inválido')
+    let scheduledAt = new Date()
+    for (const serviceId of queueEntry.serviceIds) {
+      const service = state.services.find((item) => item.id === serviceId)!
+      state.appointments.push({
+        id: crypto.randomUUID(), userId: user.id, barberId: selectedBarber.id, serviceId, walkInQueueId: id,
+        scheduledAt: scheduledAt.toISOString(), status: 'CONFIRMED', paymentStatus: 'NOT_REQUIRED',
+        paymentExpiresAt: null, paymentAmount: 0, commission: 0, user, barber: selectedBarber, service,
+      })
+      scheduledAt = new Date(scheduledAt.getTime() + service.duration * 60_000)
+    }
+    queueEntry.userId = user.id
+    queueEntry.barberId = selectedBarber.id
+    queueEntry.barber = selectedBarber
+    queueEntry.status = 'IN_SERVICE'
+    queueEntry.calledAt = new Date().toISOString()
+    queueEntry.estimatedMinutes = 0
+    writeState(state)
+  },
+
+  async giveUpWalkInQueue(id: string): Promise<void> {
+    if (!mockEnabled) {
+      await api.post(`/walk-in-queue/${id}/give-up`)
+      return
+    }
+    const state = readState()
+    const entry = state.walkInQueue.find((item) => item.id === id)
+    if (!entry || entry.status !== 'WAITING') throw new Error('Esta pessoa não está mais aguardando')
+    entry.status = 'GAVE_UP'
+    writeState(state)
   },
 
   async createWalkIn(input: NewWalkInAppointment): Promise<AppointmentCheckout> {
@@ -923,8 +1290,16 @@ export const repository = {
     return appointment
   },
 
-  async updateAppointment(id: string, status: AppointmentStatus): Promise<Appointment> {
-    if (!mockEnabled) return (await api.patch<Appointment>(`/appointments/${id}`, { status })).data
+  async cancellationPreview(id: string): Promise<CancellationQuote> {
+    if (!mockEnabled) return (await api.get<CancellationQuote>(`/appointments/${id}/cancellation-preview`)).data
+    const state = readState()
+    const appointment = state.appointments.find((item) => item.id === id)
+    if (!appointment) throw new Error('Agendamento não encontrado')
+    return mockCancellationQuote(appointment, state.barbershop, sessionStorage.getItem(mockSessionKey) === 'CUSTOMER')
+  },
+
+  async updateAppointment(id: string, status: AppointmentStatus, reason?: string): Promise<Appointment> {
+    if (!mockEnabled) return (await api.patch<Appointment>(`/appointments/${id}`, { status, ...(status === 'CANCELLED' ? { reason } : {}) })).data
 
     const state = readState()
     const appointment = state.appointments.find((item) => item.id === id)
@@ -938,9 +1313,22 @@ export const repository = {
     }
     if (!transitions[appointment.status].includes(status)) throw new Error('Este agendamento não permite essa alteração')
     const previousStatus = appointment.status
+    const customerCancellation = sessionStorage.getItem(mockSessionKey) === 'CUSTOMER'
+    if (status === 'CANCELLED' && !customerCancellation && !reason?.trim()) throw new Error('Informe o motivo do cancelamento')
     appointment.status = status
     if (status === 'CONFIRMED') appointment.clientConfirmed = false
-    if (status === 'CANCELLED' && appointment.paymentStatus === 'APPROVED') appointment.paymentStatus = 'REFUNDED'
+    if (status === 'CANCELLED') {
+      const quote = mockCancellationQuote(appointment, state.barbershop, customerCancellation)
+      appointment.cancellation = {
+        cancelledByRole: customerCancellation ? 'CUSTOMER' : sessionStorage.getItem(mockSessionKey) === 'ADMIN' ? 'OWNER' : 'BARBER',
+        reason: reason?.trim() || null,
+        hoursBefore: quote.hoursBefore,
+        refundedCents: quote.refundedCents,
+        feeCents: quote.feeCents,
+        createdAt: new Date().toISOString(),
+      }
+      if (appointment.paymentStatus === 'APPROVED' && quote.feeCents === 0) appointment.paymentStatus = 'REFUNDED'
+    }
     appointment.depositRetained = status === 'NO_SHOW' && appointment.paymentStatus === 'APPROVED'
     if (status === 'NO_SHOW') appointment.user.noShowCount = (appointment.user.noShowCount ?? 0) + 1
     if (previousStatus !== 'DONE' && status === 'DONE' && state.loyaltyProgram.enabled
@@ -952,6 +1340,14 @@ export const repository = {
     }
     if (previousStatus === 'DONE' && status !== 'DONE') {
       state.loyaltyStamps = state.loyaltyStamps.filter((stamp) => stamp.appointmentId !== appointment.id)
+    }
+    if (status === 'DONE' && appointment.walkInQueueId
+      && state.appointments.filter((item) => item.walkInQueueId === appointment.walkInQueueId).every((item) => item.status === 'DONE')) {
+      const queueEntry = state.walkInQueue.find((item) => item.id === appointment.walkInQueueId && item.status === 'IN_SERVICE')
+      if (queueEntry) {
+        queueEntry.status = 'DONE'
+        queueEntry.finishedAt = new Date().toISOString()
+      }
     }
     writeState(state)
     return appointment
@@ -1102,6 +1498,11 @@ export const repository = {
     return mockReport(readState(), from, to)
   },
 
+  async cancellationReport(from: string, to: string): Promise<CancellationReport> {
+    if (!mockEnabled) return (await api.get<CancellationReport>('/reports/cancellations', { params: { from, to } })).data
+    return mockCancellationReport(readState(), from, to)
+  },
+
   async loyaltyMe(): Promise<LoyaltyCard> {
     if (!mockEnabled) return (await api.get<LoyaltyCard>('/loyalty/me')).data
     return mockLoyaltyCard(readState(), customer.id)
@@ -1215,6 +1616,52 @@ const mockReport = (state: MockState, from: string, to: string): RevenueReport =
       grossRevenueCents: serviceRevenueCents + productRevenueCents, platformCommissionCents,
       netRevenueCents: serviceRevenueCents + productRevenueCents - platformCommissionCents,
     },
+  }
+}
+
+const mockCancellationQuote = (appointment: Appointment, barbershop: Barbershop, customerCancellation: boolean): CancellationQuote => {
+  const millisecondsBefore = Math.max(0, new Date(appointment.scheduledAt).getTime() - Date.now())
+  const hoursBefore = Math.ceil(millisecondsBefore / 3_600_000)
+  const late = barbershop.cancellationWindowHours > 0 && millisecondsBefore <= barbershop.cancellationWindowHours * 3_600_000
+  const paidCents = appointment.paymentStatus === 'APPROVED' ? Math.round(appointment.paymentAmount * 100) : 0
+  const feeCents = customerCancellation && late ? Math.round(paidCents * barbershop.lateCancellationFeeBps / 10_000) : 0
+  return { hoursBefore, late, feeCents, refundedCents: paidCents - feeCents }
+}
+
+const mockCancellationReport = (state: MockState, from: string, to: string): CancellationReport => {
+  const role = sessionStorage.getItem(mockSessionKey)
+  const appointments = state.appointments.filter((appointment) => {
+    if (!appointment.cancellation) return false
+    const date = appointment.cancellation.createdAt.slice(0, 10)
+    return date >= from && date <= to && (role !== 'BARBER' || appointment.barberId === barbers[0].id)
+  })
+  const byCancelledBy = { CUSTOMER: 0, BARBER: 0, OWNER: 0, ADMIN: 0 }
+  const customers = new Map<string, { id: string; name: string; cancellations: number }>()
+  const weekdays = new Map<number, number>()
+  const hours = new Map<number, number>()
+  let late = 0
+  for (const appointment of appointments) {
+    const cancellation = appointment.cancellation!
+    byCancelledBy[cancellation.cancelledByRole] += 1
+    if (state.barbershop.cancellationWindowHours > 0 && cancellation.hoursBefore <= state.barbershop.cancellationWindowHours) late += 1
+    const current = customers.get(appointment.userId)
+    customers.set(appointment.userId, { id: appointment.userId, name: appointment.user.name, cancellations: (current?.cancellations ?? 0) + 1 })
+    const parts = localParts(new Date(appointment.scheduledAt), state.barbershop.timezone)
+    const weekday = weekdayNumbers[parts.weekday ?? 'Sun'] ?? 0
+    const hour = Number(parts.hour)
+    weekdays.set(weekday, (weekdays.get(weekday) ?? 0) + 1)
+    hours.set(hour, (hours.get(hour) ?? 0) + 1)
+  }
+  const weekdayLabels = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+  return {
+    period: { from, to, timezone: state.barbershop.timezone }, total: appointments.length, byCancelledBy,
+    byTiming: { late, advance: appointments.length - late },
+    lostRevenueCents: appointments.reduce((total, item) => total + Math.round(item.service.price * 100), 0),
+    retainedFeeCents: appointments.reduce((total, item) => total + (item.cancellation?.feeCents ?? 0), 0),
+    topCustomers: [...customers.values()].sort((left, right) => right.cancellations - left.cancellations),
+    byWeekday: [...weekdays].map(([weekday, cancellations]) => ({ weekday, label: weekdayLabels[weekday]!, cancellations })).sort((left, right) => right.cancellations - left.cancellations),
+    byHour: [...hours].map(([hour, cancellations]) => ({ hour, label: `${hour.toString().padStart(2, '0')}h`, cancellations })).sort((left, right) => right.cancellations - left.cancellations),
+    waitlistReused: 0,
   }
 }
 

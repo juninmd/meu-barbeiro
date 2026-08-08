@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockEnabled, repository } from './repository'
 
 describe('development mock repository', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => { localStorage.clear(); sessionStorage.clear() })
 
   // O expediente é validado no fuso da barbearia, não no de quem roda o teste.
   // Usar setHours/getDay locais faz o teste passar só em máquinas em UTC-3 e
@@ -63,7 +63,19 @@ describe('development mock repository', () => {
     expect(barbershop.membershipRole).toBe('OWNER')
   })
 
+  it('persists each staff notification preference independently', async () => {
+    const current = await repository.notificationPreferences()
+    const updated = await repository.updateNotificationPreferences({
+      notificationTypes: current.notificationTypes.filter((type) => type !== 'NO_SHOW'),
+      dailySummaryTime: '06:45',
+    })
+    expect(updated.notificationTypes).not.toContain('NO_SHOW')
+    expect(updated.notificationTypes).toContain('CANCELLATION')
+    expect(updated.dailySummaryTime).toBe('06:45')
+  })
+
   it('builds the appointment calendar from mock state in the barbershop timezone', async () => {
+    repository.mockUser('CUSTOMER')
     await repository.createHoliday({ date: '2099-08-04', description: 'Aniversário da cidade' })
     const { appointment } = await repository.createAppointment({
       barberId: 'barber-demo',
@@ -182,6 +194,84 @@ describe('development mock repository', () => {
     await expect(repository.updateAppointment('appointment-1', 'CANCELLED'))
       .rejects.toThrow('Este agendamento não permite essa alteração')
     expect((await repository.customers('Marina'))[0]).toMatchObject({ noShowCount: 1 })
+  })
+
+  it('estimates the door queue around an existing booked appointment', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-05T13:00:00.000Z'))
+    try {
+      const current = await repository.barbershop()
+      await repository.updateBarbershop({
+        ...current,
+        businessHours: current.businessHours.map((hours) => ({
+          ...hours, opensAt: '09:00', closesAt: '18:00', breakStartsAt: null, breakEndsAt: null, enabled: true,
+        })),
+      })
+      await repository.createAppointment({
+        barberId: 'barber-demo', serviceId: 'service-beard', scheduledAt: '2026-08-05T13:30:00.000Z',
+      })
+      await expect(repository.fitNow(['service-cut'], 'barber-demo')).resolves.toMatchObject({
+        barbers: [{ fitsNow: false, nextAvailableAt: '2026-08-05T14:00:00.000Z' }],
+      })
+      const queued = await repository.joinWalkInQueue({
+        userId: 'customer-demo', serviceIds: ['service-cut'], barberId: 'barber-demo',
+      })
+
+      expect(queued).toMatchObject({ position: 1, estimatedMinutes: 60 })
+      expect(queued.estimatedStartAt).toBe('2026-08-05T14:00:00.000Z')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('calls and removes a customer from the waiting queue in the mock branch', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-05T13:00:00.000Z'))
+    try {
+      const entry = await repository.joinWalkInQueue({
+        userId: 'customer-demo', serviceIds: ['service-beard'], barberId: 'barber-demo',
+      })
+      expect(entry.estimatedMinutes).toBe(0)
+
+      await repository.callWalkInQueue(entry.id, 'barber-demo')
+
+      expect((await repository.walkInQueue()).filter((item) => item.status === 'WAITING')).toHaveLength(0)
+      expect((await repository.walkInQueue()).find((item) => item.id === entry.id)?.status).toBe('IN_SERVICE')
+      const appointment = (await repository.appointments(repository.mockUser('BARBER')))
+        .find((item) => item.walkInQueueId === entry.id)!
+      await repository.updateAppointment(appointment.id, 'DONE')
+      expect((await repository.walkInQueue()).find((item) => item.id === entry.id)).toMatchObject({
+        status: 'DONE', finishedAt: expect.any(String),
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('applies cancellation retention to a customer and reports the recorded values', async () => {
+    const shop = await repository.barbershop()
+    await repository.updateBarbershop({ ...shop, cancellationWindowHours: 720, lateCancellationFeeBps: 2_500 })
+    repository.mockUser('CUSTOMER')
+
+    const quote = await repository.cancellationPreview('appointment-1')
+    const updated = await repository.updateAppointment('appointment-1', 'CANCELLED')
+    const today = new Date().toISOString().slice(0, 10)
+    const report = await repository.cancellationReport(today, today)
+
+    expect(quote).toMatchObject({ feeCents: 2_125, refundedCents: 6_375 })
+    expect(updated.cancellation).toMatchObject({ cancelledByRole: 'CUSTOMER', feeCents: 2_125, refundedCents: 6_375 })
+    expect(report).toMatchObject({ total: 1, retainedFeeCents: 2_125, byCancelledBy: { CUSTOMER: 1 } })
+  })
+
+  it('requires a reason from the barbershop and always refunds in full', async () => {
+    const shop = await repository.barbershop()
+    await repository.updateBarbershop({ ...shop, cancellationWindowHours: 720, lateCancellationFeeBps: 10_000 })
+    repository.mockUser('BARBER')
+
+    await expect(repository.updateAppointment('appointment-1', 'CANCELLED')).rejects.toThrow('Informe o motivo')
+    const updated = await repository.updateAppointment('appointment-1', 'CANCELLED', 'Barbeiro indisponível')
+
+    expect(updated).toMatchObject({ paymentStatus: 'REFUNDED', cancellation: { cancelledByRole: 'BARBER', feeCents: 0, refundedCents: 8_500 } })
   })
 
   it('prevents deleting a service with active appointments', async () => {
@@ -494,5 +584,37 @@ describe('development mock repository', () => {
     expect(report.totals.serviceRevenueCents).toBe(8_500)
     expect(report.totals.productRevenueCents).toBe(6_400)
     expect(report.totals.netRevenueCents).toBe(14_815)
+  })
+
+  it('waives the deposit only for the included customer membership visits', async () => {
+    repository.mockUser('CUSTOMER')
+    await repository.subscribeMembership('plan-clube')
+    const firstDate = nextOpenDate(11)
+    const secondDate = new Date(firstDate.getTime() + 7 * 86_400_000)
+    const thirdDate = new Date(firstDate.getTime() + 14 * 86_400_000)
+
+    const first = await repository.createAppointment({ barberId: 'barber-demo', serviceId: 'service-cut', scheduledAt: firstDate.toISOString() })
+    const second = await repository.createAppointment({ barberId: 'barber-demo', serviceId: 'service-cut', scheduledAt: secondDate.toISOString() })
+    const third = await repository.createAppointment({ barberId: 'barber-demo', serviceId: 'service-cut', scheduledAt: thirdDate.toISOString() })
+
+    expect(first.appointment.paymentStatus).toBe('NOT_REQUIRED')
+    expect(second.appointment.paymentStatus).toBe('NOT_REQUIRED')
+    expect(third.appointment.paymentAmount).toBe(55)
+    expect(await repository.membershipBenefit('service-cut')).toEqual({ covered: false, remainingVisits: 0 })
+  })
+
+  it('stops a cancelled membership and recurring booking without deleting created appointments', async () => {
+    repository.mockUser('CUSTOMER')
+    await repository.subscribeMembership('plan-clube')
+    const subscription = await repository.customerSubscription()
+    const booking = await repository.createRecurringBooking({
+      subscriptionId: subscription!.id, barberId: 'barber-demo', serviceIds: ['service-cut'], weekday: 3, time: '10:00',
+    })
+
+    await repository.cancelCustomerSubscription(subscription!.id)
+
+    expect((await repository.customerSubscription())?.status).toBe('CANCELLED')
+    expect((await repository.recurringBookings()).find((item) => item.id === booking.id)?.active).toBe(false)
+    expect(await repository.membershipBenefit('service-cut')).toEqual({ covered: false, remainingVisits: 0 })
   })
 })

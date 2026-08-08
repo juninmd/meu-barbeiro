@@ -1,10 +1,9 @@
-import { CalendarDays, Plus, UserRound } from 'lucide-react'
+import { Clock3, Plus, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { AppointmentSlots } from '../../components/AppointmentSlots'
 import { CustomerProfileCard } from '../../components/CustomerProfileCard'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { AppointmentAvailability, Barber, Barbershop, CustomerSummary, Service, User } from '../../types'
+import type { Barber, Barbershop, CustomerSummary, FitNowResponse, Service, User } from '../../types'
 
 interface WalkInFormProps {
   barbers: Barber[]
@@ -14,12 +13,9 @@ interface WalkInFormProps {
   onCreated: () => Promise<void>
 }
 
-const todayInTimezone = (timezone: string) => {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(new Date()).map((part) => [part.type, part.value]))
-  return `${parts.year}-${parts.month}-${parts.day}`
-}
+const timeLabel = (value: string, timezone: string) => new Intl.DateTimeFormat('pt-BR', {
+  timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+}).format(new Date(value))
 
 export function WalkInForm({ barbers, barbershop, currentUser, services, onCreated }: WalkInFormProps) {
   const barberLocked = barbershop.membershipRole === 'BARBER'
@@ -29,15 +25,10 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
   const [customers, setCustomers] = useState<CustomerSummary[]>([])
   const [customerId, setCustomerId] = useState('')
   const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
   const [barberId, setBarberId] = useState(barberLocked ? currentUser.id : '')
-  const [serviceId, setServiceId] = useState('')
-  const [date, setDate] = useState('')
-  const [scheduledAt, setScheduledAt] = useState('')
-  const [availability, setAvailability] = useState<AppointmentAvailability | null>(null)
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null)
-  const [loadingAvailability, setLoadingAvailability] = useState(false)
-  const [availabilityRevision, setAvailabilityRevision] = useState(0)
+  const [serviceIds, setServiceIds] = useState<string[]>([])
+  const [fit, setFit] = useState<FitNowResponse | null>(null)
+  const [checkingFit, setCheckingFit] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const selectedCustomer = customers.find((customer) => customer.id === customerId)
@@ -51,54 +42,54 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
   }, [existing, open, query])
 
   useEffect(() => {
-    setAvailability(null)
-    setAvailabilityError(null)
-    setScheduledAt('')
-    if (!barberId || !serviceId || !date) return
+    setFit(null)
+    if (!open || serviceIds.length === 0) return
     let active = true
-    setLoadingAvailability(true)
-    repository.availability(barberId, serviceId, date)
-      .then((result) => { if (active) setAvailability(result) })
-      .catch((error) => { if (active) setAvailabilityError(errorMessage(error, 'Não foi possível consultar os horários')) })
-      .finally(() => { if (active) setLoadingAvailability(false) })
+    setCheckingFit(true)
+    repository.fitNow(serviceIds, barberId || undefined)
+      .then((result) => { if (active) setFit(result) })
+      .catch((error) => { if (active) setMessage(errorMessage(error, 'Não foi possível calcular o encaixe')) })
+      .finally(() => { if (active) setCheckingFit(false) })
     return () => { active = false }
-  }, [availabilityRevision, barberId, date, serviceId])
+  }, [barberId, open, serviceIds])
+
+  const toggleService = (serviceId: string) => setServiceIds((current) => (
+    current.includes(serviceId) ? current.filter((id) => id !== serviceId) : [...current, serviceId]
+  ))
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     setBusy(true)
     setMessage(null)
     try {
-      await repository.createWalkIn({
-        barberId,
-        serviceId,
-        scheduledAt,
-        ...(existing ? { userId: customerId } : { customer: { name, ...(phone ? { phone } : {}) } }),
+      const entry = await repository.joinWalkInQueue({
+        serviceIds,
+        barberId: barberId || null,
+        ...(existing ? { userId: customerId } : { guestName: name.trim() }),
       })
       await onCreated()
       setOpen(false)
-      setMessage(null)
       setCustomerId('')
       setName('')
-      setPhone('')
-      setServiceId('')
-      setDate('')
-      setScheduledAt('')
+      setServiceIds([])
+      setMessage(entry.estimatedMinutes == null
+        ? 'Entrada registrada, mas não há encaixe disponível hoje.'
+        : `Entrada registrada. Espera estimada: ${entry.estimatedMinutes} min.`)
     } catch (error) {
-      setMessage(errorMessage(error, 'Não foi possível lançar o atendimento'))
+      setMessage(errorMessage(error, 'Não foi possível registrar na fila'))
     } finally {
       setBusy(false)
     }
   }
 
   if (!open) {
-    return <button className="button button-primary" type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" /> Novo atendimento</button>
+    return <button className="button button-primary" type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" /> Quem chegou agora?</button>
   }
 
   return (
     <section className="panel walk-in-panel" aria-labelledby="walk-in-title">
       <div className="section-heading compact">
-        <div><p className="eyebrow">Atendimento pelo balcão</p><h2 id="walk-in-title">Novo atendimento</h2></div>
+        <div><p className="eyebrow">Atendimento pelo balcão</p><h2 id="walk-in-title">Entrada sem horário</h2></div>
         <button className="button button-ghost button-small" type="button" onClick={() => setOpen(false)}>Fechar</button>
       </div>
       {message && <p className="form-message" role="alert">{message}</p>}
@@ -107,7 +98,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
           <legend><span>01</span> Cliente</legend>
           <div className="action-row">
             <button className={`button button-small ${existing ? 'button-dark' : 'button-ghost'}`} type="button" onClick={() => setExisting(true)}>Cliente existente</button>
-            <button className={`button button-small ${existing ? 'button-ghost' : 'button-dark'}`} type="button" onClick={() => setExisting(false)}>Cadastrar na hora</button>
+            <button className={`button button-small ${existing ? 'button-ghost' : 'button-dark'}`} type="button" onClick={() => setExisting(false)}>Visitante</button>
           </div>
           {existing ? (
             <>
@@ -121,29 +112,38 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
                   </label>
                 ))}
               </div>
-              {selectedCustomer && selectedCustomer.noShowCount > 0 && <p className="form-message warning" role="status">Atenção: este cliente já teve {selectedCustomer.noShowCount} falta(s) nesta barbearia.</p>}
               {selectedCustomer && <CustomerProfileCard userId={selectedCustomer.id} />}
             </>
-          ) : (
-            <div className="form-row">
-              <label>Nome<input value={name} onChange={(event) => setName(event.target.value)} required minLength={2} /></label>
-              <label>Telefone (opcional)<input value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" /></label>
-            </div>
-          )}
+          ) : <label>Nome do visitante<input value={name} onChange={(event) => setName(event.target.value)} required minLength={2} /></label>}
         </fieldset>
         <fieldset>
-          <legend><span>02</span> Atendimento</legend>
-          <div className="form-row">
-            <label>Serviço<select value={serviceId} onChange={(event) => setServiceId(event.target.value)} required><option value="">Selecione</option>{services.map((service) => <option value={service.id} key={service.id}>{service.name} · {formatCurrency(service.price)}</option>)}</select></label>
-            <label>Barbeiro<select value={barberId} onChange={(event) => setBarberId(event.target.value)} required disabled={barberLocked}><option value="">Selecione</option>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</select></label>
+          <legend><span>02</span> O que será feito?</legend>
+          <div className="choice-grid choice-grid-small">
+            {services.map((service) => (
+              <label className={`choice-card ${serviceIds.includes(service.id) ? 'selected' : ''}`} key={service.id}>
+                <input type="checkbox" checked={serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} />
+                <span><strong>{service.name}</strong><small>{service.duration} min · {formatCurrency(service.price)}</small></span>
+              </label>
+            ))}
           </div>
+          <label>Preferência de barbeiro<select value={barberId} onChange={(event) => setBarberId(event.target.value)} disabled={barberLocked}><option value="">Primeira cadeira livre</option>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</select></label>
         </fieldset>
         <fieldset>
-          <legend><span>03</span> Horário livre</legend>
-          <label className="date-field"><CalendarDays aria-hidden="true" /><span><strong>Data</strong><small>Agenda da barbearia</small></span><input aria-label="Data do atendimento" type="date" value={date} min={todayInTimezone(barbershop.timezone)} onChange={(event) => setDate(event.target.value)} required /></label>
-          <AppointmentSlots availability={availability} error={availabilityError} loading={loadingAvailability} selected={scheduledAt} browserTimezone={Intl.DateTimeFormat().resolvedOptions().timeZone} onSelect={setScheduledAt} onRetry={() => setAvailabilityRevision((revision) => revision + 1)} />
+          <legend><span>03</span> Cabe agora?</legend>
+          {checkingFit && <p className="availability-status" role="status">Conferindo agenda, almoço e ausências…</p>}
+          {!checkingFit && serviceIds.length === 0 && <p className="empty-copy">Selecione ao menos um serviço.</p>}
+          <div className="fit-now-grid">
+            {fit?.barbers.map((item) => (
+              <article className={`fit-now-card ${item.fitsNow ? 'available' : ''}`} key={item.barber.id}>
+                <strong>{item.barber.name}</strong>
+                <span>{item.fitsNow ? 'Cabe agora' : item.nextAvailableAt ? `Próximo: ${timeLabel(item.nextAvailableAt, fit.timezone)}` : 'Sem encaixe hoje'}</span>
+                {item.currentServiceMinutesLeft > 0 && <small><Clock3 aria-hidden="true" /> libera em {item.currentServiceMinutesLeft} min</small>}
+              </article>
+            ))}
+          </div>
+          <p className="priority-note">Horários marcados têm prioridade. A estimativa será recalculada conforme a agenda e a fila avançam.</p>
         </fieldset>
-        <button className="button button-primary button-wide" disabled={busy || !scheduledAt || (existing ? !customerId : !name.trim())}>{busy ? 'Lançando…' : 'Confirmar atendimento'} <CalendarDays aria-hidden="true" /></button>
+        <button className="button button-primary button-wide" disabled={busy || serviceIds.length === 0 || (existing ? !customerId : name.trim().length < 2)}>{busy ? 'Registrando…' : 'Adicionar à fila'} <Clock3 aria-hidden="true" /></button>
       </form>
     </section>
   )

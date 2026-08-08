@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js'
 import { resolveBarbershop, requireBarbershopRole } from '../middleware/barbershop.js'
 import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { calculateCommissionCents } from '../domain/billing.js'
+import { staffNotificationTypes } from '../lib/staff-notifications.js'
 
 const router = Router()
 const hourSchema = z.object({
@@ -48,6 +49,12 @@ const holidayInputSchema = z.object({
   description: z.string().trim().min(3).max(80),
 }).strict()
 const holidayIdSchema = z.string().uuid()
+const notificationPreferencesSchema = z.object({
+  notificationTypes: z.array(z.enum(staffNotificationTypes))
+    .max(staffNotificationTypes.length)
+    .refine((types) => new Set(types).size === types.length, 'Tipos de aviso não podem se repetir'),
+  dailySummaryTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+}).strict()
 
 const defaultHours = Array.from({ length: 7 }, (_, weekday) => ({
   weekday,
@@ -64,6 +71,8 @@ const settingsSchema = z.object({
   timezone: z.string().trim().min(3).max(80),
   depositType: z.enum(['NONE', 'PERCENTAGE', 'FIXED', 'FULL']),
   depositValue: z.number().int().min(0),
+  cancellationWindowHours: z.number().int().min(0).max(720),
+  lateCancellationFeeBps: z.number().int().min(0).max(10_000),
   remindersEnabled: z.boolean().optional(),
   reminderHoursBefore: z.array(z.union([z.literal(24), z.literal(2)]))
     .min(1)
@@ -160,6 +169,36 @@ router.patch(
   },
 )
 
+router.get(
+  '/current/notification-preferences',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'),
+  async (req, res) => {
+    const membership = await prisma.membership.findUniqueOrThrow({
+      where: { id: req.membership!.id },
+      include: { user: { select: { telegramId: true } } },
+    })
+    res.json(publicNotificationPreferences(membership))
+  },
+)
+
+router.patch(
+  '/current/notification-preferences',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'),
+  async (req, res) => {
+    const input = notificationPreferencesSchema.parse(req.body)
+    const membership = await prisma.membership.update({
+      where: { id: req.membership!.id },
+      data: input,
+      include: { user: { select: { telegramId: true } } },
+    })
+    res.json(publicNotificationPreferences(membership))
+  },
+)
+
 router.get('/current/holidays', resolveBarbershop, async (req, res) => {
   const { year } = z.object({ year: z.coerce.number().int().min(1).max(9999).optional() }).parse(req.query)
   const paddedYear = year?.toString().padStart(4, '0')
@@ -236,6 +275,8 @@ function publicBarbershop(
     timezone: barbershop.timezone,
     depositType: barbershop.depositType,
     depositValue: barbershop.depositValue,
+    cancellationWindowHours: barbershop.cancellationWindowHours,
+    lateCancellationFeeBps: barbershop.lateCancellationFeeBps,
     remindersEnabled: barbershop.remindersEnabled,
     reminderHoursBefore: barbershop.reminderHoursBefore,
     monthlyFeeCents: barbershop.monthlyFeeCents,
@@ -259,6 +300,16 @@ const publicHoliday = (holiday: { id: string; date: Date; description: string })
   id: holiday.id,
   date: holiday.date.toISOString().slice(0, 10),
   description: holiday.description,
+})
+
+const publicNotificationPreferences = (membership: {
+  notificationTypes: string[]
+  dailySummaryTime: string
+  user: { telegramId: string | null }
+}) => ({
+  notificationTypes: membership.notificationTypes,
+  dailySummaryTime: membership.dailySummaryTime,
+  telegramLinked: Boolean(membership.user.telegramId),
 })
 
 export { router as barbershopsRoutes }

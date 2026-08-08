@@ -25,6 +25,8 @@ const originals = {
   createAppointment: prisma.appointment.create,
   findHolidays: prisma.holiday.findMany, findSchedules: prisma.barberSchedule.findMany,
   findAbsences: prisma.barberAbsence.findMany, findMembership: prisma.membership.findUnique,
+  findMemberships: prisma.membership.findMany,
+  findCustomerSubscription: prisma.customerSubscription.findFirst,
 }
 let holidays: Array<{ date: Date; description: string }> = []
 let appointments: Array<Record<string, unknown>> = []
@@ -80,6 +82,8 @@ describe('any barber appointments', () => {
       }
     } })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: async () => ({ role: 'BARBER' }) as never })
+    Object.defineProperty(prisma.membership, 'findMany', { configurable: true, value: async () => [] })
+    Object.defineProperty(prisma.customerSubscription, 'findFirst', { configurable: true, value: async () => null })
   })
 
   afterEach(() => {
@@ -95,6 +99,8 @@ describe('any barber appointments', () => {
     Object.defineProperty(prisma.barberSchedule, 'findMany', { configurable: true, value: originals.findSchedules })
     Object.defineProperty(prisma.barberAbsence, 'findMany', { configurable: true, value: originals.findAbsences })
     Object.defineProperty(prisma.membership, 'findUnique', { configurable: true, value: originals.findMembership })
+    Object.defineProperty(prisma.membership, 'findMany', { configurable: true, value: originals.findMemberships })
+    Object.defineProperty(prisma.customerSubscription, 'findFirst', { configurable: true, value: originals.findCustomerSubscription })
   })
 
   it('unites only real slots and reports the barbers available in each one', async () => {
