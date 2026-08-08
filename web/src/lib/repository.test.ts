@@ -5,11 +5,51 @@ import { mockEnabled, repository } from './repository'
 describe('development mock repository', () => {
   beforeEach(() => localStorage.clear())
 
+  // O expediente é validado no fuso da barbearia, não no de quem roda o teste.
+  // Usar setHours/getDay locais faz o teste passar só em máquinas em UTC-3 e
+  // falhar no CI, que roda em UTC.
+  const shopTimezone = 'America/Sao_Paulo'
+
+  const shopParts = (date: Date) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: shopTimezone,
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date)
+    return Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  }
+
+  // Instante UTC que corresponde a `hour`:00 no fuso da barbearia naquele dia.
+  const shopTimeToInstant = (date: Date, hour: number) => {
+    const { year, month, day } = shopParts(date)
+    const guess = Date.UTC(Number(year), Number(month) - 1, Number(day), hour, 0, 0, 0)
+    let timestamp = guess
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const local = shopParts(new Date(timestamp))
+      const represented = Date.UTC(
+        Number(local.year),
+        Number(local.month) - 1,
+        Number(local.day),
+        Number(local.hour),
+        Number(local.minute),
+      )
+      timestamp += guess - represented
+    }
+    return new Date(timestamp)
+  }
+
   const nextOpenDate = (hour = 11) => {
-    const date = new Date(Date.now() + 24 * 60 * 60 * 1000)
-    while ([0, 1].includes(date.getDay())) date.setDate(date.getDate() + 1)
-    date.setHours(hour, 0, 0, 0)
-    return date
+    const closedWeekdays = ['Sun', 'Mon']
+    let date = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    while (closedWeekdays.includes(String(shopParts(date).weekday))) {
+      date = new Date(date.getTime() + 24 * 60 * 60 * 1000)
+    }
+    return shopTimeToInstant(date, hour)
   }
 
   it('is enabled only under the development test environment', () => {
