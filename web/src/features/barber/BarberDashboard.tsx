@@ -2,26 +2,38 @@ import { CalendarCheck, Check, Clock3, Plus, Scissors, Trash2, TrendingUp, X } f
 import { useState } from 'react'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { StatusBadge } from '../../components/StatusBadge'
+import { CustomerProfileCard } from '../../components/CustomerProfileCard'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { Appointment, AppointmentStatus, Barbershop, NewService, Service } from '../../types'
+import type { Appointment, AppointmentStatus, Barber, Barbershop, NewService, Product, Service, User } from '../../types'
+import { AppointmentCalendar } from './AppointmentCalendar'
+import { BarberAvailability } from './BarberAvailability'
 import { BarbershopSettings } from './BarbershopSettings'
+import { DailyClosing } from './DailyClosing'
+import { ProductsPanel } from './ProductsPanel'
+import { WalkInForm } from './WalkInForm'
 
 interface BarberDashboardProps {
   appointments: Appointment[]
+  barbers: Barber[]
   barbershop: Barbershop | null
+  currentUser: User
+  products: Product[]
   services: Service[]
   onRefresh: () => Promise<void>
 }
 
 const isToday = (value: string) => new Date(value).toDateString() === new Date().toDateString()
 
-export function BarberDashboard({ appointments, barbershop, services, onRefresh }: BarberDashboardProps) {
+export function BarberDashboard({ appointments, barbers, barbershop, currentUser, products, services, onRefresh }: BarberDashboardProps) {
   const [serviceForm, setServiceForm] = useState<NewService>({ name: '', duration: 30, price: 0 })
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [noShowTarget, setNoShowTarget] = useState<Appointment | null>(null)
+  const [calendarRevision, setCalendarRevision] = useState(0)
+  const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null)
   const active = appointments
     .filter((item) => item.status !== 'CANCELLED')
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
@@ -30,7 +42,7 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
   const previous = active.filter((item) => !isToday(item.scheduledAt) && new Date(item.scheduledAt) <= new Date())
   const pending = active.filter((item) => item.status === 'PENDING')
   const revenue = appointments
-    .filter((item) => isToday(item.scheduledAt) && (item.status === 'DONE' || item.status === 'CONFIRMED'))
+    .filter((item) => isToday(item.scheduledAt) && item.status === 'DONE')
     .reduce((sum, item) => sum + item.service.price, 0)
   const canManageBarbershop = barbershop?.membershipRole === 'OWNER' || barbershop?.membershipRole === 'ADMIN'
   const nextAppointment = upcoming[0]
@@ -82,6 +94,28 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
     }
   }
 
+  const confirmNoShow = async () => {
+    if (!noShowTarget) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      const updated = await repository.updateAppointment(noShowTarget.id, 'NO_SHOW')
+      setNoShowTarget(null)
+      setMessage(updated.depositRetained ? 'Falta registrada. O sinal pago foi retido e não será devolvido.' : 'Falta registrada.')
+      await onRefresh()
+    } catch (error) {
+      setMessage(errorMessage(error, 'Não foi possível registrar a falta'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const refreshAfterWalkIn = async () => {
+    await onRefresh()
+    setCalendarRevision((current) => current + 1)
+    setMessage('Atendimento lançado e confirmado. O pagamento será feito no balcão.')
+  }
+
   const timelineGroups = [
     { title: 'Hoje', appointments: today, empty: 'Não há atendimento hoje.' },
     { title: 'Próximos', appointments: upcoming },
@@ -103,7 +137,7 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
       <section className="metric-grid" aria-label="Resumo da agenda">
         <Metric icon={<CalendarCheck />} label="Hoje" value={String(today.length)} note="horários na cadeira" />
         <Metric icon={<Clock3 />} label="Aguardando" value={String(pending.length)} note="pedidos para confirmar" alert={pending.length > 0} />
-        <Metric icon={<TrendingUp />} label="Previsto" value={formatCurrency(revenue)} note="confirmados e concluídos de hoje" />
+        <Metric icon={<TrendingUp />} label="Caixa hoje" value={formatCurrency(revenue)} note="somente serviços concluídos" />
       </section>
       {today.length === 0 && (
         <p className="empty-day-note" role="status">
@@ -114,6 +148,14 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
       )}
 
       {message && <p className="form-message global-message" role="status">{message}</p>}
+
+      {barbershop && <DailyClosing barbershop={barbershop} />}
+
+      {barbershop && <WalkInForm barbers={barbers} barbershop={barbershop} currentUser={currentUser} services={services} onCreated={refreshAfterWalkIn} />}
+
+      {barbershop && <BarberAvailability barbers={barbers} barbershop={barbershop} currentUser={currentUser} onChanged={() => setCalendarRevision((current) => current + 1)} />}
+
+      {barbershop && <AppointmentCalendar barbershop={barbershop} refreshKey={`${calendarRevision}:${appointments.map((item) => `${item.id}:${item.status}`).join(',')}`} />}
 
       <div className="barber-grid">
         <section className="panel agenda-panel" aria-labelledby="agenda-title">
@@ -140,7 +182,13 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
                       <div className="appointment-top"><StatusBadge status={appointment.status} /><span>{formatCurrency(appointment.service.price)}</span></div>
                       <h3>{appointment.user.name}</h3>
                       <p><Scissors aria-hidden="true" /> {appointment.service.name} · {appointment.service.duration} min</p>
+                      <p className="reminder-note">{reminderStatus(appointment)}</p>
+                      {(appointment.user.noShowCount ?? 0) > 0 && <p className="no-show-note">Histórico: {appointment.user.noShowCount} falta(s) nesta barbearia</p>}
+                      {appointment.depositRetained && <p className="no-show-note">Sinal pago retido</p>}
                       <div className="action-row">
+                        <button className="button button-small button-ghost" type="button" onClick={() => setProfileCustomerId((current) => current === appointment.userId ? null : appointment.userId)}>
+                          {profileCustomerId === appointment.userId ? 'Fechar ficha' : 'Abrir ficha'}
+                        </button>
                         {appointment.status === 'PENDING' && (
                           <button className="button button-small button-primary" disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}>
                             <Check aria-hidden="true" /> Confirmar
@@ -151,12 +199,18 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
                             <Check aria-hidden="true" /> Concluir
                           </button>
                         )}
+                        {appointment.status === 'CONFIRMED' && new Date(appointment.scheduledAt).getTime() < Date.now() && (
+                          <button className="button button-small button-danger" disabled={busy} onClick={() => setNoShowTarget(appointment)}>
+                            <X aria-hidden="true" /> Faltou
+                          </button>
+                        )}
                         {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && (
                           <button className="button button-small button-ghost" disabled={busy} onClick={() => changeStatus(appointment.id, 'CANCELLED')}>
                             <X aria-hidden="true" /> Cancelar
                           </button>
                         )}
                       </div>
+                      {profileCustomerId === appointment.userId && <CustomerProfileCard userId={appointment.userId} />}
                     </div>
                   </article>
                 ))}
@@ -165,7 +219,8 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
           </div>
         </section>
 
-        <section className="panel services-panel" aria-labelledby="services-title">
+        <div className="catalog-stack">
+          <section className="panel services-panel" aria-labelledby="services-title">
           <div className="section-heading compact">
             <div><p className="eyebrow">Seu menu</p><h2 id="services-title">Serviços</h2></div>
           </div>
@@ -196,7 +251,9 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
               <button className="button button-dark button-wide" disabled={busy}><Plus aria-hidden="true" /> Adicionar ao menu</button>
             </form>
           )}
-        </section>
+          </section>
+          <ProductsPanel canManage={canManageBarbershop} products={products} onRefresh={onRefresh} />
+        </div>
       </div>
       {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
     </main>
@@ -214,6 +271,20 @@ export function BarberDashboard({ appointments, barbershop, services, onRefresh 
           setServiceToDelete(null)
         }}
         onConfirm={deleteService}
+      />
+    )}
+    {noShowTarget && (
+      <ConfirmDialog
+        eyebrow="Registrar falta"
+        title={`${noShowTarget.user.name} faltou?`}
+        description={noShowTarget.paymentStatus === 'APPROVED'
+          ? 'O atendimento será encerrado como falta. O sinal pago será retido e não será devolvido.'
+          : 'O atendimento será encerrado como falta e não poderá mais ser alterado.'}
+        cancelLabel="Voltar"
+        confirmLabel={busy ? 'Registrando…' : 'Sim, faltou'}
+        busy={busy}
+        onCancel={() => setNoShowTarget(null)}
+        onConfirm={confirmNoShow}
       />
     )}
     </>
@@ -235,4 +306,13 @@ function Metric({ icon, label, value, note, alert = false }: MetricProps) {
       <div><span>{label}</span><strong>{value}</strong><small>{note}</small></div>
     </article>
   )
+}
+
+function reminderStatus(appointment: Appointment) {
+  const delivered = appointment.reminders?.filter((reminder) => reminder.deliveredOk) ?? []
+  const failed = appointment.reminders?.some((reminder) => !reminder.deliveredOk)
+  const delivery = delivered.length > 0
+    ? `Lembrete Telegram enviado (${delivered.map((reminder) => reminder.kind).join(' e ')})`
+    : failed ? 'Falha ao enviar lembrete Telegram' : 'Lembrete Telegram ainda não enviado'
+  return `${delivery} · ${appointment.clientConfirmed ? 'confirmado pelo cliente' : 'sem confirmação do cliente'}`
 }

@@ -4,16 +4,17 @@ import { Shell } from './components/Shell'
 import { BarberDashboard } from './features/barber/BarberDashboard'
 import { ClientDashboard } from './features/client/ClientDashboard'
 import { errorMessage, repository } from './lib/repository'
-import type { Appointment, Barber, Barbershop, Role, Service, User } from './types'
+import type { Appointment, Barber, Barbershop, Product, Role, Service, User } from './types'
 
 interface AppData {
   appointments: Appointment[]
   barbers: Barber[]
   barbershop: Barbershop | null
+  products: Product[]
   services: Service[]
 }
 
-const emptyData: AppData = { appointments: [], barbers: [], barbershop: null, services: [] }
+const emptyData: AppData = { appointments: [], barbers: [], barbershop: null, products: [], services: [] }
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -24,13 +25,14 @@ export default function App() {
   const loadData = useCallback(async (currentUser: User) => {
     setError(null)
     try {
-      const [appointments, barbers, barbershop, services] = await Promise.all([
+      const [appointments, barbers, barbershop, products, services] = await Promise.all([
         repository.appointments(currentUser),
         repository.barbers(),
         repository.barbershop(),
+        currentUser.role === 'CUSTOMER' ? Promise.resolve([]) : repository.products(),
         repository.services(),
       ])
-      setData({ appointments, barbers, barbershop, services })
+      setData({ appointments, barbers, barbershop, products, services })
     } catch (caught) {
       setError(errorMessage(caught, 'Falha ao carregar os dados'))
     }
@@ -74,9 +76,9 @@ export default function App() {
     <Shell user={user} barbershop={data.barbershop} onLogout={logout} onSwitchRole={enterMock}>
       {error && <div className="error-banner" role="alert">{error}<button onClick={() => refresh()}>Tentar novamente</button></div>}
       {user.role === 'BARBER' || user.role === 'ADMIN' ? (
-        <BarberDashboard appointments={data.appointments} barbershop={data.barbershop} services={data.services} onRefresh={refresh} />
+        <BarberDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} products={data.products} services={data.services} onRefresh={refresh} />
       ) : (
-        <ClientDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} services={data.services} onRefresh={refresh} />
+        <ClientDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} services={data.services} onRefresh={refresh} />
       )}
     </Shell>
   )

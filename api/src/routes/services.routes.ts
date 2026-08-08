@@ -12,7 +12,7 @@ router.use(requireUser, resolveBarbershop)
 
 router.get('/', async (req, res) => {
   const services = await prisma.service.findMany({
-    where: { barbershopId: req.barbershop!.id },
+    where: { barbershopId: req.barbershop!.id, active: true },
     orderBy: { name: 'asc' },
   })
   res.json(services.map(publicService))
@@ -62,15 +62,19 @@ router.delete('/:id', requireBarbershopRole('OWNER', 'ADMIN'), async (req, res) 
     res.status(409).json({ message: 'Serviço possui agendamentos ativos' })
     return
   }
-  await prisma.service.delete({ where: { barbershopId_id: { barbershopId: req.barbershop!.id, id } } })
+  await prisma.service.update({
+    where: { barbershopId_id: { barbershopId: req.barbershop!.id, id } },
+    data: { active: false },
+  })
   res.status(204).end()
 })
 
-const publicService = (service: { id: string; name: string; duration: number; priceCents: number }) => ({
+const publicService = (service: { id: string; name: string; duration: number; priceCents: number; active: boolean }) => ({
   id: service.id,
   name: service.name,
   duration: service.duration,
   price: service.priceCents / 100,
+  active: service.active,
 })
 
 export { router as servicesRoutes }

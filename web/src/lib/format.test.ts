@@ -27,4 +27,17 @@ describe('formatBusinessHours', () => {
       { weekday: 6, opensAt: '09:00', closesAt: '14:00', enabled: true },
     ])).toBe('Seg a Sex · 09:00–20:00; Sáb · 09:00–14:00')
   })
+
+  it('shows lunch in the customer-facing business hours summary', () => {
+    expect(formatBusinessHours([
+      {
+        weekday: 2,
+        opensAt: '09:00',
+        closesAt: '18:00',
+        breakStartsAt: '12:00',
+        breakEndsAt: '13:00',
+        enabled: true,
+      },
+    ])).toBe('Ter · 09:00–18:00 · almoço 12:00–13:00')
+  })
 })
