@@ -1113,7 +1113,7 @@ export const repository = {
             if (!hours || (candidateMinutes - minutes(hours.opensAt)) % 15 !== 0) continue
           }
           try {
-            nextAvailableAt = dateAtLocalTime(date, '14:00', state.barbershop.timezone)
+            nextAvailableAt = validateMockSchedule(state, barber.id, service, new Date(timestamp).toISOString(), undefined, now.getTime() - 1)
             break
           } catch { /* try the next minute */ }
         }
