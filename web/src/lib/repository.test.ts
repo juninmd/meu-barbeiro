@@ -207,6 +207,12 @@ describe('development mock repository', () => {
           ...hours, opensAt: '09:00', closesAt: '18:00', breakStartsAt: null, breakEndsAt: null, enabled: true,
         })),
       })
+      const rawState = localStorage.getItem("meu-barbeiro:mock-state:v2")
+      if (rawState) {
+        const s = JSON.parse(rawState)
+        s.appointments = []
+        localStorage.setItem("meu-barbeiro:mock-state:v2", JSON.stringify(s))
+      }
       await repository.createAppointment({
         barberId: 'barber-demo', serviceId: 'service-beard', scheduledAt: '2026-08-05T13:30:00.000Z',
       })
