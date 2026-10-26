@@ -6,6 +6,7 @@ import { resolveBarbershop, requireBarbershopRole } from '../middleware/barbersh
 import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { calculateCommissionCents } from '../domain/billing.js'
 import { staffNotificationTypes } from '../lib/staff-notifications.js'
+import { logoUrlField, timezoneField } from '../lib/settings-fields.js'
 
 const router = Router()
 const hourSchema = z.object({
@@ -65,10 +66,10 @@ const defaultHours = Array.from({ length: 7 }, (_, weekday) => ({
 
 const settingsSchema = z.object({
   name: z.string().trim().min(3).max(80),
-  logoUrl: z.union([z.string().url().max(500), z.literal(''), z.null()]).optional(),
+  logoUrl: logoUrlField.optional(),
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   address: z.union([z.string().trim().max(160), z.null()]).optional(),
-  timezone: z.string().trim().min(3).max(80),
+  timezone: timezoneField,
   depositType: z.enum(['NONE', 'PERCENTAGE', 'FIXED', 'FULL']),
   depositValue: z.number().int().min(0),
   cancellationWindowHours: z.number().int().min(0).max(720),
