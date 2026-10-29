@@ -8,7 +8,10 @@ const PORT = process.env.PORT || 3333
 
 ensurePlatformAdmin()
   .then((result) => result !== 'skipped' && console.log(`Administrador da plataforma ${result === 'created' ? 'criado' : 'atualizado'}`))
-  .catch((error) => console.error('Falha ao preparar o administrador da plataforma', error))
+  .catch((error) => {
+    console.error('Falha ao preparar o administrador da plataforma', error)
+    process.exit(1)
+  })
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)

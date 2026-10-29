@@ -13,12 +13,16 @@ export async function ensurePlatformAdmin(env: NodeJS.ProcessEnv = process.env):
   const username = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase()
   const production = env.NODE_ENV === 'production'
 
-  if (!password) {
-    if (production) console.error('ADMIN_PASSWORD não definido: o administrador da plataforma não foi criado')
-    return 'skipped'
-  }
-  if (production && password.length < MIN_PRODUCTION_PASSWORD) {
-    console.error(`ADMIN_PASSWORD deve ter ao menos ${MIN_PRODUCTION_PASSWORD} caracteres em produção: administrador não atualizado`)
+  if (!password || (production && password.length < MIN_PRODUCTION_PASSWORD)) {
+    const reason = !password
+      ? 'ADMIN_PASSWORD não definido'
+      : `ADMIN_PASSWORD deve ter ao menos ${MIN_PRODUCTION_PASSWORD} caracteres em produção`
+    if (!production) return 'skipped'
+    // Sem nenhum administrador a plataforma não consegue liberar estabelecimentos: falha cedo, com mensagem clara.
+    if (await prisma.user.count({ where: { platformAdmin: true } }) === 0) {
+      throw new Error(`${reason}: defina o Secret antes do primeiro deploy (nenhum administrador existe)`)
+    }
+    console.error(`${reason}: administrador existente mantido`)
     return 'skipped'
   }
 

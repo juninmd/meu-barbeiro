@@ -5,27 +5,42 @@ import { prisma } from './prisma.js'
 
 const original = prisma.user.upsert
 const originalFind = prisma.user.findUnique
+const originalCount = prisma.user.count
 afterEach(() => {
+  Object.defineProperty(prisma.user, 'count', { configurable: true, value: originalCount })
   Object.defineProperty(prisma.user, 'upsert', { configurable: true, value: original })
   Object.defineProperty(prisma.user, 'findUnique', { configurable: true, value: originalFind })
 })
 
-const stub = () => {
+const stub = (admins = 1) => {
+  Object.defineProperty(prisma.user, 'count', { configurable: true, value: async () => admins })
   const calls: Array<{ create: Record<string, unknown>; update: Record<string, unknown> }> = []
   Object.defineProperty(prisma.user, 'findUnique', { configurable: true, value: async () => null })
   Object.defineProperty(prisma.user, 'upsert', { configurable: true, value: async (args: never) => { calls.push(args); return {} } })
   return calls
 }
 
-test('does nothing without ADMIN_PASSWORD', async () => {
-  const calls = stub()
+test('keeps the existing admin when ADMIN_PASSWORD is missing', async () => {
+  const calls = stub(1)
   assert.equal(await ensurePlatformAdmin({ NODE_ENV: 'production' }), 'skipped')
   assert.equal(calls.length, 0)
 })
 
-test('refuses short passwords in production', async () => {
-  const calls = stub()
+test('fails fast in production when there is no admin and no password', async () => {
+  stub(0)
+  await assert.rejects(ensurePlatformAdmin({ NODE_ENV: 'production' }), /ADMIN_PASSWORD não definido/)
+  await assert.rejects(ensurePlatformAdmin({ NODE_ENV: 'production', ADMIN_PASSWORD: 'admin' }), /ao menos 12/)
+})
+
+test('refuses short passwords in production without touching the admin', async () => {
+  const calls = stub(1)
   assert.equal(await ensurePlatformAdmin({ NODE_ENV: 'production', ADMIN_PASSWORD: 'admin' }), 'skipped')
+  assert.equal(calls.length, 0)
+})
+
+test('does nothing outside production without a password', async () => {
+  const calls = stub(0)
+  assert.equal(await ensurePlatformAdmin({ NODE_ENV: 'development' }), 'skipped')
   assert.equal(calls.length, 0)
 })
 

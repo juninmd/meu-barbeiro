@@ -140,6 +140,8 @@ Na aplicação do Mercado Pago, configure:
 - Webhook: `${API_PUBLIC_URL}/billing/mercado-pago/webhook`
 - Eventos: `payment` e `subscription_preapproval`
 
+Passo a passo de produção em [docs/DEPLOY.md](docs/DEPLOY.md).
+
 Use credenciais de teste em homologação e credenciais de produção somente nos
 Secrets do ambiente. A plataforma cobra R$ 20,00/mês da barbearia. Em cada
 checkout do cliente, `marketplace_fee` recebe 1% do valor total do serviço; o
