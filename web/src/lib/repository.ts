@@ -1,5 +1,10 @@
 import axios from 'axios'
 import type {
+  AdminBarbershop,
+  AdminOverview,
+  AdminUser,
+  EstablishmentRequestStatus,
+  NewEstablishment,
   Appointment,
   AppointmentAvailability,
   AppointmentCalendar,
@@ -44,7 +49,7 @@ import type {
   WalkInQueueEntry,
 } from '../types'
 
-const tenantSlug = window.location.pathname.match(/^\/b\/([a-z0-9-]+)/)?.[1]
+export const tenantSlug = window.location.pathname.match(/^\/b\/([a-z0-9-]+)/)?.[1]
   || import.meta.env.VITE_BARBERSHOP_SLUG
   || 'barbearia-central'
 
@@ -54,6 +59,7 @@ const api = axios.create({
   headers: { 'x-barbershop-slug': tenantSlug },
 })
 
+export { api }
 export const mockEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCKS !== 'false'
 
 export const errorMessage = (error: unknown, fallback: string) => {
@@ -472,7 +478,80 @@ const mockQueueView = (state: MockState, now = new Date()): WalkInQueueEntry[] =
   })
 }
 
-const selectedMockUser = (role: Role): User => role === 'BARBER' ? barbers[0] : customer
+interface MockAccount {
+  id: string
+  name: string
+  email: string | null
+  username: string | null
+  password: string
+  kind: 'ADMIN' | 'BARBER' | 'CUSTOMER'
+  establishmentRequest: EstablishmentRequestStatus
+  establishmentRequestNote: string | null
+  establishmentRequestedAt: string | null
+  establishmentName: string | null
+  createdAt: string
+}
+
+const accountsKey = 'meu-barbeiro:mock-accounts:v1'
+const mockUserKey = 'meu-barbeiro:mock-user'
+
+const seedAccounts = (): MockAccount[] => {
+  const base = { establishmentRequest: 'NONE' as const, establishmentRequestNote: null, establishmentRequestedAt: null, establishmentName: null, createdAt: '2026-01-01T12:00:00.000Z' }
+  return [
+    { ...base, id: 'platform-admin', name: 'Administrador', email: null, username: 'admin', password: 'admin', kind: 'ADMIN' },
+    { ...base, id: barbers[0].id, name: barbers[0].name, email: 'rafael@demo.local', username: null, password: 'demo1234', kind: 'BARBER', establishmentRequest: 'APPROVED', establishmentName: 'Barbearia Central' },
+    { ...base, id: customer.id, name: customer.name, email: 'marina@demo.local', username: null, password: 'demo1234', kind: 'CUSTOMER' },
+  ]
+}
+
+const readAccounts = (): MockAccount[] => {
+  try {
+    const stored = localStorage.getItem(accountsKey)
+    if (stored) return JSON.parse(stored) as MockAccount[]
+  } catch { /* armazenamento indisponível: usa as contas padrão */ }
+  return seedAccounts()
+}
+
+const writeAccounts = (accounts: MockAccount[]) => {
+  try { localStorage.setItem(accountsKey, JSON.stringify(accounts)) } catch { /* modo privado */ }
+}
+
+const currentMockAccount = (): MockAccount | null => {
+  const id = sessionStorage.getItem(mockUserKey)
+  return id ? readAccounts().find((account) => account.id === id) ?? null : null
+}
+
+const mockUserFromAccount = (account: MockAccount): User => {
+  const common = {
+    email: account.email,
+    username: account.username,
+    establishmentRequest: account.establishmentRequest,
+    establishmentRequestNote: account.establishmentRequestNote,
+  }
+  if (account.kind === 'ADMIN') {
+    return { id: account.id, name: account.name, role: 'ADMIN', platformAdmin: true, ...common, establishments: [] }
+  }
+  if (account.kind === 'BARBER') {
+    return {
+      ...barbers[0], ...common, name: account.name, role: account.establishmentName && account.id !== barbers[0].id ? 'ADMIN' : 'BARBER',
+      establishments: [{ slug: initialBarbershop.slug, name: account.establishmentName ?? initialBarbershop.name, role: 'OWNER' }],
+    }
+  }
+  return { id: account.id, name: account.name, role: 'CUSTOMER', telegramId: account.id === customer.id ? customer.telegramId ?? null : null, ...common, establishments: [] }
+}
+
+/** Identidade de cliente da sessão mock; sem sessão usa o cliente de demonstração. */
+const activeCustomer = (): User => {
+  const account = currentMockAccount()
+  return account?.kind === 'CUSTOMER' ? mockUserFromAccount(account) : customer
+}
+
+const startMockSession = (account: MockAccount): User => {
+  const user = mockUserFromAccount(account)
+  sessionStorage.setItem(mockUserKey, account.id)
+  sessionStorage.setItem(mockSessionKey, user.role === 'CUSTOMER' ? 'CUSTOMER' : user.role === 'ADMIN' ? 'ADMIN' : 'BARBER')
+  return user
+}
 
 const mockCustomerProfile = (state: MockState, userId: string): CustomerProfileResponse => {
   const history = state.appointments
@@ -504,18 +583,57 @@ const mockCustomerProfile = (state: MockState, userId: string): CustomerProfileR
 export const repository = {
   async currentUser(): Promise<User | null> {
     if (mockEnabled) {
-      const role = sessionStorage.getItem(mockSessionKey)
-      return role && ['ADMIN', 'BARBER', 'CUSTOMER'].includes(role) ? selectedMockUser(role as Role) : null
+      const account = currentMockAccount()
+      return account ? mockUserFromAccount(account) : null
     }
     const { data } = await api.get<User | null>('/auth/me')
     if (!data || typeof data !== 'object' || !('role' in data) || !['ADMIN', 'BARBER', 'CUSTOMER'].includes(data.role)) return null
     return data
   },
 
+  /** Atalho síncrono para testes: abre a sessão da conta de demonstração do papel. */
   mockUser(role: Role): User {
     if (!mockEnabled) throw new Error('Acesso de demonstração indisponível')
-    sessionStorage.setItem(mockSessionKey, role)
-    return selectedMockUser(role)
+    const account = readAccounts().find((item) => item.kind === role)
+    if (!account) throw new Error('Conta de demonstração inexistente')
+    return startMockSession(account)
+  },
+
+  /** Quais formas de entrada a API oferece além de usuário e senha. */
+  async providers(): Promise<{ google: boolean }> {
+    if (mockEnabled) return { google: false }
+    try {
+      return (await api.get<{ google: boolean }>('/auth/providers')).data
+    } catch {
+      return { google: false }
+    }
+  },
+
+  /** Entrada única para todos os perfis: o papel é definido pelo servidor, nunca pelo cliente. */
+  async login(identifier: string, password: string): Promise<User> {
+    if (mockEnabled) {
+      const key = identifier.trim().toLowerCase()
+      const account = readAccounts().find((item) => (item.email?.toLowerCase() === key || item.username?.toLowerCase() === key) && item.password === password)
+      if (!account) throw new Error('Usuário ou senha incorretos')
+      return startMockSession(account)
+    }
+    return (await api.post<User>('/auth/login', { identifier, password })).data
+  },
+
+  async register(input: { name: string; email: string; password: string }): Promise<User> {
+    if (mockEnabled) {
+      const accounts = readAccounts()
+      const email = input.email.trim().toLowerCase()
+      if (accounts.some((item) => item.email?.toLowerCase() === email)) throw new Error('Já existe uma conta com este e-mail. Entre ou recupere o acesso.')
+      const account: MockAccount = {
+        id: crypto.randomUUID(), name: input.name.trim(), email, username: null, password: input.password, kind: 'CUSTOMER',
+        establishmentRequest: 'NONE', establishmentRequestNote: null, establishmentRequestedAt: null, establishmentName: null,
+        createdAt: new Date().toISOString(),
+      }
+      writeAccounts([...accounts, account])
+      return startMockSession(account)
+    }
+    return (await api.post<User>('/auth/register', input)).data
   },
 
   loginWithGoogle(): void {
@@ -523,8 +641,108 @@ export const repository = {
   },
 
   async logout(): Promise<void> {
-    if (mockEnabled) sessionStorage.removeItem(mockSessionKey)
-    else await api.post('/auth/logout')
+    if (mockEnabled) {
+      sessionStorage.removeItem(mockSessionKey)
+      sessionStorage.removeItem(mockUserKey)
+    } else await api.post('/auth/logout')
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    if (mockEnabled) {
+      const account = currentMockAccount()
+      if (!account || account.password !== currentPassword) throw new Error('Senha atual incorreta')
+      writeAccounts(readAccounts().map((item) => item.id === account.id ? { ...item, password: newPassword } : item))
+      return
+    }
+    await api.post('/auth/password', { currentPassword, newPassword })
+  },
+
+  /** O usuário pede ao administrador permissão para cadastrar o estabelecimento onde é barbeiro. */
+  async requestEstablishment(note: string): Promise<User> {
+    if (mockEnabled) {
+      const account = currentMockAccount()
+      if (!account) throw new Error('Entre para continuar')
+      writeAccounts(readAccounts().map((item) => item.id === account.id
+        ? { ...item, establishmentRequest: 'PENDING', establishmentRequestNote: note, establishmentRequestedAt: new Date().toISOString() }
+        : item))
+      return mockUserFromAccount(currentMockAccount()!)
+    }
+    return (await api.post<User>('/account/establishment-request', { note })).data
+  },
+
+  async createEstablishment(input: NewEstablishment): Promise<{ slug: string }> {
+    if (mockEnabled) {
+      const account = currentMockAccount()
+      if (!account || account.establishmentRequest !== 'APPROVED') throw new Error('O cadastro precisa ser autorizado pelo administrador')
+      const state = readState()
+      writeState({ ...state, barbershop: { ...state.barbershop, name: input.name, address: input.address || state.barbershop.address } })
+      writeAccounts(readAccounts().map((item) => item.id === account.id
+        ? { ...item, kind: 'BARBER', establishmentRequest: 'NONE', establishmentName: input.name }
+        : item))
+      sessionStorage.setItem(mockSessionKey, 'ADMIN')
+      return { slug: input.slug }
+    }
+    const { data } = await api.post<{ slug: string }>('/barbershops', input)
+    return { slug: data.slug }
+  },
+
+  async adminOverview(): Promise<AdminOverview> {
+    if (mockEnabled) {
+      const accounts = readAccounts()
+      return {
+        users: accounts.length, barbershops: 1 + accounts.filter((item) => item.establishmentName && item.id !== barbers[0].id).length,
+        pendingRequests: accounts.filter((item) => item.establishmentRequest === 'PENDING').length, activeSubscriptions: 1,
+      }
+    }
+    return (await api.get<AdminOverview>('/admin/overview')).data
+  },
+
+  async adminUsers(filter: { q?: string; status?: EstablishmentRequestStatus } = {}): Promise<AdminUser[]> {
+    if (mockEnabled) {
+      const query = (filter.q ?? '').trim().toLowerCase()
+      return readAccounts()
+        .filter((item) => (!filter.status || item.establishmentRequest === filter.status)
+          && (!query || [item.name, item.email, item.username].some((value) => value?.toLowerCase().includes(query))))
+        .map((item): AdminUser => ({
+          id: item.id, name: item.name, email: item.email, username: item.username, role: item.kind === 'CUSTOMER' ? 'CUSTOMER' : item.kind,
+          platformAdmin: item.kind === 'ADMIN', establishmentRequest: item.establishmentRequest,
+          establishmentRequestNote: item.establishmentRequestNote, establishmentRequestedAt: item.establishmentRequestedAt,
+          establishmentDecidedAt: null, createdAt: item.createdAt,
+          memberships: item.establishmentName ? [{ role: 'OWNER', barbershop: { slug: initialBarbershop.slug, name: item.establishmentName } }] : [],
+        }))
+        .sort((left, right) => (right.establishmentRequestedAt ?? '').localeCompare(left.establishmentRequestedAt ?? ''))
+    }
+    return (await api.get<AdminUser[]>('/admin/users', { params: { q: filter.q || undefined, status: filter.status } })).data
+  },
+
+  async adminDecide(userId: string, decision: 'APPROVED' | 'REJECTED' | 'NONE'): Promise<void> {
+    if (mockEnabled) {
+      writeAccounts(readAccounts().map((item) => item.id === userId ? { ...item, establishmentRequest: decision } : item))
+      return
+    }
+    await api.post(`/admin/users/${userId}/establishment-decision`, { decision })
+  },
+
+  async adminAuthorize(email: string): Promise<void> {
+    if (mockEnabled) {
+      const key = email.trim().toLowerCase()
+      const account = readAccounts().find((item) => item.email?.toLowerCase() === key)
+      if (!account) throw new Error('Nenhuma conta com este e-mail. A pessoa precisa criar a conta primeiro.')
+      writeAccounts(readAccounts().map((item) => item.id === account.id ? { ...item, establishmentRequest: 'APPROVED' } : item))
+      return
+    }
+    await api.post('/admin/authorizations', { email })
+  },
+
+  async adminBarbershops(): Promise<AdminBarbershop[]> {
+    if (mockEnabled) {
+      const state = readState()
+      return [
+        { id: state.barbershop.id, slug: state.barbershop.slug, name: state.barbershop.name, address: state.barbershop.address ?? null, subscriptionStatus: 'ACTIVE',
+          createdAt: '2026-01-01T12:00:00.000Z', owner: { name: barbers[0].name, email: barbers[0].email ?? null }, appointments: state.appointments.length, services: state.services.length },
+      ]
+    }
+    return (await api.get<AdminBarbershop[]>('/admin/barbershops')).data
   },
 
   async services(): Promise<Service[]> {
@@ -731,7 +949,7 @@ export const repository = {
   async appointments(user: User): Promise<Appointment[]> {
     if (mockEnabled) {
       const items = readState().appointments
-      return items.filter((item) => user.role === 'BARBER' ? item.barberId === user.id : item.userId === user.id)
+      return items.filter((item) => user.role !== 'CUSTOMER' ? item.barberId === user.id : item.userId === user.id)
     }
     return (await api.get<Appointment[]>('/appointments')).data
   },
@@ -777,7 +995,7 @@ export const repository = {
     if (!mockEnabled) return (await api.get<LastAppointment | null>('/appointments/last')).data
     const state = readState()
     const appointment = state.appointments
-      .filter((item) => item.userId === customer.id && item.status === 'DONE')
+      .filter((item) => item.userId === activeCustomer().id && item.status === 'DONE')
       .sort((left, right) => right.scheduledAt.localeCompare(left.scheduledAt))[0]
     if (!appointment) return null
     const service = state.services.find((item) => item.id === appointment.serviceId)
@@ -959,7 +1177,7 @@ export const repository = {
     }
     if (!barber) throw new Error('Este horário acabou de ser reservado')
     validateMockSchedule(state, barber.id, service, input.scheduledAt)
-    const subscription = state.customerSubscriptions.find((item) => item.userId === customer.id && item.status === 'ACTIVE')
+    const subscription = state.customerSubscriptions.find((item) => item.userId === activeCustomer().id && item.status === 'ACTIVE')
     if (subscription && new Date() >= new Date(subscription.currentPeriodEnd)) {
       subscription.currentPeriodStart = subscription.currentPeriodEnd
       subscription.currentPeriodEnd = new Date(new Date(subscription.currentPeriodStart).getTime() + subscription.plan.intervalDays * 86_400_000).toISOString()
@@ -971,7 +1189,7 @@ export const repository = {
     if (covered) subscription!.visitsUsed += 1
     const appointment: Appointment = {
       id: crypto.randomUUID(),
-      userId: customer.id,
+      userId: activeCustomer().id,
       ...input,
       barberId: barber.id,
       status: 'PENDING',
@@ -982,7 +1200,7 @@ export const repository = {
       commission: covered || state.barbershop.depositType === 'NONE' ? 0 : commissionAmount(service.price, state.barbershop),
       clientConfirmed: false,
       reminders: [],
-      user: customer,
+      user: activeCustomer(),
       barber,
       service,
     }
@@ -993,7 +1211,7 @@ export const repository = {
 
   async membershipBenefit(serviceId: string): Promise<{ covered: boolean; remainingVisits: number }> {
     if (!mockEnabled) return (await api.get<{ covered: boolean; remainingVisits: number }>('/appointments/membership-benefit', { params: { serviceId } })).data
-    const subscription = readState().customerSubscriptions.find((item) => item.userId === customer.id && item.status === 'ACTIVE')
+    const subscription = readState().customerSubscriptions.find((item) => item.userId === activeCustomer().id && item.status === 'ACTIVE')
     const remainingVisits = subscription ? Math.max(0, subscription.plan.includedVisits - subscription.visitsUsed) : 0
     return { covered: Boolean(subscription?.plan.serviceIds.includes(serviceId) && remainingVisits > 0), remainingVisits }
   },
@@ -1014,7 +1232,7 @@ export const repository = {
 
   async customerSubscription(): Promise<CustomerSubscription | null> {
     if (!mockEnabled) return (await api.get<CustomerSubscription | null>('/subscriptions/me')).data
-    return readState().customerSubscriptions.find((item) => item.userId === customer.id) ?? null
+    return readState().customerSubscriptions.find((item) => item.userId === activeCustomer().id) ?? null
   },
 
   async customerSubscriptions(): Promise<CustomerSubscription[]> {
@@ -1025,13 +1243,13 @@ export const repository = {
   async subscribeMembership(planId: string): Promise<{ checkoutUrl: string | null }> {
     if (!mockEnabled) return (await api.post<{ checkoutUrl: string | null }>('/subscriptions', { planId })).data
     const state = readState()
-    if (state.customerSubscriptions.some((item) => item.userId === customer.id && item.status !== 'CANCELLED')) throw new Error('Você já possui uma assinatura neste estabelecimento')
+    if (state.customerSubscriptions.some((item) => item.userId === activeCustomer().id && item.status !== 'CANCELLED')) throw new Error('Você já possui uma assinatura neste estabelecimento')
     const plan = state.membershipPlans.find((item) => item.id === planId && item.active)
     if (!plan) throw new Error('Plano não encontrado')
     const start = new Date()
     state.customerSubscriptions.unshift({
-      id: crypto.randomUUID(), userId: customer.id, status: 'ACTIVE', currentPeriodStart: start.toISOString(),
-      currentPeriodEnd: new Date(start.getTime() + plan.intervalDays * 86_400_000).toISOString(), visitsUsed: 0, plan, user: customer,
+      id: crypto.randomUUID(), userId: activeCustomer().id, status: 'ACTIVE', currentPeriodStart: start.toISOString(),
+      currentPeriodEnd: new Date(start.getTime() + plan.intervalDays * 86_400_000).toISOString(), visitsUsed: 0, plan, user: activeCustomer(),
     })
     writeState(state)
     return { checkoutUrl: null }
@@ -1051,7 +1269,7 @@ export const repository = {
     if (!mockEnabled) return (await api.get<RecurringBooking[]>('/recurring-bookings')).data
     const state = readState()
     const role = sessionStorage.getItem(mockSessionKey)
-    return role === 'CUSTOMER' ? state.recurringBookings.filter((item) => item.userId === customer.id) : state.recurringBookings
+    return role === 'CUSTOMER' ? state.recurringBookings.filter((item) => item.userId === activeCustomer().id) : state.recurringBookings
   },
 
   async createRecurringBooking(input: NewRecurringBooking): Promise<RecurringBooking> {
@@ -1060,8 +1278,8 @@ export const repository = {
     const subscription = state.customerSubscriptions.find((item) => item.id === input.subscriptionId && item.status === 'ACTIVE')
     if (!subscription) throw new Error('Assinatura ativa não encontrada')
     const booking: RecurringBooking = {
-      id: crypto.randomUUID(), ...input, userId: input.userId ?? customer.id, active: true, occurrences: [],
-      user: customer, barber: barbers.find((item) => item.id === input.barberId), subscription,
+      id: crypto.randomUUID(), ...input, userId: input.userId ?? activeCustomer().id, active: true, occurrences: [],
+      user: activeCustomer(), barber: barbers.find((item) => item.id === input.barberId), subscription,
     }
     state.recurringBookings.unshift(booking)
     writeState(state)
@@ -1133,7 +1351,7 @@ export const repository = {
     if (!mockEnabled) return (await api.get<WalkInQueueEntry[]>('/walk-in-queue')).data
     const entries = mockQueueView(readState())
     return sessionStorage.getItem(mockSessionKey) === 'CUSTOMER'
-      ? entries.filter((entry) => entry.userId === customer.id)
+      ? entries.filter((entry) => entry.userId === activeCustomer().id)
       : entries
   },
 
@@ -1505,7 +1723,7 @@ export const repository = {
 
   async loyaltyMe(): Promise<LoyaltyCard> {
     if (!mockEnabled) return (await api.get<LoyaltyCard>('/loyalty/me')).data
-    return mockLoyaltyCard(readState(), customer.id)
+    return mockLoyaltyCard(readState(), activeCustomer().id)
   },
 
   async loyaltyCard(userId: string): Promise<LoyaltyCard> {

@@ -89,20 +89,30 @@ const settingsSchema = z.object({
 
 router.post('/', requireUser, async (req, res) => {
   const user = req.user as SessionUser
+  if (!user.platformAdmin && user.establishmentRequest !== 'APPROVED') {
+    res.status(403).json({ message: 'O cadastro de estabelecimento precisa ser autorizado pelo administrador' })
+    return
+  }
   const input = z.object({
     name: z.string().trim().min(3).max(80),
     slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(60),
+    address: z.string().trim().max(160).optional(),
   }).parse(req.body)
   const barbershop = await prisma.$transaction(async (tx) => {
     const created = await tx.barbershop.create({
       data: {
         ...input,
+        address: input.address || null,
         businessHours: { create: defaultHours },
         memberships: { create: { userId: user.id, role: 'OWNER' } },
       },
       include: { businessHours: { orderBy: { weekday: 'asc' } } },
     })
-    await tx.user.update({ where: { id: user.id }, data: { role: 'ADMIN' } })
+    // A autorização vale por um cadastro: novos estabelecimentos pedem nova aprovação.
+    await tx.user.update({
+      where: { id: user.id },
+      data: { role: 'ADMIN', ...(user.platformAdmin ? {} : { establishmentRequest: 'NONE' as const }) },
+    })
     return created
   })
   res.status(201).json(publicBarbershop(barbershop, true))

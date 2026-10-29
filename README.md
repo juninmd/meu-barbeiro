@@ -12,7 +12,7 @@ Link exclusivo para o cliente marcar horário, sinal online e lembretes automát
 
 <br/>
 
-<img src=".github/assets/screenshots/home.png" alt="Tela de entrada do Meu Barbeiro com o botão Continuar com Google e os acessos de desenvolvimento para cliente e barbeiro" width="860" />
+<img src=".github/assets/screenshots/home.png" alt="Tela de entrada única do Meu Barbeiro com e-mail ou usuário, senha e abas Entrar e Criar conta" width="860" />
 
 </div>
 
@@ -29,14 +29,18 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
 <td width="50%"><img src=".github/assets/screenshots/cliente-agendar.png" alt="Tela de agendamento do cliente com o próximo horário confirmado e o passo 1 de 3 de um novo agendamento" /><br/><b>Agendar</b> &ndash; o cliente vê o próximo horário e inicia um novo agendamento em três passos.</td>
 <td width="50%"><img src=".github/assets/screenshots/barbeiro-hoje.png" alt="Painel do barbeiro com contadores de clientes do dia e o próximo cliente da sequência" /><br/><b>Hoje</b> &ndash; contadores do dia e o próximo cliente da fila.</td>
 </tr>
+<tr>
+<td width="50%"><img src=".github/assets/screenshots/admin-liberacoes.png" alt="Painel do administrador com a lista de pedidos de liberação de estabelecimento e botões Aprovar e Recusar" /><br/><b>Administrador</b> &ndash; aprova quem pode cadastrar o estabelecimento.</td>
+<td width="50%"><img src=".github/assets/screenshots/cadastrar-estabelecimento.png" alt="Formulário de cadastro do estabelecimento liberado pelo administrador" /><br/><b>Cadastro do estabelecimento</b> &ndash; nome, link próprio e endereço.</td>
+</tr>
 </table>
 
 <details>
-<summary>🖥️ Mais telas: entrada e agenda do barbeiro</summary>
+<summary>🖥️ Mais telas: entrada no celular e agenda do barbeiro</summary>
 
-| Entrada | Agenda do barbeiro |
+| Entrada (celular) | Agenda do barbeiro |
 |---|---|
-| <img src=".github/assets/screenshots/home.png" alt="Tela de entrada com acessos de desenvolvimento para cliente e barbeiro" width="420" /> | <img src=".github/assets/screenshots/barbeiro-agenda.png" alt="Agenda e disponibilidade semanal do barbeiro com horários de início e fim por dia" width="420" /> |
+| <img src=".github/assets/screenshots/login-mobile.png" alt="Tela de entrada única no celular" width="260" /> | <img src=".github/assets/screenshots/barbeiro-agenda.png" alt="Agenda e disponibilidade semanal do barbeiro com horários de início e fim por dia" width="420" /> |
 
 </details>
 
@@ -73,11 +77,26 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
    pnpm dev
    ```
 
-O modo de desenvolvimento abre uma área **Acesso mock**. Use **Visão cliente**
-para criar e cancelar agendamentos e **Visão barbeiro** para confirmar horários,
-concluir atendimentos e gerenciar serviços. Os dados ficam no `localStorage` do
-navegador. O seletor de perfis e os dados mock não são habilitados no build de
-produção.
+## 🔐 Acesso único e administrador
+
+Há **uma só tela de entrada** para todos: e-mail (ou usuário) e senha. O perfil
+não é escolhido na tela; vem do cadastro e é validado pelo servidor.
+
+| Quem | Como entra | O que vê |
+|---|---|---|
+| **Cliente** | cria a conta em *Criar conta* | agendar, meus horários, perfil |
+| **Barbeiro / dono** | cria a conta, pede a liberação em *Meu negócio* e, depois de aprovado, cadastra o estabelecimento | painel da barbearia (hoje, agenda, clientes, produtos, ajustes) |
+| **Administrador** | usuário e senha definidos no ambiente | liberações, estabelecimentos e visão da plataforma |
+
+Fluxo do estabelecimento: o usuário cria a conta → *Meu negócio* → **solicita a
+liberação** → o administrador **aprova** (ou autoriza direto por e-mail) → o
+usuário **cadastra a barbearia** (nome, link `/b/{slug}` e endereço). Cada
+aprovação vale para um cadastro; o administrador pode revogá-la.
+
+O modo de desenvolvimento (`pnpm dev`) roda sem API, com contas de teste que
+preenchem o formulário ao toque: **admin / admin**, `rafael@demo.local` e
+`marina@demo.local` (senha `demo1234`). Os dados ficam no `localStorage` do
+navegador. As contas e os dados mock não existem no build de produção.
 
 > [!NOTE]
 > O modo mock de `pnpm dev` não precisa de API nem de banco de dados.
@@ -140,6 +159,7 @@ sinal configurado precisa ser suficiente para essa comissão.
 | `TELEGRAM_BOT_TOKEN` | liga o bot do Telegram | opcional | token fornecido pelo BotFather |
 | `REMINDERS_ENABLED` | lembretes automáticos (exige `TELEGRAM_BOT_TOKEN`) | padrão `false`; só `true` liga | `false` |
 | `MERCADO_PAGO_ACCESS_TOKEN`, `MERCADO_PAGO_CLIENT_ID`, `MERCADO_PAGO_CLIENT_SECRET`, `MERCADO_PAGO_WEBHOOK_SECRET` | credenciais da aplicação Mercado Pago | obrigatórias para cobrança e OAuth | credenciais de teste em homologação |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL` | conta do administrador da plataforma, criada/atualizada ao iniciar a API | `ADMIN_PASSWORD` obrigatória em `production` (mín. 12 caracteres); sem ela nenhuma conta é criada. Usuário padrão `admin` | `ADMIN_PASSWORD=<senha longa em Secret>` |
 | `ENABLE_DEV_LOGIN` | login de desenvolvimento na API | opcional; ignorado em `production` | `true` |
 
 **Web** (`web/.env.local`):
@@ -165,7 +185,9 @@ flowchart LR
   Services --> Bot["api/src/services/telegram.service.ts"]
 ```
 
-- O mock só existe em `vite dev` (`import.meta.env.DEV`): o build de produção não inclui o seletor de perfis nem os dados fictícios.
+- O mock só existe em `vite dev` (`import.meta.env.DEV`): o build de produção não inclui as contas de teste nem os dados fictícios.
+- Senhas são guardadas com `scrypt` (sal por senha, `api/src/lib/password.ts`); o login tem limite de tentativas por IP e usuário e a resposta é a mesma para usuário inexistente e senha errada.
+- `POST /barbershops` só aceita quem foi aprovado pelo administrador (`/admin/*` exige `platformAdmin`).
 - Tokens OAuth dos vendedores são cifrados com AES-256-GCM (`api/src/lib/secrets.ts`) usando `TOKEN_ENCRYPTION_KEY`.
 - Os lembretes só são agendados quando há `TELEGRAM_BOT_TOKEN` e `REMINDERS_ENABLED=true` (`api/src/server.ts`).
 

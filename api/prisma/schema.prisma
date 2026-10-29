@@ -13,6 +13,13 @@ enum Role {
   CUSTOMER
 }
 
+enum EstablishmentRequestStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum MembershipRole {
   OWNER
   ADMIN
@@ -49,6 +56,13 @@ model User {
   googleId           String?           @unique
   phone              String?           @unique
   telegramId         String?           @unique
+  username           String?           @unique
+  passwordHash       String?
+  platformAdmin      Boolean           @default(false)
+  establishmentRequest         EstablishmentRequestStatus @default(NONE)
+  establishmentRequestNote     String?
+  establishmentRequestedAt     DateTime?
+  establishmentDecidedAt       DateTime?
   role               Role              @default(CUSTOMER)
   appointments       Appointment[]     @relation("UserAppointments")
   barberAppointments Appointment[]     @relation("BarberAppointments")

@@ -1,27 +1,29 @@
 import {
+  Building2,
   CalendarDays,
   CircleDollarSign,
   Clock3,
+  Inbox,
+  LayoutDashboard,
   LogOut,
   MoreHorizontal,
   Package,
   Scissors,
   Settings,
-  ShieldCheck,
+  Store,
   UserRound,
   UsersRound,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { mockEnabled } from '../lib/repository'
-import type { Barbershop, Role, User } from '../types'
+import type { Barbershop, User } from '../types'
 
 interface ShellProps {
   user: User
   barbershop: Barbershop | null
   children: React.ReactNode
   onLogout: () => void
-  onSwitchRole: (role: Role) => void
 }
 
 interface NavigationItem {
@@ -34,6 +36,13 @@ const clientNavigation: NavigationItem[] = [
   { label: 'Agendar', path: '/cliente/agendar', icon: <Scissors /> },
   { label: 'Meus horários', path: '/cliente/horarios', icon: <CalendarDays /> },
   { label: 'Perfil', path: '/cliente/perfil', icon: <UserRound /> },
+  { label: 'Meu negócio', path: '/cliente/negocio', icon: <Store /> },
+]
+
+const adminNavigation: NavigationItem[] = [
+  { label: 'Visão geral', path: '/admin/visao', icon: <LayoutDashboard /> },
+  { label: 'Liberações', path: '/admin/solicitacoes', icon: <Inbox /> },
+  { label: 'Estabelecimentos', path: '/admin/estabelecimentos', icon: <Building2 /> },
 ]
 
 const barberNavigation: NavigationItem[] = [
@@ -45,17 +54,22 @@ const barberNavigation: NavigationItem[] = [
   { label: 'Ajustes', path: '/barbeiro/ajustes', icon: <Settings /> },
 ]
 
-export function Shell({ user, barbershop, children, onLogout, onSwitchRole }: ShellProps) {
+export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
   const moreMenu = useRef<HTMLDivElement>(null)
-  const isBarber = user.role === 'BARBER' || user.role === 'ADMIN'
+  const isAdmin = Boolean(user.platformAdmin)
+  const isBarber = !isAdmin && (user.role === 'BARBER' || user.role === 'ADMIN')
   const canManage = barbershop?.membershipRole === 'OWNER' || barbershop?.membershipRole === 'ADMIN'
-  const navigation = isBarber
-    ? barberNavigation.filter((item) => canManage || item.label !== 'Financeiro')
-    : clientNavigation
+  const navigation = isAdmin
+    ? adminNavigation
+    : isBarber
+      ? barberNavigation.filter((item) => canManage || item.label !== 'Financeiro')
+      : clientNavigation
   const visibleMobile = isBarber ? navigation.slice(0, 4) : navigation
   const overflowMobile = isBarber ? navigation.slice(4) : []
+  const home = isAdmin ? '/admin/visao' : isBarber ? '/barbeiro/hoje' : '/cliente/horarios'
+  const roleLabel = isAdmin ? 'Administrador' : user.role === 'CUSTOMER' ? 'Cliente' : barbershop?.membershipRole === 'BARBER' ? 'Barbeiro' : 'Gestão'
   const current = navigation.find((item) => location.pathname === item.path)
 
   useEffect(() => setMoreOpen(false), [location.pathname])
@@ -72,37 +86,30 @@ export function Shell({ user, barbershop, children, onLogout, onSwitchRole }: Sh
   return (
     <div className="app-shell" style={{ '--amber': barbershop?.primaryColor || '#d99b32' } as React.CSSProperties}>
       <header className="topbar">
-        <NavLink className="brand" to={isBarber ? '/barbeiro/hoje' : '/cliente/horarios'} aria-label="Meu Barbeiro - início">
+        <NavLink className="brand" to={home} aria-label="Meu Barbeiro - início">
           <span className="brand-icon">
             {barbershop?.logoUrl ? <img src={barbershop.logoUrl} alt="" /> : <Scissors aria-hidden="true" />}
           </span>
-          <span>{barbershop?.name || <><strong>MEU</strong> BARBEIRO</>}</span>
+          <span>{isAdmin || !barbershop?.name ? <><strong>MEU</strong> BARBEIRO</> : barbershop.name}</span>
         </NavLink>
         <div className="profile-actions">
-          {mockEnabled && (
-            <label className="role-switch">
-              <ShieldCheck aria-hidden="true" />
-              <span className="sr-only">Trocar perfil mock</span>
-              <select value={user.role} onChange={(event) => onSwitchRole(event.target.value as Role)}>
-                <option value="CUSTOMER">Cliente mock</option>
-                <option value="BARBER">Barbeiro mock</option>
-              </select>
-            </label>
-          )}
-          <div className="profile-copy">
-            <strong>{user.name}</strong>
-            <small>{user.role === 'CUSTOMER' ? 'Cliente' : barbershop?.membershipRole === 'BARBER' ? 'Contratado' : 'Gestão'}</small>
-          </div>
+          <NavLink className="profile-link" to="/conta" aria-label="Minha conta">
+            <span className="avatar" aria-hidden="true">{user.name.slice(0, 1).toUpperCase()}</span>
+            <span className="profile-copy">
+              <strong>{user.name}</strong>
+              <small>{roleLabel}</small>
+            </span>
+          </NavLink>
           <button className="icon-button" onClick={onLogout} aria-label="Sair">
             <LogOut aria-hidden="true" />
           </button>
         </div>
       </header>
-      {mockEnabled && <div className="dev-ribbon">Modo desenvolvimento · alterações salvas apenas neste navegador</div>}
+      {mockEnabled && <div className="dev-ribbon">Modo demonstração · dados salvos apenas neste navegador</div>}
       <span className="sr-only" aria-live="polite">Seção atual: {current?.label ?? 'Início'}</span>
       <div className="workspace">
         <nav className="desktop-navigation" aria-label="Navegação principal">
-          <p>{isBarber ? 'Painel' : 'Sua conta'}</p>
+          <p>{isAdmin ? 'Plataforma' : isBarber ? 'Painel' : 'Sua conta'}</p>
           {navigation.map((item) => <SectionLink item={item} key={item.path} />)}
         </nav>
         <div className="workspace-content">{children}</div>

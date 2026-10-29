@@ -1,13 +1,67 @@
 export type Role = 'ADMIN' | 'BARBER' | 'CUSTOMER'
 
+export type EstablishmentRequestStatus = 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface Establishment {
+  slug: string
+  name: string
+  role: 'OWNER' | 'ADMIN' | 'BARBER'
+}
+
 export interface User {
   id: string
   name: string
-  email?: string
+  email?: string | null
+  username?: string | null
   phone?: string | null
   telegramId?: string | null
   noShowCount?: number
   role: Role
+  /** Administrador da plataforma: aprova quem pode cadastrar um estabelecimento. */
+  platformAdmin?: boolean
+  establishmentRequest?: EstablishmentRequestStatus
+  establishmentRequestNote?: string | null
+  establishments?: Establishment[]
+}
+
+export interface AdminOverview {
+  users: number
+  barbershops: number
+  pendingRequests: number
+  activeSubscriptions: number
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  email: string | null
+  username: string | null
+  role: Role
+  platformAdmin: boolean
+  establishmentRequest: EstablishmentRequestStatus
+  establishmentRequestNote: string | null
+  establishmentRequestedAt: string | null
+  establishmentDecidedAt: string | null
+  createdAt: string
+  memberships: Array<{ role: Establishment['role']; barbershop: { slug: string; name: string } }>
+}
+
+export interface AdminBarbershop {
+  id: string
+  slug: string
+  name: string
+  address: string | null
+  subscriptionStatus: string
+  createdAt: string
+  owner: { name: string; email: string | null } | null
+  appointments: number
+  services: number
+}
+
+export interface NewEstablishment {
+  name: string
+  slug: string
+  address?: string
 }
 
 export interface Barber extends User {

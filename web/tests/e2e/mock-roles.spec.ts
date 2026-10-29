@@ -1,4 +1,5 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test'
+import { loginAs, switchTo } from './helpers'
 
 const fixedNow = new Date('2026-07-17T12:00:00-03:00')
 const saturday = '2026-07-18'
@@ -10,11 +11,6 @@ async function openCleanApp(page: Page) {
   await page.evaluate(() => localStorage.clear())
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Seu melhor corte começa antes da cadeira.' })).toBeVisible()
-}
-
-async function loginAs(page: Page, role: 'cliente' | 'barbeiro') {
-  await page.getByRole('button', { name: new RegExp(`Visão ${role}`, 'i') }).click()
-  await expect(page).toHaveURL(role === 'cliente' ? /\/cliente\/horarios$/ : /\/barbeiro\/hoje$/)
 }
 
 async function capture(page: Page, testInfo: TestInfo, name: string) {
@@ -33,7 +29,7 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { path, contentType: 'image/png' })
 }
 
-test('registra acesso, troca de perfil e logout', async ({ page }, testInfo) => {
+test('registra acesso único, troca de conta e logout', async ({ page }, testInfo) => {
   await openCleanApp(page)
   await capture(page, testInfo, '01-login-com-acessos-mock')
 
@@ -41,7 +37,7 @@ test('registra acesso, troca de perfil e logout', async ({ page }, testInfo) => 
   await expect(page.getByRole('heading', { name: 'Seu próximo horário.' })).toBeVisible()
   await capture(page, testInfo, '02-acesso-visao-cliente')
 
-  await page.getByLabel('Trocar perfil mock').selectOption('BARBER')
+  await switchTo(page, 'barbeiro')
   await expect(page.getByRole('heading', { name: 'A cadeira está pronta.' })).toBeVisible()
   await capture(page, testInfo, '03-troca-para-visao-barbeiro')
 
@@ -206,7 +202,7 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
       })
     localStorage.setItem(key, JSON.stringify(state))
   })
-  await page.getByLabel('Trocar perfil mock').selectOption('BARBER')
+  await switchTo(page, 'barbeiro')
   await expect(page.getByRole('heading', { name: 'A cadeira está pronta.' })).toBeVisible()
   await expect(page.getByText('Ninguém aguardando hoje')).toBeVisible()
   await expect(page.getByText('Próximo dia com agenda: 18/07.')).toBeVisible()
@@ -244,7 +240,7 @@ test('registra personalização, horários, sinal e conexão Mercado Pago', asyn
   await expect(page.getByText('Configurações publicadas.')).toBeVisible()
   await capture(page, testInfo, '29-barbeiro-marca-horarios-e-sinal-personalizados')
 
-  await page.getByLabel('Trocar perfil mock').selectOption('CUSTOMER')
+  await switchTo(page, 'cliente')
   await page.getByRole('link', { name: 'Perfil' }).click()
   await expect(page.locator('.location-card').filter({ hasText: 'Expediente:' })).toContainText('Navalha Club')
   await expect(page.getByText('Rua do Corte, 100 · Centro')).toBeVisible()

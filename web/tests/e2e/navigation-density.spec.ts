@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test'
+import { loginAs } from './helpers'
 
 const fixedNow = new Date('2026-07-17T12:00:00-03:00')
 
@@ -7,10 +8,6 @@ async function openCleanApp(page: Page) {
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
   await page.reload()
-}
-
-async function loginAs(page: Page, role: 'cliente' | 'barbeiro') {
-  await page.getByRole('button', { name: new RegExp(`Visão ${role}`, 'i') }).click()
 }
 
 async function expectMinimumTouchTarget(locator: Locator) {

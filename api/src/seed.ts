@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { SecretBox } from './lib/secrets.js'
+import { hashPassword } from './lib/password.js'
+import { ensurePlatformAdmin } from './lib/bootstrap-admin.js'
 
 const prisma = new PrismaClient()
 const box = new SecretBox(process.env.TOKEN_ENCRYPTION_KEY!)
@@ -21,7 +23,13 @@ const services = [
   { name: 'Corte + barba', duration: 75, priceCents: 8_500 },
 ]
 
+// Senha única das contas de demonstração. O seed local nunca roda em produção.
+const demoPassword = process.env.DEMO_PASSWORD || 'demo1234'
+
 async function main() {
+  if (process.env.NODE_ENV === 'production') throw new Error('O seed de demonstração não pode rodar em produção')
+  const demoHash = await hashPassword(demoPassword)
+
   const barbershop = await prisma.barbershop.upsert({
     where: { slug: 'barbearia-central' },
     update: {
@@ -58,8 +66,8 @@ async function main() {
   for (const person of staff) {
     const user = await prisma.user.upsert({
       where: { email: person.email },
-      update: { name: person.name, role: 'BARBER' },
-      create: { email: person.email, name: person.name, role: 'BARBER' },
+      update: { name: person.name, role: 'BARBER', passwordHash: demoHash },
+      create: { email: person.email, name: person.name, role: 'BARBER', passwordHash: demoHash },
     })
     await prisma.membership.upsert({
       where: { barbershopId_userId: { barbershopId: barbershop.id, userId: user.id } },
@@ -71,8 +79,8 @@ async function main() {
   for (const person of customers) {
     await prisma.user.upsert({
       where: { email: person.email },
-      update: { name: person.name, role: 'CUSTOMER' },
-      create: { email: person.email, name: person.name, role: 'CUSTOMER' },
+      update: { name: person.name, role: 'CUSTOMER', passwordHash: demoHash },
+      create: { email: person.email, name: person.name, role: 'CUSTOMER', passwordHash: demoHash },
     })
   }
 
@@ -84,6 +92,7 @@ async function main() {
     })
   }
 
+  await ensurePlatformAdmin({ ...process.env, ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin' })
   console.log(`[seed] barbearia ${barbershop.slug} pronta com ${staff.length + customers.length} usuários`)
 }
 
