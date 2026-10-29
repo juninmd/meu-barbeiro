@@ -114,6 +114,10 @@ test('registra confirmação, conclusão e cancelamento pelo barbeiro', async ({
 
   const confirmedAppointment = page.locator('article').filter({ hasText: 'Lucas Rocha' })
   await confirmedAppointment.getByRole('button', { name: 'Cancelar' }).click()
+  const cancelDialog = page.getByRole('dialog')
+  await expect(cancelDialog).toContainText('Cancelar o horário de Lucas Rocha?')
+  await cancelDialog.getByLabel('Motivo').fill('Barbeiro indisponível')
+  await cancelDialog.getByRole('button', { name: 'Cancelar horário' }).click()
   await expect(confirmedAppointment).toHaveCount(0)
   await capture(page, testInfo, '17-barbeiro-agendamento-cancelado')
 })
@@ -154,6 +158,8 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
 
   await loginAs(page, 'cliente')
   await page.getByRole('link', { name: 'Agendar', exact: true }).click()
+  await expect(page.getByTestId('client-next-appointment')).toBeVisible()
+  await expect(page.getByTestId('booking-form')).toBeVisible()
   const scheduleBox = await page.getByTestId('client-next-appointment').boundingBox()
   const bookingBox = await page.getByTestId('booking-form').boundingBox()
   expect(scheduleBox).not.toBeNull()
@@ -174,6 +180,7 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
   const morningGrid = page.getByRole('region', { name: 'Manhã' }).locator('.slot-grid')
   await expect(morningGrid.getByRole('button').first()).toHaveAttribute('aria-label', /Selecionar horário/)
   expect(await morningGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(4)
+  await expect(page.locator('.availability-heading')).toBeVisible()
   const availabilityTop = (await page.locator('.availability-heading').boundingBox())!.y
   const afternoonTop = (await page.getByRole('region', { name: 'Tarde' }).boundingBox())!.y
   expect(afternoonTop - availabilityTop).toBeLessThan(300)
@@ -185,11 +192,13 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: 'Manter horário atual' }).click()
 
   await page.getByRole('button', { name: 'Cancelar horário' }).click()
+  // dentro da janela de 6h a barbearia retém parte do sinal, então não há estorno integral
+  await expect(page.getByRole('dialog')).toContainText('dentro da janela configurada')
   await page.getByRole('button', { name: 'Sim, cancelar' }).click()
   await page.getByRole('link', { name: 'Meus horários' }).click()
   await page.getByText(/Ver histórico/).click()
   await expect(page.locator('.history-item')).toContainText('Cancelado')
-  await expect(page.locator('.history-item')).toContainText('Pagamento estornado')
+  await expect(page.locator('.history-item')).not.toContainText('Pagamento estornado')
   await capture(page, testInfo, '24-mobile-visao-cliente')
 
   await page.evaluate(() => {
@@ -232,7 +241,7 @@ test('registra personalização, horários, sinal e conexão Mercado Pago', asyn
   await settings.getByLabel('Cor principal').fill('#2f6b58')
   await settings.getByLabel('Endereço').fill('Rua do Corte, 100 · Centro')
   await settings.getByLabel('Tipo de sinal').selectOption('PERCENTAGE')
-  await settings.getByRole('spinbutton', { name: 'Percentual' }).fill('30')
+  await settings.getByRole('spinbutton', { name: 'Percentual', exact: true }).fill('30')
   await settings.getByLabel('Abertura Sáb').fill('10:00')
   await settings.getByLabel('Fechamento Sáb').fill('18:00')
   await settings.getByRole('button', { name: 'Salvar configurações' }).click()

@@ -92,15 +92,17 @@ test('barra inferior não cobre ação principal e alvos principais medem 44px',
   await expectMinimumTouchTarget(page.getByRole('link', { name: 'Perfil' }))
 })
 
-test('contratado não vê nem acessa Financeiro e Ajustes', async ({ page }) => {
+test('contratado vê Ajustes pessoais, mas não vê nem acessa Financeiro', async ({ page }) => {
   await page.evaluate(() => localStorage.setItem('meu-barbeiro:mock-state:v2', JSON.stringify({
     barbershop: { membershipRole: 'BARBER' },
   })))
   await loginAs(page, 'barbeiro')
 
   await expect(page.getByRole('link', { name: 'Financeiro' })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'Ajustes' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Mais' })).toHaveCount(0)
+  // no celular o item extra fica em "Mais"; no desktop está na lateral
+  const more = page.getByRole('button', { name: 'Mais' })
+  if (await more.isVisible()) await more.click()
+  await expect(page.getByRole('link', { name: 'Ajustes' })).toBeVisible()
 
   await page.goto('/barbeiro/financeiro')
   await expect(page).toHaveURL(/\/barbeiro\/hoje$/)

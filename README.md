@@ -117,6 +117,9 @@ Copie `api/.env.example` para `api/.env` e configure PostgreSQL, sessão, Google
 Mercado Pago. Gere `SESSION_SECRET` e `TOKEN_ENCRYPTION_KEY` com valores aleatórios;
 tokens OAuth dos vendedores são persistidos criptografados.
 
+A imagem da API (`api/Dockerfile`) já roda `prisma migrate deploy` ao iniciar, então
+em deploy as migrations são aplicadas automaticamente. Manualmente:
+
 Banco novo:
 
 ```bash
