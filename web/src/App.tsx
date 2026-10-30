@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { MotionConfig, motion } from 'motion/react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Login } from './components/Login'
+import { PublicShop } from './features/public/PublicShop'
 import { Shell } from './components/Shell'
 import { AccountPage } from './features/account/AccountPage'
 import { EstablishmentOnboarding } from './features/account/EstablishmentOnboarding'
@@ -29,6 +30,9 @@ export default function App() {
   const [data, setData] = useState<AppData>(emptyData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Em /b/{slug} o visitante vê a página pública da barbearia antes de entrar.
+  const [entering, setEntering] = useState(false)
+  const isTenantUrl = /^\/b\/[a-z0-9-]+/.test(window.location.pathname)
 
   const loadData = useCallback(async (currentUser: User) => {
     setError(null)
@@ -102,7 +106,11 @@ export default function App() {
     return <div className="loading-screen" role="status"><span className="loader" /><p>Preparando a cadeira…</p></div>
   }
 
-  if (!user) return <Login onAuthenticated={(authenticated) => void enter(authenticated)} />
+  if (!user && isTenantUrl && !entering) {
+    return <PublicShop onBook={() => setEntering(true)} onSignIn={() => setEntering(true)} />
+  }
+
+  if (!user) return <Login onAuthenticated={(authenticated) => { setEntering(false); void enter(authenticated) }} {...(isTenantUrl ? { onBack: () => setEntering(false) } : {})} />
 
   const isAdmin = Boolean(user.platformAdmin)
   const isBarber = !isAdmin && (user.role === 'BARBER' || user.role === 'ADMIN')

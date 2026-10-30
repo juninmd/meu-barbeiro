@@ -52,6 +52,8 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
 - **Gestão de Serviços**: Cadastro de cortes, barbas e tratamentos com preços e durações.
 - **Painel Administrativo**: Visão geral do dia, semana e faturamento.
 - **Notificações**: Lembretes automáticos para evitar faltas.
+- **Página pública da barbearia** (`/b/{slug}`): serviços, equipe, horários com "aberto agora", avaliações e como chegar, sem login; link para copiar/WhatsApp e QR Code para o balcão.
+- **Pesquisa de satisfação**: o cliente avalia o atendimento concluído (1–5 + comentário); a equipe acompanha média e comentários. Comparativo em [docs/COMPETITIVE_ANALYSIS.md](docs/COMPETITIVE_ANALYSIS.md).
 - **SaaS multi-barbearia**: identidade, endereço, horários e política de sinal por estabelecimento.
 - **Mercado Pago**: assinatura mensal de R$ 20,00, conexão OAuth do vendedor, sinal online e comissão fixa de 1% por serviço.
 

@@ -1,9 +1,11 @@
-import { BellRing, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, UserRound, X } from 'lucide-react'
+import { BellRing, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, Star, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Calendar } from '../../components/ui/Calendar'
+import { ReviewDialog } from '../../components/ReviewDialog'
+import { Stars } from '../../components/ui/Stars'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { AppointmentSlots } from '../../components/AppointmentSlots'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -12,7 +14,7 @@ import { WalkInQueuePanel } from '../../components/WalkInQueuePanel'
 import { MembershipPanel } from '../../components/MembershipPanel'
 import { formatBusinessHours, formatCurrency, formatDate, paymentLabel } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, NewAppointment, Service, User } from '../../types'
+import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, MyReview, NewAppointment, Service, User } from '../../types'
 import { buttonStyles } from '../../components/ui/Button'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
@@ -60,6 +62,8 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
+  const [myReviews, setMyReviews] = useState<MyReview[]>([])
+  const [reviewTarget, setReviewTarget] = useState<Appointment | null>(null)
   const [cancelQuote, setCancelQuote] = useState<CancellationQuote | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -265,6 +269,13 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       setBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (section !== 'horarios') return
+    let active = true
+    repository.myReviews().then((value) => active && setMyReviews(value)).catch(() => undefined)
+    return () => { active = false }
+  }, [section])
 
   if (!section || !['agendar', 'horarios', 'perfil'].includes(section)) {
     return <Navigate replace to={upcoming.length > 0 ? '/cliente/horarios' : '/cliente/agendar'} />
@@ -510,6 +521,12 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                   <p>{formatDate(item.scheduledAt)} · {item.service.name}</p>
                   {item.paymentStatus === 'REFUNDED' && <strong>Pagamento estornado</strong>}
                   {item.depositRetained && <strong>Falta registrada · sinal pago retido</strong>}
+                  {item.status === 'DONE' && (() => {
+                    const review = myReviews.find((entry) => entry.appointmentId === item.id)
+                    return review
+                      ? <span className="review-line"><Stars value={review.rating} label={`Sua nota: ${review.rating} de 5`} /> Sua avaliação</span>
+                      : <button className={buttonStyles({ variant: 'primary', size: 'sm' })} type="button" onClick={() => setReviewTarget(item)}><Star aria-hidden="true" /> Avaliar atendimento</button>
+                  })()}
                 </div>
               ))}
             </details>
@@ -549,6 +566,9 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         </>
       )}
     </main>
+    {reviewTarget && (
+      <ReviewDialog appointment={reviewTarget} onClose={() => setReviewTarget(null)} onSubmitted={(review) => { setMyReviews((current) => [...current, review]); setReviewTarget(null) }} />
+    )}
     {cancelTarget && (
       <ConfirmDialog
         eyebrow="Confirmar cancelamento"

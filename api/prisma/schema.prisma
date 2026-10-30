@@ -75,6 +75,8 @@ model User {
   loyaltyStamps      LoyaltyStamp[]
   receivedReminders  AppointmentReminder[] @relation("ReminderRecipient")
   cancellations      AppointmentCancellation[] @relation("CancellationActor")
+  reviews            Review[]          @relation("ReviewAuthor")
+  receivedReviews    Review[]          @relation("ReviewedBarber")
   walkInQueueEntries WalkInQueue[]       @relation("WalkInQueueCustomer")
   preferredWalkIns   WalkInQueue[]       @relation("WalkInQueueBarber")
   customerSubscriptions CustomerSubscription[]
@@ -115,6 +117,7 @@ model Barbershop {
   loyaltyStamps                    LoyaltyStamp[]
   appointmentReminders             AppointmentReminder[]
   appointmentCancellations         AppointmentCancellation[]
+  reviews                          Review[]
   walkInQueue                      WalkInQueue[]
   membershipPlans                 MembershipPlan[]
   customerSubscriptions           CustomerSubscription[]
@@ -293,6 +296,7 @@ model Appointment {
   customerSubscription CustomerSubscription? @relation(fields: [customerSubscriptionId], references: [id], onDelete: SetNull)
   recurringBooking     RecurringBooking?     @relation(fields: [recurringBookingId], references: [id], onDelete: SetNull)
   recurringOccurrence  RecurringBookingOccurrence?
+  review       Review?
   createdAt    DateTime              @default(now())
 
   @@index([barbershopId, barberId, scheduledAt])
@@ -494,4 +498,23 @@ model Session {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+/// Avaliação do cliente sobre um atendimento concluído (uma por atendimento).
+model Review {
+  id            String      @id @default(uuid())
+  barbershopId  String
+  appointmentId String      @unique
+  userId        String
+  barberId      String
+  rating        Int
+  comment       String?
+  createdAt     DateTime    @default(now())
+  barbershop    Barbershop  @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  user          User        @relation("ReviewAuthor", fields: [userId], references: [id])
+  barber        User        @relation("ReviewedBarber", fields: [barberId], references: [id])
+
+  @@index([barbershopId, createdAt])
+  @@index([barberId])
 }

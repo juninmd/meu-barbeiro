@@ -7,6 +7,7 @@ import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { calculateCommissionCents } from '../domain/billing.js'
 import { staffNotificationTypes } from '../lib/staff-notifications.js'
 import { logoUrlField, timezoneField } from '../lib/settings-fields.js'
+import { summarizeReviews } from '../lib/review-summary.js'
 
 const router = Router()
 const hourSchema = z.object({
@@ -127,6 +128,51 @@ router.get('/current', resolveBarbershop, async (req, res) => {
     ...publicBarbershop(req.barbershop!, Boolean(membership)),
     membershipRole: membership?.role ?? null,
   })
+})
+
+// Página pública da barbearia (sem login): serviços, equipe, horários e avaliações.
+router.get('/current/profile', resolveBarbershop, async (req, res, next) => {
+  try {
+    const barbershopId = req.barbershop!.id
+    const [services, team, ratings, latest] = await Promise.all([
+      prisma.service.findMany({ where: { barbershopId, active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, duration: true, priceCents: true } }),
+      prisma.user.findMany({
+        where: { memberships: { some: { barbershopId, role: { in: ['OWNER', 'ADMIN', 'BARBER'] } } } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.review.findMany({ where: { barbershopId }, select: { rating: true } }),
+      prisma.review.findMany({
+        where: { barbershopId, comment: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+        select: { id: true, rating: true, comment: true, createdAt: true, user: { select: { name: true } } },
+      }),
+    ])
+    res.json({
+      barbershop: {
+        slug: req.barbershop!.slug,
+        name: req.barbershop!.name,
+        logoUrl: req.barbershop!.logoUrl,
+        primaryColor: req.barbershop!.primaryColor,
+        address: req.barbershop!.address,
+        timezone: req.barbershop!.timezone,
+        businessHours: req.barbershop!.businessHours.map((hour) => ({
+          weekday: hour.weekday, opensAt: hour.opensAt, closesAt: hour.closesAt,
+          breakStartsAt: hour.breakStartsAt, breakEndsAt: hour.breakEndsAt, enabled: hour.enabled,
+        })),
+      },
+      services: services.map((service) => ({ id: service.id, name: service.name, duration: service.duration, price: service.priceCents / 100 })),
+      team: team.map((member) => ({ id: member.id, name: member.name, specialty: 'Cortes e barba' })),
+      rating: summarizeReviews(ratings.map((item) => item.rating)),
+      reviews: latest.map((item) => ({
+        id: item.id, rating: item.rating, comment: item.comment, createdAt: item.createdAt.toISOString(),
+        customerName: item.user.name.split(' ')[0] ?? 'Cliente',
+      })),
+    })
+  } catch (error) {
+    next(error)
+  }
 })
 
 router.patch(

@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarCheck, Eye, EyeOff, Lock, Mail, Scissors, ShieldCheck, Store, UserRound } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CalendarCheck, Eye, EyeOff, Lock, Mail, Scissors, ShieldCheck, Store, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm, type FieldErrors } from 'react-hook-form'
 import { errorMessage, mockEnabled, repository } from '../lib/repository'
@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/Tabs'
 
 interface LoginProps {
   onAuthenticated: (user: User) => void
+  /** Quando o visitante veio da página pública da barbearia, permite voltar para ela. */
+  onBack?: () => void
 }
 
 type Mode = 'login' | 'register'
@@ -28,7 +30,7 @@ const points = [
 
 interface AuthValues { name: string; identifier: string; password: string }
 
-export function Login({ onAuthenticated }: LoginProps) {
+export function Login({ onAuthenticated, onBack }: LoginProps) {
   const [mode, setMode] = useState<Mode>('login')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +115,7 @@ export function Login({ onAuthenticated }: LoginProps) {
 
       <section className="flex items-start justify-center bg-paper px-5 pt-5 pb-8 sm:px-12 sm:pt-12 lg:items-center" aria-label="Acesso">
         <div className="w-full max-w-[460px]">
+          {onBack && <button type="button" onClick={onBack} className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-muted hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" /> Voltar para a barbearia</button>}
           <Tabs value={mode} onValueChange={switchMode}>
             <TabsList aria-label="Acesso à conta" className="mb-5 lg:mb-7">
               <TabsTrigger value="login">Entrar</TabsTrigger>

@@ -30,7 +30,8 @@ const swatches: Array<{ title: string; items: Array<{ token: string; className: 
     { token: 'success-50', className: 'bg-success-50' }, { token: 'danger-50', className: 'bg-danger-50' }, { token: 'info-50', className: 'bg-info-50' },
   ] },
 ]
-const dark = new Set(['bone-500', 'bone-600', 'bone-700', 'bone-800', 'bone-900', 'amber-500', 'amber-600', 'amber-700', 'amber-800', 'success-600', 'danger-600', 'info-600'])
+// Rótulo branco só onde passa AA (>= 4.5:1); no resto, grafite fixo (não o token `ink`, que clareia no tema escuro).
+const dark = new Set(['bone-600', 'bone-700', 'bone-800', 'bone-900', 'amber-700', 'amber-800', 'success-600', 'danger-600', 'info-600'])
 
 function Section({ id, title, children, description }: { id: string; title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -63,7 +64,7 @@ export function DesignSystemPage() {
                 <p className="mb-2 text-xs font-extrabold tracking-wider text-muted uppercase">{group.title}</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2">
                   {group.items.map((item) => (
-                    <div key={item.token} className={cn('grid h-20 content-end rounded-xl border border-black/5 p-2 text-[.68rem] font-bold', item.className, dark.has(item.token) ? 'text-white' : 'text-ink')}>{item.token}</div>
+                    <div key={item.token} className={cn('grid h-20 content-end rounded-xl border border-black/5 p-2 text-[.68rem] font-bold', item.className, dark.has(item.token) ? 'text-white' : 'text-[#15140f]')}>{item.token}</div>
                   ))}
                 </div>
               </div>
@@ -76,7 +77,7 @@ export function DesignSystemPage() {
             <p className="font-serif text-6xl leading-none tracking-tight">Corte e barba.</p>
             <p className="font-serif text-4xl leading-tight tracking-tight">Seu melhor corte começa antes da cadeira.</p>
             <p className="font-serif text-2xl">Agenda e disponibilidade</p>
-            <p className="max-w-prose leading-relaxed text-bone-700">Texto de apoio em Inter 16px, entrelinha confortável. Agendamentos sem conversa perdida, horários sob controle e uma experiência à altura do seu trabalho.</p>
+            <p className="max-w-prose leading-relaxed text-ink/80">Texto de apoio em Inter 16px, entrelinha confortável. Agendamentos sem conversa perdida, horários sob controle e uma experiência à altura do seu trabalho.</p>
             <p className="text-[.72rem] font-extrabold tracking-[.18em] text-brand-deep uppercase">Eyebrow · rótulo de seção</p>
             <p className="text-3xl font-semibold tabular-nums">R$ 1.284,50 <span className="text-sm font-medium text-muted">números tabulares</span></p>
           </Card>

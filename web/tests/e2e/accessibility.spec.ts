@@ -2,6 +2,9 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test } from '@playwright/test'
 import { loginAs, signOut } from './helpers'
 
+// Os percursos passam por muitas telas em dois temas: precisam de mais tempo que o padrão de 30s.
+test.describe.configure({ timeout: 150_000 })
+
 // Auditoria automática (axe, WCAG 2.1 A/AA) das telas principais nos dois temas: contraste, nomes acessíveis, rótulos, landmarks.
 const fixedNow = new Date('2026-07-17T12:00:00-03:00')
 
@@ -34,6 +37,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await audit(page, `${scheme} cliente/perfil`)
     await page.getByRole('button', { name: 'Menu da conta' }).click()
     await page.getByRole('menuitem', { name: 'Design system' }).click()
+    await expect(page.getByRole('menu')).toHaveCount(0)
     await audit(page, `${scheme} design-system`)
     await signOut(page)
 
@@ -77,4 +81,20 @@ for (const scheme of ['light', 'dark'] as const) {
     await audit(page, `${scheme} mobile barbeiro/ajustes`)
     await context.close()
   })
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+  for (const [label, viewport] of [['desktop', { width: 1280, height: 900 }], ['celular', { width: 390, height: 844 }]] as const) {
+    test(`acessibilidade da página pública (${scheme}, ${label})`, async ({ browser }) => {
+      const context = await browser.newContext({ colorScheme: scheme, locale: 'pt-BR', viewport, isMobile: label === 'celular', reducedMotion: 'reduce' })
+      const page = await context.newPage()
+      await page.clock.setFixedTime(fixedNow)
+      await page.goto('/b/barbearia-central')
+      await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+      await page.reload()
+      await expect(page.getByRole('heading', { level: 1, name: 'Barbearia Central' })).toBeVisible()
+      await audit(page, `${scheme} ${label} página pública`)
+      await context.close()
+    })
+  }
 }

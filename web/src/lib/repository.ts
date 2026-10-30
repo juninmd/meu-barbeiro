@@ -1,5 +1,10 @@
 import axios from 'axios'
 import type {
+  MyReview,
+  ReviewsOverview,
+  ReviewSummary,
+  ShopProfile,
+  StaffReview,
   AdminBarbershop,
   AdminOverview,
   AdminUser,
@@ -114,6 +119,7 @@ interface MockState {
   membershipPlans: MembershipPlan[]
   customerSubscriptions: CustomerSubscription[]
   recurringBookings: RecurringBooking[]
+  reviews: Array<StaffReview & { appointmentId: string; userId: string }>
 }
 
 const storageKey = 'meu-barbeiro:mock-state:v2'
@@ -180,6 +186,11 @@ const seedState = (): MockState => ({
   }],
   customerSubscriptions: [],
   recurringBookings: [],
+  reviews: [
+    { id: 'review-seed-1', appointmentId: 'seed-a', userId: 'seed-u1', rating: 5, comment: 'Melhor degradê da região. Ambiente top e sem espera.', createdAt: '2026-06-28T15:00:00.000Z', customerName: 'Bruno', barberName: 'Rafael Navalha', serviceName: 'Corte assinatura' },
+    { id: 'review-seed-2', appointmentId: 'seed-b', userId: 'seed-u2', rating: 5, comment: 'A barba terapêutica vale cada centavo.', createdAt: '2026-06-20T15:00:00.000Z', customerName: 'Diego', barberName: 'Rafael Navalha', serviceName: 'Barba terapêutica' },
+    { id: 'review-seed-3', appointmentId: 'seed-c', userId: 'seed-u3', rating: 4, comment: 'Atendimento pontual e corte bem feito.', createdAt: '2026-06-11T15:00:00.000Z', customerName: 'Felipe', barberName: 'Caio Santos', serviceName: 'Corte + barba' },
+  ],
   appointments: [
     {
       id: 'appointment-1',
@@ -268,6 +279,7 @@ const readState = (): MockState => {
       membershipPlans: parsed.membershipPlans ?? seeded.membershipPlans,
       customerSubscriptions: parsed.customerSubscriptions ?? seeded.customerSubscriptions,
       recurringBookings: parsed.recurringBookings ?? seeded.recurringBookings,
+      reviews: parsed.reviews ?? seeded.reviews,
     }
   } catch {
     localStorage.removeItem(storageKey)
@@ -540,6 +552,14 @@ const mockUserFromAccount = (account: MockAccount): User => {
   return { id: account.id, name: account.name, role: 'CUSTOMER', telegramId: account.id === customer.id ? customer.telegramId ?? null : null, ...common, establishments: [] }
 }
 
+const mockReviewSummary = (ratings: number[]): ReviewSummary => {
+  const distribution: ReviewSummary['distribution'] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  for (const rating of ratings) if (rating >= 1 && rating <= 5) distribution[rating as 1 | 2 | 3 | 4 | 5] += 1
+  const count = ratings.filter((rating) => rating >= 1 && rating <= 5).length
+  const sum = ([1, 2, 3, 4, 5] as const).reduce((total, star) => total + star * distribution[star], 0)
+  return { average: count ? Math.round((sum / count) * 10) / 10 : 0, count, distribution }
+}
+
 /** Identidade de cliente da sessão mock; sem sessão usa o cliente de demonstração. */
 const activeCustomer = (): User => {
   const account = currentMockAccount()
@@ -743,6 +763,68 @@ export const repository = {
       ]
     }
     return (await api.get<AdminBarbershop[]>('/admin/barbershops')).data
+  },
+
+  /** Página pública da barbearia: não exige login. */
+  async shopProfile(): Promise<ShopProfile> {
+    if (mockEnabled) {
+      const state = readState()
+      const { average, count, distribution } = mockReviewSummary(state.reviews.map((item) => item.rating))
+      return {
+        barbershop: {
+          slug: state.barbershop.slug, name: state.barbershop.name, logoUrl: state.barbershop.logoUrl ?? null, primaryColor: state.barbershop.primaryColor,
+          address: state.barbershop.address ?? null, timezone: state.barbershop.timezone, businessHours: state.barbershop.businessHours,
+        },
+        services: state.services.filter((service) => service.active !== false).map(({ id, name, duration, price }) => ({ id, name, duration, price })),
+        team: barbers.map((barber) => ({ id: barber.id, name: barber.name, specialty: barber.specialty })),
+        rating: { average, count, distribution },
+        reviews: [...state.reviews].filter((item) => item.comment).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6)
+          .map((item) => ({ id: item.id, rating: item.rating, comment: item.comment, createdAt: item.createdAt, customerName: item.customerName })),
+      }
+    }
+    return (await api.get<ShopProfile>('/barbershops/current/profile')).data
+  },
+
+  async myReviews(): Promise<MyReview[]> {
+    if (mockEnabled) {
+      const userId = activeCustomer().id
+      return readState().reviews.filter((item) => item.userId === userId).map(({ appointmentId, rating, comment }) => ({ appointmentId, rating, comment }))
+    }
+    return (await api.get<MyReview[]>('/reviews/mine')).data
+  },
+
+  async submitReview(input: { appointmentId: string; rating: number; comment?: string }): Promise<MyReview> {
+    if (mockEnabled) {
+      const state = readState()
+      const user = activeCustomer()
+      const appointment = state.appointments.find((item) => item.id === input.appointmentId && item.userId === user.id)
+      if (!appointment) throw new Error('Atendimento não encontrado')
+      if (appointment.status !== 'DONE') throw new Error('Só é possível avaliar atendimentos concluídos')
+      if (state.reviews.some((item) => item.appointmentId === appointment.id)) throw new Error('Este atendimento já foi avaliado')
+      if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) throw new Error('Escolha de 1 a 5 estrelas')
+      const comment = input.comment?.trim() || null
+      state.reviews.unshift({
+        id: crypto.randomUUID(), appointmentId: appointment.id, userId: user.id, rating: input.rating, comment, createdAt: new Date().toISOString(),
+        customerName: user.name, barberName: appointment.barber.name, serviceName: appointment.service.name,
+      })
+      writeState(state)
+      return { appointmentId: appointment.id, rating: input.rating, comment }
+    }
+    return (await api.post<MyReview>('/reviews', input)).data
+  },
+
+  async reviewsOverview(): Promise<ReviewsOverview> {
+    if (mockEnabled) {
+      const state = readState()
+      const onlyMine = sessionStorage.getItem(mockSessionKey) === 'BARBER' && !state.barbershop.membershipRole?.startsWith('O')
+      const items = onlyMine ? state.reviews.filter((item) => item.barberName === barbers[0].name) : state.reviews
+      return {
+        summary: mockReviewSummary(items.map((item) => item.rating)),
+        reviews: [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20)
+          .map(({ id, rating, comment, createdAt, customerName, barberName, serviceName }) => ({ id, rating, comment, createdAt, customerName, barberName, serviceName })),
+      }
+    }
+    return (await api.get<ReviewsOverview>('/reviews')).data
   },
 
   async services(): Promise<Service[]> {

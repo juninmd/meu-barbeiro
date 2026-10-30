@@ -631,4 +631,25 @@ describe('development mock repository', () => {
     expect((await repository.recurringBookings()).find((item) => item.id === booking.id)?.active).toBe(false)
     expect(await repository.membershipBenefit('service-cut')).toEqual({ covered: false, remainingVisits: 0 })
   })
+
+  it('lets a customer review a completed appointment once and feeds the public profile', async () => {
+    repository.mockUser('BARBER')
+    await repository.updateAppointment('appointment-1', 'DONE')
+    const before = await repository.shopProfile()
+    repository.mockUser('CUSTOMER')
+    await expect(repository.submitReview({ appointmentId: 'appointment-2', rating: 5 })).rejects.toThrow('Atendimento não encontrado')
+    await expect(repository.submitReview({ appointmentId: 'appointment-1', rating: 7 })).rejects.toThrow('Escolha de 1 a 5 estrelas')
+    const review = await repository.submitReview({ appointmentId: 'appointment-1', rating: 5, comment: '  Nota 10  ' })
+    expect(review).toEqual({ appointmentId: 'appointment-1', rating: 5, comment: 'Nota 10' })
+    await expect(repository.submitReview({ appointmentId: 'appointment-1', rating: 4 })).rejects.toThrow('já foi avaliado')
+    expect(await repository.myReviews()).toHaveLength(1)
+    const after = await repository.shopProfile()
+    expect(after.rating.count).toBe(before.rating.count + 1)
+    expect(after.reviews[0]).toMatchObject({ comment: 'Nota 10', customerName: 'Marina Costa' })
+  })
+
+  it('only completed appointments can be reviewed', async () => {
+    repository.mockUser('CUSTOMER')
+    await expect(repository.submitReview({ appointmentId: 'appointment-1', rating: 5 })).rejects.toThrow('concluídos')
+  })
 })

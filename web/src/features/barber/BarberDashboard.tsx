@@ -6,6 +6,8 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { CustomerProfileCard } from '../../components/CustomerProfileCard'
 import { WalkInQueuePanel } from '../../components/WalkInQueuePanel'
 import { MembershipPanel } from '../../components/MembershipPanel'
+import { BookingLinkCard } from './BookingLinkCard'
+import { ReviewsPanel } from './ReviewsPanel'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Appointment, AppointmentStatus, Barber, Barbershop, NewService, Product, Service, User } from '../../types'
@@ -256,6 +258,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
               ))}
             </div>
           </section>
+          <ReviewsPanel />
         </>
       )}
 
@@ -304,6 +307,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
           )}
           </section>
           {canManageBarbershop && <MembershipPanel mode="management" services={services} barbers={barbers} />}
+          {barbershop && canManageBarbershop && <BookingLinkCard barbershop={barbershop} />}
           <NotificationSettings />
           {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
         </>
