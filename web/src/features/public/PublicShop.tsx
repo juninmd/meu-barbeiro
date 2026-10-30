@@ -100,9 +100,9 @@ export function PublicShop({ onBook, onSignIn }: Props) {
           {services.length === 0 ? <p className="text-muted">Os serviços serão publicados em breve.</p> : (
             <ul className="grid gap-3">
               {services.map((service) => (
-                <li key={service.id} className="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4 shadow-sm">
+                <li key={service.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 rounded-2xl border border-line bg-surface p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand/60 hover:shadow-md sm:flex sm:justify-between">
                   <div className="min-w-0"><strong className="block">{service.name}</strong><span className="text-sm text-muted">{service.duration} min</span></div>
-                  <div className="flex items-center gap-3"><strong className="font-serif text-xl tabular-nums">{formatCurrency(service.price)}</strong><Button size="sm" variant="ghost" onClick={onBook} aria-label={`Agendar ${service.name}`}>Agendar</Button></div>
+                  <div className="contents sm:flex sm:items-center sm:gap-3"><strong className="font-serif text-xl tabular-nums">{formatCurrency(service.price)}</strong><Button size="sm" variant="ghost" className="col-span-2 max-sm:w-full" onClick={onBook} aria-label={`Agendar ${service.name}`}>Agendar</Button></div>
                 </li>
               ))}
             </ul>
