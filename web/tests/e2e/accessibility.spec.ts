@@ -46,6 +46,12 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('link', { name: section, exact: true }).click()
       await audit(page, `${scheme} barbeiro/${section}`)
     }
+    await page.getByRole('link', { name: 'Clientes', exact: true }).click()
+    await page.locator('article').filter({ hasText: 'Marina Costa' }).getByRole('button', { name: /ficha/i }).click()
+    await page.getByRole('region', { name: 'Pacotes do cliente' }).getByLabel('Vender pacote').selectOption({ label: 'Pacote 5 cortes · R$ 220,00' })
+    await page.getByRole('button', { name: 'Vender', exact: true }).click()
+    await expect(page.getByText('5 de 5 sessões restantes').first()).toBeVisible()
+    await audit(page, `${scheme} barbeiro/ficha com pacote`)
     await signOut(page)
 
     await loginAs(page, 'admin')

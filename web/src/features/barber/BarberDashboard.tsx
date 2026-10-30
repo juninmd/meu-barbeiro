@@ -7,6 +7,7 @@ import { CustomerProfileCard } from '../../components/CustomerProfileCard'
 import { WalkInQueuePanel } from '../../components/WalkInQueuePanel'
 import { MembershipPanel } from '../../components/MembershipPanel'
 import { BookingLinkCard } from './BookingLinkCard'
+import { PackagesPanel } from './PackagesPanel'
 import { ReviewsPanel } from './ReviewsPanel'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
@@ -308,6 +309,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
           </section>
           {canManageBarbershop && <MembershipPanel mode="management" services={services} barbers={barbers} />}
           {barbershop && canManageBarbershop && <BookingLinkCard barbershop={barbershop} />}
+          {canManageBarbershop && <PackagesPanel services={services} />}
           <NotificationSettings />
           {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
         </>

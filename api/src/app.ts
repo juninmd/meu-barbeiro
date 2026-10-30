@@ -18,6 +18,7 @@ import { loyaltyRoutes } from './routes/loyalty.routes.js'
 import { reportsRoutes } from './routes/reports.routes.js'
 import { plansRoutes } from './routes/plans.routes.js'
 import { subscriptionsRoutes } from './routes/subscriptions.routes.js'
+import { packagesRoutes } from './routes/packages.routes.js'
 import { reviewsRoutes } from './routes/reviews.routes.js'
 import { recurringBookingsRoutes } from './routes/recurring-bookings.routes.js'
 import { errorHandler } from './middleware/errors.js'
@@ -89,6 +90,7 @@ app.use('/plans', plansRoutes)
 app.use('/subscriptions', subscriptionsRoutes)
 app.use('/recurring-bookings', recurringBookingsRoutes)
 app.use('/reviews', reviewsRoutes)
+app.use('/packages', packagesRoutes)
 app.use(errorHandler)
 
 export { app }

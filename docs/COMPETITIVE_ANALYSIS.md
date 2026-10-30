@@ -17,7 +17,7 @@
 | Caixa / Financeiro | ✅ fechamento diário, receita, comissão, cancelamentos | ✅ (já existia) |
 | Gestão de estoque | ✅ produtos, entradas, vendas, alerta de baixo estoque | ✅ (já existia) |
 | Programa de fidelidade | ✅ cartão com selos e recompensa | ✅ (já existia) |
-| Gestão de pacotes | 🟡 *Clube* (assinatura recorrente com visitas incluídas) | 🟡 igual — **pacote pré-pago de N sessões avulsas** não existe |
+| Gestão de pacotes | 🟡 *Clube* (assinatura recorrente com visitas incluídas) | ✅ **pacotes pré-pagos**: catálogo (N sessões, preço, validade, serviço), venda no balcão, saldo por cliente, baixa por sessão, vitrine na página pública |
 | Lembretes / avisos | ✅ Telegram (cliente e equipe) | ✅ (já existia) |
 | Reservar com o Google | ❌ | ❌ exige ser parceiro Google (processo comercial/feed); fora do alcance só de código |
 
@@ -30,11 +30,12 @@ multi-barbearia com aprovação do administrador, tema escuro, acessibilidade au
 2. Avaliações: tabela `Review` (migração `20260905000000_reviews`), `POST /reviews`, `GET /reviews/mine`, `GET /reviews` (equipe),
    regras no servidor (só o próprio cliente, só atendimento `DONE`, uma vez por atendimento, nota 1–5).
 3. Cartão de link + QR Code em Ajustes.
+3b. **Pacotes pré-pagos** (migração `20260906000000_prepaid_packages`; `GET/POST/DELETE /packages`, `POST /packages/:id/sell`, `GET /packages/mine`, `GET /packages/customer/:userId`, `POST /packages/customer-packages/:id/redeem`). A baixa usa `UPDATE` condicional: 7 baixas simultâneas num pacote de 5 resultaram em exatamente 5 sucessos e 2 conflitos (testado no Postgres).
 4. Testes: API (regras de avaliação, resumo), vitest (mock e horário "aberto agora"), e2e (página pública, fluxo de avaliação ponta a ponta,
    link/QR) e axe (página pública em claro/escuro, desktop/celular).
 
 ## Próximos passos sugeridos (não implementados)
-- **Pacotes pré-pagos** (ex.: 5 cortes por R$ X, validade, saldo por cliente).
+- **Pagamento online do pacote** (hoje a venda é no balcão; integrar ao checkout Mercado Pago) e **baixa automática** ao concluir um agendamento do serviço coberto.
 - **Reservar com o Google** (parceria Google; a página pública e os dados estruturados já ajudam).
 - Fotos de serviços/equipe e galeria na página pública; resposta da barbearia às avaliações; avaliação por profissional na página.
 - Se puder, cole o HTML/texto da página do concorrente: refaço este comparativo com base no que ela realmente mostra.

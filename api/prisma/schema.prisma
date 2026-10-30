@@ -76,6 +76,9 @@ model User {
   receivedReminders  AppointmentReminder[] @relation("ReminderRecipient")
   cancellations      AppointmentCancellation[] @relation("CancellationActor")
   reviews            Review[]          @relation("ReviewAuthor")
+  ownedPackages      CustomerPackage[] @relation("PackageOwner")
+  soldPackages       CustomerPackage[] @relation("PackageSeller")
+  packageRedemptions PackageRedemption[]
   receivedReviews    Review[]          @relation("ReviewedBarber")
   walkInQueueEntries WalkInQueue[]       @relation("WalkInQueueCustomer")
   preferredWalkIns   WalkInQueue[]       @relation("WalkInQueueBarber")
@@ -118,6 +121,8 @@ model Barbershop {
   appointmentReminders             AppointmentReminder[]
   appointmentCancellations         AppointmentCancellation[]
   reviews                          Review[]
+  servicePackages                  ServicePackage[]
+  customerPackages                 CustomerPackage[]
   walkInQueue                      WalkInQueue[]
   membershipPlans                 MembershipPlan[]
   customerSubscriptions           CustomerSubscription[]
@@ -517,4 +522,57 @@ model Review {
 
   @@index([barbershopId, createdAt])
   @@index([barberId])
+}
+
+/// Pacote pré-pago do catálogo da barbearia: N sessões por um preço fechado, com validade.
+model ServicePackage {
+  id               String            @id @default(uuid())
+  barbershopId     String
+  name             String
+  /// Serviço coberto; nulo = qualquer serviço.
+  serviceId        String?
+  sessions         Int
+  priceCents       Int
+  validityDays     Int
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  barbershop       Barbershop        @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  customerPackages CustomerPackage[]
+
+  @@index([barbershopId, active])
+}
+
+/// Pacote vendido a um cliente. Guarda uma cópia das condições (nome, sessões, preço) da hora da venda.
+model CustomerPackage {
+  id            String              @id @default(uuid())
+  barbershopId  String
+  packageId     String
+  userId        String
+  soldById      String
+  name          String
+  serviceId     String?
+  sessionsTotal Int
+  sessionsUsed  Int                 @default(0)
+  priceCents    Int
+  purchasedAt   DateTime            @default(now())
+  expiresAt     DateTime
+  barbershop    Barbershop          @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  package       ServicePackage      @relation(fields: [packageId], references: [id])
+  user          User                @relation("PackageOwner", fields: [userId], references: [id])
+  soldBy        User                @relation("PackageSeller", fields: [soldById], references: [id])
+  redemptions   PackageRedemption[]
+
+  @@index([barbershopId, userId])
+}
+
+model PackageRedemption {
+  id                String          @id @default(uuid())
+  customerPackageId String
+  redeemedById      String
+  note              String?
+  createdAt         DateTime        @default(now())
+  customerPackage   CustomerPackage @relation(fields: [customerPackageId], references: [id], onDelete: Cascade)
+  redeemedBy        User            @relation(fields: [redeemedById], references: [id])
+
+  @@index([customerPackageId])
 }

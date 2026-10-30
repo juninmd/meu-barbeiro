@@ -134,7 +134,7 @@ router.get('/current', resolveBarbershop, async (req, res) => {
 router.get('/current/profile', resolveBarbershop, async (req, res, next) => {
   try {
     const barbershopId = req.barbershop!.id
-    const [services, team, ratings, latest] = await Promise.all([
+    const [services, team, ratings, latest, packages] = await Promise.all([
       prisma.service.findMany({ where: { barbershopId, active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, duration: true, priceCents: true } }),
       prisma.user.findMany({
         where: { memberships: { some: { barbershopId, role: { in: ['OWNER', 'ADMIN', 'BARBER'] } } } },
@@ -148,6 +148,7 @@ router.get('/current/profile', resolveBarbershop, async (req, res, next) => {
         take: 6,
         select: { id: true, rating: true, comment: true, createdAt: true, user: { select: { name: true } } },
       }),
+      prisma.servicePackage.findMany({ where: { barbershopId, active: true }, orderBy: { priceCents: 'asc' }, select: { id: true, name: true, sessions: true, priceCents: true, validityDays: true } }),
     ])
     res.json({
       barbershop: {
@@ -164,6 +165,7 @@ router.get('/current/profile', resolveBarbershop, async (req, res, next) => {
       },
       services: services.map((service) => ({ id: service.id, name: service.name, duration: service.duration, price: service.priceCents / 100 })),
       team: team.map((member) => ({ id: member.id, name: member.name, specialty: 'Cortes e barba' })),
+      packages: packages.map((item) => ({ id: item.id, name: item.name, sessions: item.sessions, price: item.priceCents / 100, validityDays: item.validityDays })),
       rating: summarizeReviews(ratings.map((item) => item.rating)),
       reviews: latest.map((item) => ({
         id: item.id, rating: item.rating, comment: item.comment, createdAt: item.createdAt.toISOString(),

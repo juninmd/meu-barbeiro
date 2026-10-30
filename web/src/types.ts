@@ -540,6 +540,42 @@ export interface ShopProfile {
   barbershop: Pick<Barbershop, 'slug' | 'name' | 'logoUrl' | 'primaryColor' | 'address' | 'timezone' | 'businessHours'>
   services: Array<{ id: string; name: string; duration: number; price: number }>
   team: Array<{ id: string; name: string; specialty: string }>
+  packages: Array<{ id: string; name: string; sessions: number; price: number; validityDays: number }>
   rating: ReviewSummary
   reviews: Array<{ id: string; rating: number; comment: string | null; createdAt: string; customerName: string }>
+}
+
+export interface ServicePackage {
+  id: string
+  name: string
+  serviceId: string | null
+  serviceName: string | null
+  sessions: number
+  price: number
+  validityDays: number
+  active: boolean
+}
+
+export type CustomerPackageStatus = 'ACTIVE' | 'EXHAUSTED' | 'EXPIRED'
+
+export interface CustomerPackage {
+  id: string
+  name: string
+  serviceId: string | null
+  serviceName: string | null
+  sessionsTotal: number
+  sessionsUsed: number
+  remaining: number
+  price: number
+  purchasedAt: string
+  expiresAt: string
+  status: CustomerPackageStatus
+}
+
+export interface NewServicePackage {
+  name: string
+  serviceId: string | null
+  sessions: number
+  price: number
+  validityDays: number
 }

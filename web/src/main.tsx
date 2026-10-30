@@ -19,7 +19,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={routerBasename}>
         <TooltipProvider><App /></TooltipProvider>
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster position="top-center" closeButton toastOptions={{ style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)', boxShadow: 'var(--shadow)' } }} />
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

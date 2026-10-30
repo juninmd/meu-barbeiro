@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Calendar } from '../../components/ui/Calendar'
+import { MyPackages } from '../../components/CustomerPackages'
 import { ReviewDialog } from '../../components/ReviewDialog'
 import { Stars } from '../../components/ui/Stars'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -539,6 +540,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         <>
           <header className="page-heading"><p className="eyebrow">Seu perfil</p><h1>Preferências e benefícios.</h1><p>Fidelidade, endereço e lembretes em um só lugar.</p></header>
           <div className="profile-grid">
+            <MyPackages />
             <MembershipPanel mode="customer" services={services} barbers={barbers} />
             <LoyaltyCardPanel />
             <div className="location-card">

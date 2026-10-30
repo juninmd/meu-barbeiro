@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatCurrency, formatDate } from '../lib/format'
 import { errorMessage, repository } from '../lib/repository'
 import type { CustomerProfileFields, CustomerProfileResponse } from '../types'
+import { CustomerPackagesAdmin } from './CustomerPackages'
 import { LoyaltyCardPanel } from './LoyaltyCardPanel'
 import { buttonStyles } from './ui/Button'
 
@@ -52,6 +53,7 @@ export function CustomerProfileCard({ userId }: CustomerProfileCardProps) {
   return (
     <section className="customer-profile" aria-label="Ficha interna do cliente">
       <LoyaltyCardPanel userId={userId} canRedeem />
+      <CustomerPackagesAdmin userId={userId} />
       <div className="profile-history">
         <strong>{data.history.completedAppointments} concluído(s)</strong>
         <span>{data.history.noShows} falta(s)</span>

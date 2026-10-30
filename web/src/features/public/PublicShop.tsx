@@ -1,4 +1,4 @@
-import { CalendarCheck, Clock3, Copy, MapPin, MessageCircle, Scissors, Share2, Store, UserRound } from 'lucide-react'
+import { CalendarCheck, Clock3, Copy, MapPin, MessageCircle, PackageOpen, Scissors, Share2, Store, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '../../components/ui/Badge'
@@ -47,7 +47,7 @@ export function PublicShop({ onBook, onSignIn }: Props) {
     )
   }
 
-  const { barbershop, services, team, rating, reviews } = profile
+  const { barbershop, services, team, rating, reviews, packages } = profile
   const status = openStatus(barbershop.businessHours, barbershop.timezone)
   const today = localMoment(new Date(), barbershop.timezone).weekday
   const link = `${window.location.origin}/b/${barbershop.slug}`
@@ -108,6 +108,21 @@ export function PublicShop({ onBook, onSignIn }: Props) {
             </ul>
           )}
         </Section>
+
+        {packages.length > 0 && (
+          <Section id="pacotes" title="Pacotes" icon={<PackageOpen aria-hidden="true" />}>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {packages.map((item) => (
+                <li key={item.id} className="grid gap-1 rounded-2xl border border-brand/40 bg-linear-to-br from-tint to-surface p-4 shadow-sm">
+                  <strong>{item.name}</strong>
+                  <span className="text-sm text-muted">{item.sessions} sessões · validade {item.validityDays} dias</span>
+                  <span className="mt-1 flex items-baseline gap-2"><strong className="font-serif text-2xl tabular-nums">{formatCurrency(item.price)}</strong><small className="text-muted">{formatCurrency(item.price / item.sessions)} por sessão</small></span>
+                  <small className="text-muted">Compre na barbearia e use nos próximos atendimentos.</small>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
 
         {team.length > 0 && (
           <Section id="equipe" title="Equipe" icon={<UserRound aria-hidden="true" />}>

@@ -1,5 +1,8 @@
 import axios from 'axios'
 import type {
+  CustomerPackage,
+  NewServicePackage,
+  ServicePackage,
   MyReview,
   ReviewsOverview,
   ReviewSummary,
@@ -120,6 +123,8 @@ interface MockState {
   customerSubscriptions: CustomerSubscription[]
   recurringBookings: RecurringBooking[]
   reviews: Array<StaffReview & { appointmentId: string; userId: string }>
+  packages: ServicePackage[]
+  customerPackages: Array<CustomerPackage & { userId: string }>
 }
 
 const storageKey = 'meu-barbeiro:mock-state:v2'
@@ -186,6 +191,10 @@ const seedState = (): MockState => ({
   }],
   customerSubscriptions: [],
   recurringBookings: [],
+  packages: [
+    { id: 'package-5cortes', name: 'Pacote 5 cortes', serviceId: 'service-cut', serviceName: 'Corte assinatura', sessions: 5, price: 220, validityDays: 90, active: true },
+  ],
+  customerPackages: [],
   reviews: [
     { id: 'review-seed-1', appointmentId: 'seed-a', userId: 'seed-u1', rating: 5, comment: 'Melhor degradê da região. Ambiente top e sem espera.', createdAt: '2026-06-28T15:00:00.000Z', customerName: 'Bruno', barberName: 'Rafael Navalha', serviceName: 'Corte assinatura' },
     { id: 'review-seed-2', appointmentId: 'seed-b', userId: 'seed-u2', rating: 5, comment: 'A barba terapêutica vale cada centavo.', createdAt: '2026-06-20T15:00:00.000Z', customerName: 'Diego', barberName: 'Rafael Navalha', serviceName: 'Barba terapêutica' },
@@ -280,6 +289,8 @@ const readState = (): MockState => {
       customerSubscriptions: parsed.customerSubscriptions ?? seeded.customerSubscriptions,
       recurringBookings: parsed.recurringBookings ?? seeded.recurringBookings,
       reviews: parsed.reviews ?? seeded.reviews,
+      packages: parsed.packages ?? seeded.packages,
+      customerPackages: parsed.customerPackages ?? seeded.customerPackages,
     }
   } catch {
     localStorage.removeItem(storageKey)
@@ -552,6 +563,14 @@ const mockUserFromAccount = (account: MockAccount): User => {
   return { id: account.id, name: account.name, role: 'CUSTOMER', telegramId: account.id === customer.id ? customer.telegramId ?? null : null, ...common, establishments: [] }
 }
 
+const mockPackageView = (item: CustomerPackage & { userId: string }): CustomerPackage => {
+  const { userId: _owner, ...rest } = item
+  void _owner
+  const remaining = Math.max(0, rest.sessionsTotal - rest.sessionsUsed)
+  const status = remaining === 0 ? 'EXHAUSTED' : new Date(rest.expiresAt).getTime() <= Date.now() ? 'EXPIRED' : 'ACTIVE'
+  return { ...rest, remaining, status }
+}
+
 const mockReviewSummary = (ratings: number[]): ReviewSummary => {
   const distribution: ReviewSummary['distribution'] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   for (const rating of ratings) if (rating >= 1 && rating <= 5) distribution[rating as 1 | 2 | 3 | 4 | 5] += 1
@@ -777,12 +796,87 @@ export const repository = {
         },
         services: state.services.filter((service) => service.active !== false).map(({ id, name, duration, price }) => ({ id, name, duration, price })),
         team: barbers.map((barber) => ({ id: barber.id, name: barber.name, specialty: barber.specialty })),
+        packages: state.packages.filter((item) => item.active).map(({ id, name, sessions, price, validityDays }) => ({ id, name, sessions, price, validityDays })),
         rating: { average, count, distribution },
         reviews: [...state.reviews].filter((item) => item.comment).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6)
           .map((item) => ({ id: item.id, rating: item.rating, comment: item.comment, createdAt: item.createdAt, customerName: item.customerName })),
       }
     }
     return (await api.get<ShopProfile>('/barbershops/current/profile')).data
+  },
+
+  async packages(): Promise<ServicePackage[]> {
+    if (mockEnabled) return readState().packages.filter((item) => item.active || sessionStorage.getItem(mockSessionKey) !== 'CUSTOMER')
+    return (await api.get<ServicePackage[]>('/packages')).data
+  },
+
+  async createPackage(input: NewServicePackage): Promise<ServicePackage> {
+    if (mockEnabled) {
+      const state = readState()
+      if (input.sessions < 2 || input.sessions > 50) throw new Error('Informe de 2 a 50 sessões')
+      if (input.price <= 0) throw new Error('Informe o preço do pacote')
+      const service = input.serviceId ? state.services.find((item) => item.id === input.serviceId) : null
+      const created: ServicePackage = { id: crypto.randomUUID(), name: input.name.trim(), serviceId: input.serviceId, serviceName: service?.name ?? null, sessions: input.sessions, price: input.price, validityDays: input.validityDays, active: true }
+      writeState({ ...state, packages: [created, ...state.packages] })
+      return created
+    }
+    return (await api.post<ServicePackage>('/packages', input)).data
+  },
+
+  async deactivatePackage(id: string): Promise<void> {
+    if (mockEnabled) {
+      const state = readState()
+      writeState({ ...state, packages: state.packages.map((item) => item.id === id ? { ...item, active: false } : item) })
+      return
+    }
+    await api.delete(`/packages/${id}`)
+  },
+
+  async sellPackage(packageId: string, userId: string): Promise<CustomerPackage> {
+    if (mockEnabled) {
+      const state = readState()
+      const item = state.packages.find((entry) => entry.id === packageId && entry.active)
+      if (!item) throw new Error('Pacote não encontrado ou desativado')
+      const now = Date.now()
+      const sold = {
+        id: crypto.randomUUID(), userId, name: item.name, serviceId: item.serviceId, serviceName: item.serviceName, sessionsTotal: item.sessions, sessionsUsed: 0,
+        remaining: item.sessions, price: item.price, purchasedAt: new Date(now).toISOString(), expiresAt: new Date(now + item.validityDays * 86_400_000).toISOString(), status: 'ACTIVE' as const,
+      }
+      writeState({ ...state, customerPackages: [sold, ...state.customerPackages] })
+      const { userId: _owner, ...view } = sold
+      void _owner
+      return view
+    }
+    return (await api.post<CustomerPackage>(`/packages/${packageId}/sell`, { userId })).data
+  },
+
+  async myPackages(): Promise<CustomerPackage[]> {
+    if (mockEnabled) {
+      const userId = activeCustomer().id
+      return readState().customerPackages.filter((item) => item.userId === userId).map(mockPackageView)
+    }
+    return (await api.get<CustomerPackage[]>('/packages/mine')).data
+  },
+
+  async customerPackages(userId: string): Promise<CustomerPackage[]> {
+    if (mockEnabled) return readState().customerPackages.filter((item) => item.userId === userId).map(mockPackageView)
+    return (await api.get<CustomerPackage[]>(`/packages/customer/${userId}`)).data
+  },
+
+  async redeemPackage(customerPackageId: string, note?: string): Promise<CustomerPackage> {
+    if (mockEnabled) {
+      const state = readState()
+      const target = state.customerPackages.find((item) => item.id === customerPackageId)
+      if (!target) throw new Error('Pacote do cliente não encontrado')
+      const view = mockPackageView(target)
+      if (view.status === 'EXHAUSTED') throw new Error('Este pacote não tem mais sessões')
+      if (view.status === 'EXPIRED') throw new Error('Este pacote expirou')
+      void note
+      target.sessionsUsed += 1
+      writeState(state)
+      return mockPackageView(target)
+    }
+    return (await api.post<CustomerPackage>(`/packages/customer-packages/${customerPackageId}/redeem`, note ? { note } : {})).data
   },
 
   async myReviews(): Promise<MyReview[]> {
