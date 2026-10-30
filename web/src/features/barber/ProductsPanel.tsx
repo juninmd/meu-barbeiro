@@ -5,6 +5,9 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { NewProduct, Product } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 interface ProductsPanelProps {
   canManage: boolean
@@ -115,7 +118,7 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
 
   return (
     <>
-      <section className="panel products-panel" aria-labelledby="products-title">
+      <section className={cn(cardStyles, 'products-panel')} aria-labelledby="products-title">
         <div className="section-heading compact">
           <div><p className="eyebrow">Revenda</p><h2 id="products-title">Produtos</h2></div>
           <span className="count-badge">{products.length}</span>
@@ -145,7 +148,7 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
                       onChange={(event) => setSaleQuantities({ ...saleQuantities, [product.id]: Number(event.target.value) })}
                     />
                   </label>
-                  <button className="button button-small button-primary" disabled={busy || !product.active || product.stockQuantity === 0} onClick={() => sellProduct(product)}>
+                  <button className={buttonStyles({ variant: 'primary', size: 'sm' })} disabled={busy || !product.active || product.stockQuantity === 0} onClick={() => sellProduct(product)}>
                     <ShoppingCart aria-hidden="true" /> Vender
                   </button>
                 </div>
@@ -171,7 +174,7 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
         {canManage && stockTarget && (
           <form className="stock-form" onSubmit={addStock}>
             <label>Entrada para {stockTarget.name}<input type="number" min="1" step="1" value={stockQuantity} onChange={(event) => setStockQuantity(Number(event.target.value))} required /></label>
-            <button className="button button-small button-primary" disabled={busy}><PackagePlus aria-hidden="true" /> Somar</button>
+            <button className={buttonStyles({ variant: 'primary', size: 'sm' })} disabled={busy}><PackagePlus aria-hidden="true" /> Somar</button>
             <button className="icon-button subtle" type="button" onClick={() => setStockTarget(null)} aria-label="Cancelar entrada"><X aria-hidden="true" /></button>
           </form>
         )}
@@ -184,8 +187,8 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
               <label>Preço (R$)<input type="number" min="0.01" max="10000" step="0.01" value={form.price || ''} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} required /></label>
               {!editing && <label>Estoque inicial<input type="number" min="0" step="1" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: Number(event.target.value) })} required /></label>}
             </div>
-            <button className="button button-dark button-wide" disabled={busy}><Plus aria-hidden="true" /> {editing ? 'Salvar alterações' : 'Adicionar produto'}</button>
-            {editing && <button className="button button-ghost button-wide" type="button" onClick={resetForm}>Cancelar edição</button>}
+            <button className={buttonStyles({ variant: 'dark', block: true })} disabled={busy}><Plus aria-hidden="true" /> {editing ? 'Salvar alterações' : 'Adicionar produto'}</button>
+            {editing && <button className={buttonStyles({ variant: 'ghost', block: true })} type="button" onClick={resetForm}>Cancelar edição</button>}
           </form>
         )}
       </section>

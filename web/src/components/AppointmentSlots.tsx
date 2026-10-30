@@ -1,4 +1,5 @@
 import type { AppointmentAvailability } from '../types'
+import { buttonStyles } from './ui/Button'
 
 interface AppointmentSlotsProps {
   availability: AppointmentAvailability | null
@@ -13,7 +14,7 @@ interface AppointmentSlotsProps {
 export function AppointmentSlots({ availability, error, loading, selected, browserTimezone, onSelect, onRetry }: AppointmentSlotsProps) {
   const periods = groupSlotsByPeriod(availability?.slots || [])
   if (loading) return <p className="availability-status" role="status">Carregando horários disponíveis…</p>
-  if (error) return <div className="list-feedback" role="alert"><p>{error}</p>{onRetry && <button className="button button-small button-ghost" type="button" onClick={onRetry}>Tentar novamente</button>}</div>
+  if (error) return <div className="list-feedback" role="alert"><p>{error}</p>{onRetry && <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} type="button" onClick={onRetry}>Tentar novamente</button>}</div>
   if (availability && (!availability.open || availability.slots.length === 0)) {
     return <p className="availability-status" role="status">{availability.reason || 'Não há horários livres nesta data'}</p>
   }

@@ -1,9 +1,11 @@
 import { cn } from '../../lib/cn'
 
+export const cardStyles = 'rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-8'
+
 type CardProps = React.HTMLAttributes<HTMLElement> & { as?: 'section' | 'article' | 'form' | 'div'; onSubmit?: React.FormEventHandler<HTMLElement>; noValidate?: boolean }
 
 export function Card({ as: Tag = 'div', className, ...props }: CardProps) {
-  return <Tag className={cn('rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-8', className)} {...props} />
+  return <Tag className={cn(cardStyles, className)} {...props} />
 }
 
 export function PageHeader({ eyebrow, title, children }: { eyebrow: string; title: string; children?: React.ReactNode }) {

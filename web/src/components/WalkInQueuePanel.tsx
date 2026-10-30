@@ -2,6 +2,9 @@ import { Clock3, Scissors, UserRound, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { errorMessage, repository } from '../lib/repository'
 import type { WalkInQueueEntry } from '../types'
+import { buttonStyles } from './ui/Button'
+import { cardStyles } from './ui/Card'
+import { cn } from '../lib/cn'
 
 interface WalkInQueuePanelProps {
   canCall?: boolean
@@ -59,7 +62,7 @@ export function WalkInQueuePanel({ canCall = false, onCalled, refreshKey = 0, hi
   const waiting = entries.filter((entry) => entry.status === 'WAITING')
   if (hideWhenEmpty && waiting.length === 0 && !error) return null
   return (
-    <section className="panel walk-in-queue-panel" aria-labelledby="walk-in-queue-title">
+    <section className={cn(cardStyles, 'walk-in-queue-panel')} aria-labelledby="walk-in-queue-title">
       <div className="section-heading compact">
         <div><p className="eyebrow">{canCall ? 'Quem está na porta' : 'Sua vez'}</p><h2 id="walk-in-queue-title">Fila de chegada</h2></div>
         <span className="count-badge">{waiting.length}</span>
@@ -77,8 +80,8 @@ export function WalkInQueuePanel({ canCall = false, onCalled, refreshKey = 0, hi
               <small><Clock3 aria-hidden="true" /> {entry.estimatedMinutes == null ? 'Sem encaixe hoje' : entry.estimatedMinutes === 0 ? 'Pode chamar agora' : `${entry.estimatedMinutes} min de espera`} {entry.assignedBarber ? `· ${entry.assignedBarber.name}` : ''}</small>
             </div>
             <div className="action-row">
-              {canCall && <button className="button button-small button-primary" type="button" disabled={busyId === entry.id || entry.estimatedMinutes !== 0 || Boolean(callerBarberId && entry.assignedBarber?.id !== callerBarberId)} onClick={() => void call(entry)}>Chamar</button>}
-              <button className="button button-small button-ghost" type="button" disabled={busyId === entry.id} onClick={() => void giveUp(entry)}><X aria-hidden="true" /> Desistiu</button>
+              {canCall && <button className={buttonStyles({ variant: 'primary', size: 'sm' })} type="button" disabled={busyId === entry.id || entry.estimatedMinutes !== 0 || Boolean(callerBarberId && entry.assignedBarber?.id !== callerBarberId)} onClick={() => void call(entry)}>Chamar</button>}
+              <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} type="button" disabled={busyId === entry.id} onClick={() => void giveUp(entry)}><X aria-hidden="true" /> Desistiu</button>
             </div>
           </article>
         ))}

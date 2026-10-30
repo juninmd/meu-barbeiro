@@ -2,6 +2,9 @@ import { BellRing, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { errorMessage, repository } from '../../lib/repository'
 import type { NotificationPreferences, StaffNotificationType } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 const notificationOptions: Array<{ type: StaffNotificationType; label: string }> = [
   { type: 'NEW_APPOINTMENT', label: 'Novos agendamentos' },
@@ -54,7 +57,7 @@ export function NotificationSettings() {
   }
 
   return (
-    <form className="panel settings-form" onSubmit={save}>
+    <form className={cn(cardStyles, 'settings-form')} onSubmit={save}>
       <div className="section-heading compact">
         <div><p className="eyebrow">Seu canal</p><h2><BellRing aria-hidden="true" /> Avisos da agenda</h2></div>
       </div>
@@ -72,7 +75,7 @@ export function NotificationSettings() {
       <label>Horário do resumo diário<input type="time" required value={preferences.dailySummaryTime} onChange={(event) => setPreferences({ ...preferences, dailySummaryTime: event.target.value })} /></label>
       <p className="settings-hint">O horário segue o fuso configurado para a barbearia.</p>
       {message && <p className="form-message" role="status">{message}</p>}
-      <button className="button button-dark" disabled={busy}><Save aria-hidden="true" /> {busy ? 'Salvando…' : 'Salvar meus avisos'}</button>
+      <button className={buttonStyles({ variant: 'dark' })} disabled={busy}><Save aria-hidden="true" /> {busy ? 'Salvando…' : 'Salvar meus avisos'}</button>
     </form>
   )
 }

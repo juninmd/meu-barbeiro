@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Barbershop, RevenueReport } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 interface DailyClosingProps {
   barbershop: Barbershop
@@ -48,13 +51,13 @@ export function DailyClosing({ barbershop }: DailyClosingProps) {
   }
 
   return (
-    <section className="panel closing-panel" aria-labelledby="closing-title">
+    <section className={cn(cardStyles, 'closing-panel')} aria-labelledby="closing-title">
       <div className="section-heading closing-heading">
         <div><p className="eyebrow">Caixa realizado</p><h2 id="closing-title">Fechamento</h2></div>
         <form className="closing-range" onSubmit={submit}>
           <label>De<input aria-label="Início do fechamento" type="date" value={range.from} onChange={(event) => setRange({ ...range, from: event.target.value })} required /></label>
           <label>Até<input aria-label="Fim do fechamento" type="date" value={range.to} onChange={(event) => setRange({ ...range, to: event.target.value })} required /></label>
-          <button className="button button-dark" disabled={busy}><CalendarRange aria-hidden="true" /> {busy ? 'Fechando…' : 'Consultar'}</button>
+          <button className={buttonStyles({ variant: 'dark' })} disabled={busy}><CalendarRange aria-hidden="true" /> {busy ? 'Fechando…' : 'Consultar'}</button>
         </form>
       </div>
       {message && <p className="form-message" role="alert">{message}</p>}

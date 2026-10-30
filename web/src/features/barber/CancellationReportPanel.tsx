@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { CancellationReport } from '../../types'
+import { cardStyles } from '../../components/ui/Card'
 
 const dateInput = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
@@ -22,7 +23,7 @@ export function CancellationReportPanel() {
   }, [from, to])
 
   return (
-    <section className="panel" aria-labelledby="cancellations-title">
+    <section className={cardStyles} aria-labelledby="cancellations-title">
       <div className="section-heading"><div><p className="eyebrow">Perdas e retenção</p><h2 id="cancellations-title">Cancelamentos</h2></div></div>
       <div className="form-row">
         <label>De<input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)} /></label>

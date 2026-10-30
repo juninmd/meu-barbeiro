@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Barber, BarberAbsence, BarberSchedule, Barbershop, User } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
@@ -123,7 +126,7 @@ export function BarberAvailability({ barbers, barbershop, currentUser, onChanged
 
   return (
     <>
-      <section className="panel availability-panel" aria-labelledby="availability-title">
+      <section className={cn(cardStyles, 'availability-panel')} aria-labelledby="availability-title">
         <div className="section-heading">
           <div><p className="eyebrow"><CalendarOff aria-hidden="true" /> Agenda individual</p><h2 id="availability-title">Disponibilidade</h2></div>
           {canChoose && <label>Barbeiro<select value={barberId} onChange={(event) => setBarberId(event.target.value)}>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</select></label>}
@@ -141,8 +144,8 @@ export function BarberAvailability({ barbers, barbershop, currentUser, onChanged
             ))}
           </div>
           <div className="action-row">
-            <button className="button button-dark" type="button" disabled={busy} onClick={saveSchedule}>Salvar escala</button>
-            {!usingFallback && <button className="button button-ghost" type="button" disabled={busy} onClick={restoreFallback}>Usar expediente da barbearia</button>}
+            <button className={buttonStyles({ variant: 'dark' })} type="button" disabled={busy} onClick={saveSchedule}>Salvar escala</button>
+            {!usingFallback && <button className={buttonStyles({ variant: 'ghost' })} type="button" disabled={busy} onClick={restoreFallback}>Usar expediente da barbearia</button>}
           </div>
         </div>
 
@@ -152,7 +155,7 @@ export function BarberAvailability({ barbers, barbershop, currentUser, onChanged
             <label>Início<input type="datetime-local" required value={absenceForm.startsAt} onChange={(event) => setAbsenceForm({ ...absenceForm, startsAt: event.target.value })} /></label>
             <label>Fim<input type="datetime-local" required value={absenceForm.endsAt} onChange={(event) => setAbsenceForm({ ...absenceForm, endsAt: event.target.value })} /></label>
             <label>Motivo<input required maxLength={200} value={absenceForm.reason} onChange={(event) => setAbsenceForm({ ...absenceForm, reason: event.target.value })} placeholder="Ex.: consulta médica" /></label>
-            <button className="button button-dark" disabled={busy}>Cadastrar ausência</button>
+            <button className={buttonStyles({ variant: 'dark' })} disabled={busy}>Cadastrar ausência</button>
           </form>
           {absences.length === 0 ? <p className="empty-copy">Nenhuma ausência futura.</p> : <div className="absence-list">{absences.map((absence) => (
             <div className="absence-item" key={absence.id}><div><strong>{absence.reason}</strong><span>{formatDateTime(absence.startsAt)} até {formatDateTime(absence.endsAt)}</span></div><button className="icon-button danger" type="button" aria-label={`Remover ausência: ${absence.reason}`} onClick={() => setTarget(absence)}><Trash2 aria-hidden="true" /></button></div>

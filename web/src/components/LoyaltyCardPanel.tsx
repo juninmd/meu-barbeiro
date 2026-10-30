@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { ConfirmDialog } from './ConfirmDialog'
 import { errorMessage, repository } from '../lib/repository'
 import type { LoyaltyCard } from '../types'
+import { buttonStyles } from './ui/Button'
 
 interface LoyaltyCardPanelProps {
   userId?: string
@@ -61,7 +62,7 @@ export function LoyaltyCardPanel({ userId, canRedeem = false }: LoyaltyCardPanel
           : <p>Faltam <strong>{card.remainingToReward}</strong> visita(s) concluída(s) para o próximo prêmio.</p>}
         {message && <p className="form-message" role="status">{message}</p>}
         {canRedeem && card.availableRewards > 0 && (
-          <button className="button button-primary" type="button" onClick={() => setConfirming(true)}>Resgatar prêmio</button>
+          <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setConfirming(true)}>Resgatar prêmio</button>
         )}
       </section>
       {confirming && (

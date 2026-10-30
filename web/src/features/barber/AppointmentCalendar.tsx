@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { errorMessage, repository } from '../../lib/repository'
 import type { AppointmentCalendar as CalendarData, AppointmentCalendarDay, Barbershop } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 interface AppointmentCalendarProps {
   barbershop: Barbershop
@@ -76,7 +79,7 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
   const firstWeekday = calendar ? dateAtNoon(calendar.from).getUTCDay() : 0
 
   return (
-    <section className="panel calendar-panel" aria-labelledby="calendar-title">
+    <section className={cn(cardStyles, 'calendar-panel')} aria-labelledby="calendar-title">
       <div className="calendar-heading">
         <div><p className="eyebrow"><CalendarDays aria-hidden="true" /> Visão mensal</p><h2 id="calendar-title">Calendário da agenda</h2></div>
         <div className="calendar-navigation" aria-label="Navegação entre meses">
@@ -87,7 +90,7 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
       </div>
 
       {loading && <p className="calendar-feedback" role="status">Carregando calendário…</p>}
-      {error && <div className="list-feedback" role="alert"><p>{error}</p><button className="button button-small button-ghost" type="button" onClick={() => setRequestRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
+      {error && <div className="list-feedback" role="alert"><p>{error}</p><button className={buttonStyles({ variant: 'ghost', size: 'sm' })} type="button" onClick={() => setRequestRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
       {calendar && !loading && (
         <>
           <div className="calendar-weekdays" aria-hidden="true">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div>

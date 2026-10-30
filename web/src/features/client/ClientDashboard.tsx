@@ -13,6 +13,9 @@ import { MembershipPanel } from '../../components/MembershipPanel'
 import { formatBusinessHours, formatCurrency, formatDate, paymentLabel } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, NewAppointment, Service, User } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
@@ -312,15 +315,15 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
           <p>Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</p>
         </header>
         {upcoming[0] && (
-          <section className="panel next-appointment-summary" aria-labelledby="next-before-booking">
+          <section className={cn(cardStyles, 'next-appointment-summary')} aria-labelledby="next-before-booking">
             <div className="section-heading compact">
               <div><p className="eyebrow">Antes de agendar outro</p><h2 id="next-before-booking">Seu próximo horário</h2></div>
-              <Link className="button button-ghost button-small" to="/cliente/horarios">Ver agenda</Link>
+              <Link className={buttonStyles({ variant: 'ghost', size: 'sm' })} to="/cliente/horarios">Ver agenda</Link>
             </div>
             {appointmentCard(upcoming[0], true)}
           </section>
         )}
-        <section ref={bookingPanel} className="panel booking-panel" data-testid="booking-form" aria-labelledby="booking-title">
+        <section ref={bookingPanel} className={cn(cardStyles, 'booking-panel')} data-testid="booking-form" aria-labelledby="booking-title">
           <div className="section-heading">
             <div>
               <p className="eyebrow">{rescheduleTarget ? 'Remarcar agendamento' : 'Novo agendamento'}</p>
@@ -343,7 +346,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
           {!rescheduleTarget && lastAppointment && (
             <div className="repeat-booking">
               <div><strong>{lastAppointment.service.name}</strong><span>com {lastAppointment.barber.name}</span></div>
-              <button className="button button-small button-dark" type="button" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</button>
+              <button className={buttonStyles({ variant: 'dark', size: 'sm' })} type="button" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</button>
             </div>
           )}
           <form onSubmit={submit} className="booking-form">
@@ -351,7 +354,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               <legend><span>01</span> O que vamos fazer?</legend>
               <div className="choice-grid">
                 {services.length === 0 && (
-                  <div className="empty-state"><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className="button button-ghost" type="button" onClick={() => void onRefresh()}>Tentar novamente</button></div>
+                  <div className="empty-state"><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => void onRefresh()}>Tentar novamente</button></div>
                 )}
                 {services.map((service) => (
                   <label className={`choice-card ${form.serviceId === service.id ? 'selected' : ''}`} key={service.id}>
@@ -395,7 +398,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                 {closedWeekdays.length > 0 && <small className="date-picker-legend">Dias riscados: a barbearia não abre.</small>}
               </div>
               {loadingBarbers && <p className="availability-status" role="status">Consultando quem atende nesta data…</p>}
-              {barbersError && <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className="button button-ghost" type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
+              {barbersError && <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
             </fieldset>}
 
             {bookingStep === 3 && <fieldset>
@@ -405,14 +408,14 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               ) : loadingBarbers ? (
                 <p className="availability-status" role="status">Consultando quem atende nesta data…</p>
               ) : barbersError ? (
-                <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className="button button-ghost" type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>
+                <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>
               ) : availableBarbers.length === 0 ? (
                 <div className="empty-state barber-empty-state">
                   <UserRound aria-hidden="true" />
                   <strong>Ninguém disponível nesta data</strong>
                   <p>{nextAvailableDate ? `O próximo dia com atendimento é ${formatShortDate(nextAvailableDate)}.` : 'Não encontramos atendimento nos próximos 60 dias.'}</p>
-                  {nextAvailableDate && <button className="button button-primary" type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
-                  <button className="button button-ghost" type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
+                  {nextAvailableDate && <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
+                  <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
                   {waitlistRequested && <p className="form-message" role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</p>}
                 </div>
               ) : (
@@ -465,15 +468,15 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
             </fieldset>}
 
             <div className="form-action-bar">
-              {bookingStep > 1 && !rescheduleTarget && <button className="button button-ghost" type="button" onClick={() => setBookingStep((step) => step - 1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
+              {bookingStep > 1 && !rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBookingStep((step) => step - 1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
               {bookingStep < 3 ? (
-                <button className="button button-primary" type="button" disabled={bookingStep === 1 ? !form.serviceId : !date || loadingBarbers || Boolean(barbersError)} onClick={() => setBookingStep((step) => step + 1)}>Continuar <ChevronRight aria-hidden="true" /></button>
+                <button className={buttonStyles({ variant: 'primary' })} type="button" disabled={bookingStep === 1 ? !form.serviceId : !date || loadingBarbers || Boolean(barbersError)} onClick={() => setBookingStep((step) => step + 1)}>Continuar <ChevronRight aria-hidden="true" /></button>
               ) : (
-                <button className="button button-primary" disabled={busy || !form.scheduledAt}>
+                <button className={buttonStyles({ variant: 'primary' })} disabled={busy || !form.scheduledAt}>
                   {busy ? (rescheduleTarget ? 'Remarcando…' : 'Reservando…') : (rescheduleTarget ? 'Confirmar novo horário' : 'Solicitar agendamento')} <CalendarDays aria-hidden="true" />
                 </button>
               )}
-              {rescheduleTarget && <button className="button button-ghost" disabled={busy} onClick={stopReschedule} type="button">Manter horário atual</button>}
+              {rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} disabled={busy} onClick={stopReschedule} type="button">Manter horário atual</button>}
             </div>
           </form>
         </section>
@@ -487,7 +490,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
             <h1>{upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}</h1>
             <p>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</p>
           </header>
-          <section className="panel appointments-section" aria-labelledby="upcoming-title">
+          <section className={cn(cardStyles, 'appointments-section')} aria-labelledby="upcoming-title">
             <div className="section-heading compact">
               <div><p className="eyebrow">Confirmados e pendentes</p><h2 id="upcoming-title">Próximos horários</h2></div>
               <span className="count-badge">{upcoming.length}</span>
@@ -496,10 +499,10 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               {upcoming.length === 0 && <EmptyAppointments />}
               {upcoming.map((appointment, index) => appointmentCard(appointment, index === 0))}
             </div>
-            <Link className="button button-primary section-primary-action" to="/cliente/agendar"><CalendarDays aria-hidden="true" /> {upcoming.length > 0 ? 'Agendar outro horário' : 'Agendar agora'}</Link>
+            <Link className={cn(buttonStyles({ variant: 'primary' }), 'section-primary-action')} to="/cliente/agendar"><CalendarDays aria-hidden="true" /> {upcoming.length > 0 ? 'Agendar outro horário' : 'Agendar agora'}</Link>
           </section>
           {history.length > 0 && (
-            <details className="history panel">
+            <details className={cn(cardStyles, 'history')}>
               <summary>Ver histórico ({history.length})</summary>
               {history.map((item) => (
                 <div className="history-item" key={item.id}>

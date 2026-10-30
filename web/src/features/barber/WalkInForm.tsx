@@ -4,6 +4,9 @@ import { CustomerProfileCard } from '../../components/CustomerProfileCard'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Barber, Barbershop, CustomerSummary, FitNowResponse, Service, User } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 interface WalkInFormProps {
   barbers: Barber[]
@@ -83,22 +86,22 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
   }
 
   if (!open) {
-    return <button className="button button-primary" type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" /> Quem chegou agora?</button>
+    return <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" /> Quem chegou agora?</button>
   }
 
   return (
-    <section className="panel walk-in-panel" aria-labelledby="walk-in-title">
+    <section className={cn(cardStyles, 'walk-in-panel')} aria-labelledby="walk-in-title">
       <div className="section-heading compact">
         <div><p className="eyebrow">Atendimento pelo balcão</p><h2 id="walk-in-title">Entrada sem horário</h2></div>
-        <button className="button button-ghost button-small" type="button" onClick={() => setOpen(false)}>Fechar</button>
+        <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} type="button" onClick={() => setOpen(false)}>Fechar</button>
       </div>
       {message && <p className="form-message" role="alert">{message}</p>}
       <form className="booking-form" onSubmit={submit}>
         <fieldset>
           <legend><span>01</span> Cliente</legend>
           <div className="action-row">
-            <button className={`button button-small ${existing ? 'button-dark' : 'button-ghost'}`} type="button" onClick={() => setExisting(true)}>Cliente existente</button>
-            <button className={`button button-small ${existing ? 'button-ghost' : 'button-dark'}`} type="button" onClick={() => setExisting(false)}>Visitante</button>
+            <button className={buttonStyles({ variant: existing ? 'dark' : 'ghost', size: 'sm' })} type="button" onClick={() => setExisting(true)}>Cliente existente</button>
+            <button className={buttonStyles({ variant: existing ? 'ghost' : 'dark', size: 'sm' })} type="button" onClick={() => setExisting(false)}>Visitante</button>
           </div>
           {existing ? (
             <>
@@ -143,7 +146,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
           </div>
           <p className="priority-note">Horários marcados têm prioridade. A estimativa será recalculada conforme a agenda e a fila avançam.</p>
         </fieldset>
-        <button className="button button-primary button-wide" disabled={busy || serviceIds.length === 0 || (existing ? !customerId : name.trim().length < 2)}>{busy ? 'Registrando…' : 'Adicionar à fila'} <Clock3 aria-hidden="true" /></button>
+        <button className={buttonStyles({ variant: 'primary', block: true })} disabled={busy || serviceIds.length === 0 || (existing ? !customerId : name.trim().length < 2)}>{busy ? 'Registrando…' : 'Adicionar à fila'} <Clock3 aria-hidden="true" /></button>
       </form>
     </section>
   )

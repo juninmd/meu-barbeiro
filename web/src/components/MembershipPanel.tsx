@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { formatCurrency } from '../lib/format'
 import { errorMessage, repository } from '../lib/repository'
 import type { Barber, CustomerSubscription, MembershipPlan, NewMembershipPlan, RecurringBooking, Service } from '../types'
+import { buttonStyles } from './ui/Button'
+import { cardStyles } from './ui/Card'
+import { cn } from '../lib/cn'
 
 interface MembershipPanelProps {
   mode: 'customer' | 'management'
@@ -64,7 +67,7 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
     .map((occurrence) => ({ booking, occurrence })))
 
   return (
-    <section className="panel membership-panel" aria-labelledby={`membership-${mode}`}>
+    <section className={cn(cardStyles, 'membership-panel')} aria-labelledby={`membership-${mode}`}>
       <div className="section-heading compact">
         <div><p className="eyebrow">Clube da barbearia</p><h2 id={`membership-${mode}`}>{mode === 'customer' ? 'Sua assinatura de cliente' : 'Planos e assinantes'}</h2></div>
         <CreditCard aria-hidden="true" />
@@ -80,14 +83,14 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
                 <strong>{subscription.plan.name} · {subscription.status}</strong>
                 <span>{subscription.visitsUsed} usadas · {Math.max(0, subscription.plan.includedVisits - subscription.visitsUsed)} restantes até {new Intl.DateTimeFormat('pt-BR').format(new Date(subscription.currentPeriodEnd))}</span>
               </div>
-              {subscription.status !== 'CANCELLED' && <button className="button button-small button-ghost" disabled={busy} onClick={() => void act(() => repository.cancelCustomerSubscription(subscription.id), 'Assinatura cancelada. Os horários já criados continuam válidos.')}>Cancelar</button>}
+              {subscription.status !== 'CANCELLED' && <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={() => void act(() => repository.cancelCustomerSubscription(subscription.id), 'Assinatura cancelada. Os horários já criados continuam válidos.')}>Cancelar</button>}
             </div>
           ) : (
             <div className="service-list">
               {plans.filter((plan) => plan.active).map((plan) => (
                 <article className="service-row" key={plan.id}>
                   <div><strong>{plan.name} · {formatCurrency(plan.priceCents / 100)}</strong><span>{plan.includedVisits} visita(s) a cada {plan.intervalDays} dias</span></div>
-                  <button className="button button-small button-primary" disabled={busy} onClick={() => void act(async () => {
+                  <button className={buttonStyles({ variant: 'primary', size: 'sm' })} disabled={busy} onClick={() => void act(async () => {
                     const result = await repository.subscribeMembership(plan.id)
                     if (result.checkoutUrl) window.location.assign(result.checkoutUrl)
                   }, 'Assinatura iniciada.')}>Assinar</button>
@@ -104,7 +107,7 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
                 <label>Dia<select value={bookingForm.weekday} onChange={(event) => setBookingForm({ ...bookingForm, weekday: Number(event.target.value) })}>{weekdays.map((label, index) => <option value={index} key={label}>{label}</option>)}</select></label>
                 <label>Hora<input type="time" required value={bookingForm.time} onChange={(event) => setBookingForm({ ...bookingForm, time: event.target.value })} /></label>
               </div>
-              <button className="button button-dark" disabled={busy}><Plus aria-hidden="true" /> Criar horário fixo</button>
+              <button className={buttonStyles({ variant: 'dark' })} disabled={busy}><Plus aria-hidden="true" /> Criar horário fixo</button>
             </form>
           )}
           {bookings.filter((booking) => booking.active).map((booking) => <div className="service-row" key={booking.id}><div><strong>{weekdays[booking.weekday]} às {booking.time}</strong><span>{booking.barber?.name ?? 'Profissional definido'} · ocorrências futuras respeitam agenda e conflitos</span></div><button className="icon-button subtle" aria-label="Excluir horário fixo" disabled={busy} onClick={() => void act(() => repository.deleteRecurringBooking(booking.id), 'Horário fixo desativado. Agendamentos já criados foram mantidos.')}><Trash2 aria-hidden="true" /></button></div>)}
@@ -116,7 +119,7 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
             <label>Nome<input required minLength={3} value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })} /></label>
             <div className="form-row"><label>Preço (R$)<input type="number" min="1" step="0.01" required value={planForm.priceCents ? planForm.priceCents / 100 : ''} onChange={(event) => setPlanForm({ ...planForm, priceCents: Math.round(Number(event.target.value) * 100) })} /></label><label>Período (dias)<input type="number" min="1" required value={planForm.intervalDays} onChange={(event) => setPlanForm({ ...planForm, intervalDays: Number(event.target.value) })} /></label><label>Visitas<input type="number" min="1" required value={planForm.includedVisits} onChange={(event) => setPlanForm({ ...planForm, includedVisits: Number(event.target.value) })} /></label></div>
             <fieldset><legend>Serviços cobertos</legend>{services.map((service) => <label className="check-row" key={service.id}><input type="checkbox" checked={planForm.serviceIds.includes(service.id)} onChange={(event) => setPlanForm({ ...planForm, serviceIds: event.target.checked ? [...planForm.serviceIds, service.id] : planForm.serviceIds.filter((id) => id !== service.id) })} /> {service.name}</label>)}</fieldset>
-            <button className="button button-dark" disabled={busy || planForm.serviceIds.length === 0}>Criar plano</button>
+            <button className={buttonStyles({ variant: 'dark' })} disabled={busy || planForm.serviceIds.length === 0}>Criar plano</button>
           </form>
           <div className="service-list">{plans.map((plan) => <div className="service-row" key={plan.id}><div><strong>{plan.name} · {formatCurrency(plan.priceCents / 100)}</strong><span>{plan.includedVisits} visita(s) / {plan.intervalDays} dias · {plan.active ? 'ativo' : 'inativo'}</span></div></div>)}</div>
           <h3>Assinantes</h3>

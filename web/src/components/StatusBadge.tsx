@@ -1,4 +1,5 @@
 import type { AppointmentStatus } from '../types'
+import { Badge } from './ui/Badge'
 
 type Status = AppointmentStatus | 'ACTIVE' | 'INACTIVE'
 
@@ -12,6 +13,10 @@ const labels: Record<Status, string> = {
   INACTIVE: 'Inativo',
 }
 
+const tones = {
+  PENDING: 'warning', CONFIRMED: 'success', CANCELLED: 'danger', DONE: 'neutral', NO_SHOW: 'danger', ACTIVE: 'success', INACTIVE: 'neutral',
+} as const
+
 export function StatusBadge({ status }: { status: Status }) {
-  return <span className={`status status-${status.toLowerCase()}`}>{labels[status]}</span>
+  return <Badge tone={tones[status]} dot>{labels[status]}</Badge>
 }

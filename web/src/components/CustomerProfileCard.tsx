@@ -3,6 +3,7 @@ import { formatCurrency, formatDate } from '../lib/format'
 import { errorMessage, repository } from '../lib/repository'
 import type { CustomerProfileFields, CustomerProfileResponse } from '../types'
 import { LoyaltyCardPanel } from './LoyaltyCardPanel'
+import { buttonStyles } from './ui/Button'
 
 interface CustomerProfileCardProps {
   userId: string
@@ -63,7 +64,7 @@ export function CustomerProfileCard({ userId }: CustomerProfileCardProps) {
         <label>Observações internas<textarea value={form.notes ?? ''} onChange={(event) => setForm({ ...form, notes: event.target.value || null })} maxLength={2000} /></label>
         {data.profile && <small>Atualizada por {data.profile.updatedBy.name} em {formatDate(data.profile.updatedAt)}</small>}
         {message && <p className="form-message" role="status">{message}</p>}
-        <button className="button button-small button-dark" disabled={busy}>{busy ? 'Salvando…' : 'Salvar ficha'}</button>
+        <button className={buttonStyles({ variant: 'dark', size: 'sm' })} disabled={busy}>{busy ? 'Salvando…' : 'Salvar ficha'}</button>
       </form>
     </section>
   )

@@ -4,6 +4,9 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Barbershop, Holiday, LoyaltyProgramInput } from '../../types'
+import { buttonStyles } from '../../components/ui/Button'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 interface BarbershopSettingsProps {
   barbershop: Barbershop
@@ -169,7 +172,7 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
           <strong>{formatCurrency(barbershop.monthlyFeeCents / 100)}<small>/mês</small></strong>
           <p>Status: <b>{subscriptionLabel(barbershop.subscriptionStatus)}</b></p>
           {barbershop.subscriptionStatus !== 'ACTIVE' && (
-            <button className="button button-primary" disabled={busy} onClick={subscribe}>Assinar por R$ 20/mês</button>
+            <button className={buttonStyles({ variant: 'primary' })} disabled={busy} onClick={subscribe}>Assinar por R$ 20/mês</button>
           )}
         </article>
         <article className="billing-card">
@@ -177,7 +180,7 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
           <span>Recebimentos</span>
           <strong>Mercado Pago</strong>
           <p>{barbershop.mercadoPagoConnected ? 'Conta conectada' : 'Conecte a conta que receberá os serviços'}</p>
-          <button className={`button ${barbershop.mercadoPagoConnected ? 'button-ghost' : 'button-primary'}`} disabled={busy} onClick={barbershop.mercadoPagoConnected ? () => {
+          <button className={buttonStyles({ variant: barbershop.mercadoPagoConnected ? 'ghost' : 'primary' })} disabled={busy} onClick={barbershop.mercadoPagoConnected ? () => {
             setMessage(null)
             setDisconnectError(null)
             setDisconnectOpen(true)
@@ -193,7 +196,7 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
         </article>
       </div>
 
-      <form className="panel settings-form" onSubmit={save}>
+      <form className={cn(cardStyles, 'settings-form')} onSubmit={save}>
         <div className="settings-columns">
           <fieldset>
             <legend>Marca e endereço</legend>
@@ -294,13 +297,13 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
         </fieldset>
 
         {message && <p className="form-message" role="status">{message}</p>}
-        <button className="button button-dark" disabled={busy || saved}>
+        <button className={buttonStyles({ variant: 'dark' })} disabled={busy || saved}>
           {saved ? <Check aria-hidden="true" /> : <Save aria-hidden="true" />}
           {saved ? 'Configurações salvas' : 'Salvar configurações'}
         </button>
       </form>
 
-      <form className="panel settings-form loyalty-settings" onSubmit={saveLoyalty}>
+      <form className={cn(cardStyles, 'settings-form loyalty-settings')} onSubmit={saveLoyalty}>
         <div className="section-heading compact">
           <div><p className="eyebrow">Retenção</p><h3><Gift aria-hidden="true" /> Programa de fidelidade</h3></div>
         </div>
@@ -311,10 +314,10 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
         </div>
         <p className="settings-hint">Cada atendimento concluído (DONE) gera um selo. Cancelamentos, faltas e atendimentos ainda agendados não geram.</p>
         {loyaltyMessage && <p className="form-message" role="status">{loyaltyMessage}</p>}
-        <button className="button button-dark" disabled={loyaltyBusy}>{loyaltyBusy ? 'Salvando…' : 'Salvar fidelidade'}</button>
+        <button className={buttonStyles({ variant: 'dark' })} disabled={loyaltyBusy}>{loyaltyBusy ? 'Salvando…' : 'Salvar fidelidade'}</button>
       </form>
 
-      <section className="panel holiday-settings" aria-labelledby="holidays-title">
+      <section className={cn(cardStyles, 'holiday-settings')} aria-labelledby="holidays-title">
         <div className="section-heading">
           <div><p className="eyebrow">Agenda bloqueada</p><h3 id="holidays-title">Feriados</h3></div>
           <CalendarOff aria-hidden="true" />
@@ -323,7 +326,7 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
         <form className="holiday-form" onSubmit={createHoliday}>
           <label>Data<input type="date" required value={holidayForm.date} onChange={(event) => setHolidayForm({ ...holidayForm, date: event.target.value })} /></label>
           <label>Descrição<input minLength={3} maxLength={80} required placeholder="Ex.: Natal" value={holidayForm.description} onChange={(event) => setHolidayForm({ ...holidayForm, description: event.target.value })} /></label>
-          <button className="button button-dark" disabled={holidayBusy}>Cadastrar feriado</button>
+          <button className={buttonStyles({ variant: 'dark' })} disabled={holidayBusy}>Cadastrar feriado</button>
         </form>
         {holidayMessage && <p className="form-message" role="status">{holidayMessage}</p>}
         {holidays.length === 0 ? (
