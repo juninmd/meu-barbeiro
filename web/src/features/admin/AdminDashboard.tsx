@@ -1,5 +1,7 @@
 import { Building2, Check, Inbox, LoaderCircle, MapPin, Search, ShieldCheck, UserPlus, UsersRound, X } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Avatar } from '../../components/ui/Avatar'
@@ -9,7 +11,7 @@ import { Card, PageHeader } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
 import { cn } from '../../lib/cn'
 import { errorMessage, repository } from '../../lib/repository'
-import type { AdminBarbershop, AdminOverview, AdminUser, EstablishmentRequestStatus } from '../../types'
+import type { AdminUser, EstablishmentRequestStatus } from '../../types'
 
 const statusLabel: Record<EstablishmentRequestStatus, string> = {
   NONE: 'Sem solicitação', PENDING: 'Em análise', APPROVED: 'Liberado', REJECTED: 'Recusado',
@@ -25,69 +27,65 @@ type Decision = 'APPROVED' | 'REJECTED' | 'NONE'
 
 const filters: Array<[EstablishmentRequestStatus | '', string]> = [['PENDING', 'Em análise'], ['APPROVED', 'Liberados'], ['REJECTED', 'Recusados'], ['', 'Todos']]
 
+const useDebounced = <T,>(value: T, delay: number) => {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delay)
+    return () => window.clearTimeout(timer)
+  }, [value, delay])
+  return debounced
+}
+
 export function AdminDashboard() {
   const { section } = useParams()
-  const [overview, setOverview] = useState<AdminOverview | null>(null)
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [shops, setShops] = useState<AdminBarbershop[]>([])
+  const client = useQueryClient()
   const [filter, setFilter] = useState<EstablishmentRequestStatus | ''>('PENDING')
   const [query, setQuery] = useState('')
   const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const debouncedQuery = useDebounced(query, 250)
 
-  const load = useCallback(async () => {
-    setError(null)
-    try {
-      const [nextOverview, nextUsers, nextShops] = await Promise.all([
-        repository.adminOverview(),
-        repository.adminUsers({ ...(filter ? { status: filter } : {}), q: query }),
-        repository.adminBarbershops(),
-      ])
-      setOverview(nextOverview)
-      setUsers(nextUsers)
-      setShops(nextShops)
-    } catch (caught) {
-      setError(errorMessage(caught, 'Não foi possível carregar o painel.'))
-    } finally {
-      setLoading(false)
-    }
-  }, [filter, query])
+  const overviewQuery = useQuery({ queryKey: ['admin', 'overview'], queryFn: () => repository.adminOverview() })
+  const usersQuery = useQuery({
+    queryKey: ['admin', 'users', filter, debouncedQuery],
+    queryFn: () => repository.adminUsers({ ...(filter ? { status: filter } : {}), q: debouncedQuery }),
+    placeholderData: keepPreviousData,
+  })
+  const shopsQuery = useQuery({ queryKey: ['admin', 'shops'], queryFn: () => repository.adminBarbershops() })
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => void load(), query ? 250 : 0)
-    return () => window.clearTimeout(timer)
-  }, [load, query])
+  const refresh = () => client.invalidateQueries({ queryKey: ['admin'] })
+
+  const decision = useMutation({
+    mutationFn: ({ user, decision }: { user: AdminUser; decision: Decision }) => repository.adminDecide(user.id, decision),
+    onSuccess: (_data, { user, decision }) => {
+      toast.success(decision === 'APPROVED' ? `${user.name} já pode cadastrar o estabelecimento.` : decision === 'REJECTED' ? `Solicitação de ${user.name} recusada.` : `Liberação de ${user.name} revogada.`)
+      return refresh()
+    },
+    onError: (caught) => toast.error(errorMessage(caught, 'Não foi possível registrar a decisão.')),
+  })
+
+  const authorization = useMutation({
+    mutationFn: (address: string) => repository.adminAuthorize(address),
+    onSuccess: (_data, address) => {
+      toast.success(`${address} foi autorizado a cadastrar um estabelecimento.`)
+      setEmail('')
+      return refresh()
+    },
+    onError: (caught) => toast.error(errorMessage(caught, 'Não foi possível autorizar.')),
+  })
 
   if (!section || !sections.includes(section as typeof sections[number])) return <Navigate replace to="/admin/visao" />
 
-  const decide = async (user: AdminUser, decision: Decision) => {
-    setBusyId(user.id)
-    try {
-      await repository.adminDecide(user.id, decision)
-      toast.success(decision === 'APPROVED' ? `${user.name} já pode cadastrar o estabelecimento.` : decision === 'REJECTED' ? `Solicitação de ${user.name} recusada.` : `Liberação de ${user.name} revogada.`)
-      await load()
-    } catch (caught) {
-      toast.error(errorMessage(caught, 'Não foi possível registrar a decisão.'))
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  const authorize = async (event: React.FormEvent) => {
+  const users = usersQuery.data ?? []
+  const shops = shopsQuery.data ?? []
+  const overview = overviewQuery.data
+  const busyId = decision.isPending ? decision.variables.user.id : null
+  const loading = overviewQuery.isPending || usersQuery.isPending || shopsQuery.isPending
+  const failure = overviewQuery.error ?? usersQuery.error ?? shopsQuery.error
+  const error = failure ? errorMessage(failure, 'Não foi possível carregar o painel.') : null
+  const onDecide = (user: AdminUser, next: Decision) => decision.mutate({ user, decision: next })
+  const authorize = (event: React.FormEvent) => {
     event.preventDefault()
-    setBusyId('authorize')
-    try {
-      await repository.adminAuthorize(email.trim())
-      toast.success(`${email.trim()} foi autorizado a cadastrar um estabelecimento.`)
-      setEmail('')
-      await load()
-    } catch (caught) {
-      toast.error(errorMessage(caught, 'Não foi possível autorizar.'))
-    } finally {
-      setBusyId(null)
-    }
+    authorization.mutate(email.trim())
   }
 
   const pending = users.filter((user) => user.establishmentRequest === 'PENDING')
@@ -114,7 +112,7 @@ export function AdminDashboard() {
               <h2 id="pending-title" className="font-serif text-2xl font-medium tracking-tight">Pedidos pendentes</h2>
               <Badge tone="warning">{pending.length}</Badge>
             </div>
-            {pending.length === 0 ? <p className="text-muted">Nenhuma solicitação aguardando. Tudo em dia.</p> : <RequestList users={pending} busyId={busyId} onDecide={decide} />}
+            {pending.length === 0 ? <p className="text-muted">Nenhuma solicitação aguardando. Tudo em dia.</p> : <RequestList users={pending} busyId={busyId} onDecide={onDecide} />}
             <Link className={cn(buttonStyles({ variant: 'ghost' }), 'mt-5')} to="/admin/solicitacoes">Ver todas as liberações</Link>
           </Card>
         </>
@@ -126,7 +124,7 @@ export function AdminDashboard() {
             <Field label="Autorizar por e-mail" className="flex-1">
               <Input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="barbeiro@email.com" />
             </Field>
-            <Button type="submit" loading={busyId === 'authorize'} disabled={!email}><UserPlus aria-hidden="true" /> Autorizar</Button>
+            <Button type="submit" loading={authorization.isPending} disabled={!email}><UserPlus aria-hidden="true" /> Autorizar</Button>
           </Card>
 
           <Card as="section" aria-labelledby="requests-title">
@@ -144,7 +142,7 @@ export function AdminDashboard() {
                 ))}
               </div>
             </div>
-            {users.length === 0 ? <p className="text-muted">Nenhuma conta neste filtro.</p> : <RequestList users={users} busyId={busyId} onDecide={decide} />}
+            {users.length === 0 ? <p className="text-muted">Nenhuma conta neste filtro.</p> : <RequestList users={users} busyId={busyId} onDecide={onDecide} />}
           </Card>
         </div>
       )}
@@ -155,7 +153,7 @@ export function AdminDashboard() {
             <h2 id="shops-title" className="font-serif text-2xl font-medium tracking-tight">Barbearias</h2>
             <Badge tone="warning">{shops.length}</Badge>
           </div>
-          <div className="grid gap-4 sm:grid-cols-[repeat(auto-fill,minmax(290px,1fr))]">
+          <ShopGrid>
             {shops.map((shop) => (
               <article className="grid gap-2 rounded-xl border border-line bg-[#fdfbf6] p-5" key={shop.id}>
                 <h3 className="font-serif text-xl font-medium">{shop.name}</h3>
@@ -168,11 +166,16 @@ export function AdminDashboard() {
                 </div>
               </article>
             ))}
-          </div>
+          </ShopGrid>
         </Card>
       )}
     </main>
   )
+}
+
+function ShopGrid({ children }: { children: React.ReactNode }) {
+  const [ref] = useAutoAnimate<HTMLDivElement>()
+  return <div ref={ref} className="grid gap-4 sm:grid-cols-[repeat(auto-fill,minmax(290px,1fr))]">{children}</div>
 }
 
 function Stat({ icon, value, label, alert }: { icon: React.ReactNode; value: number; label: string; alert?: boolean }) {
@@ -190,8 +193,9 @@ function Meta({ icon, children }: { icon: React.ReactNode; children: React.React
 }
 
 function RequestList({ users, busyId, onDecide }: { users: AdminUser[]; busyId: string | null; onDecide: (user: AdminUser, decision: Decision) => void }) {
+  const [parent] = useAutoAnimate<HTMLUListElement>()
   return (
-    <ul className="grid gap-3.5">
+    <ul ref={parent} className="grid gap-3.5">
       {users.map((user) => {
         const busy = busyId === user.id
         return (

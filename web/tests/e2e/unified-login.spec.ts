@@ -16,6 +16,20 @@ test('login único recusa credenciais erradas e não oferece escolha de perfil',
   await expect(page).not.toHaveURL(/admin/)
 })
 
+test('formulários mostram erros por campo antes de chamar o servidor', async ({ page }) => {
+  await openCleanApp(page)
+  await page.getByRole('button', { name: 'Entrar', exact: true }).last().click()
+  await expect(page.getByText('Informe seu e-mail ou usuário.')).toBeVisible()
+  await expect(page.getByText('Informe sua senha.')).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Criar conta' }).click()
+  await page.getByLabel('Nome completo').fill('Ana')
+  await page.getByLabel('E-mail', { exact: true }).fill('isto-nao-e-email')
+  await page.getByLabel('Senha', { exact: true }).fill('senha-forte-1')
+  await page.getByRole('button', { name: 'Criar conta' }).last().click()
+  await expect(page.getByText('Informe um e-mail válido.')).toBeVisible()
+})
+
 test('cadastro exige senha de 8 caracteres', async ({ page }) => {
   await openCleanApp(page)
   await page.getByRole('tab', { name: 'Criar conta' }).click()

@@ -1,11 +1,14 @@
 import { BadgeCheck, Clock3, Send, Store, XCircle } from 'lucide-react'
-import { useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Field, Input, Textarea } from '../../components/ui/Field'
 import { cn } from '../../lib/cn'
 import { errorMessage, repository } from '../../lib/repository'
+import { establishmentRequestSchema, establishmentSchema } from '../../lib/schemas'
 import type { User } from '../../types'
 
 interface Props {
@@ -23,35 +26,35 @@ const steps = ['Solicitar liberação', 'Análise do administrador', 'Cadastrar 
 export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props) {
   const status = user.establishmentRequest ?? 'NONE'
   const owns = (user.establishments?.length ?? 0) > 0
-  const [note, setNote] = useState('')
-  const [name, setName] = useState('')
-  const [slug, setSlug] = useState('')
-  const [slugTouched, setSlugTouched] = useState(false)
-  const [address, setAddress] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const requestForm = useForm<{ note: string }>({ resolver: zodResolver(establishmentRequestSchema), defaultValues: { note: '' } })
+  const shopForm = useForm<{ name: string; slug: string; address: string }>({
+    resolver: zodResolver(establishmentSchema) as never,
+    defaultValues: { name: '', slug: '', address: '' },
+  })
+  const note = requestForm.watch('note')
+  const slug = shopForm.watch('slug')
 
   // 0 = solicitar, 1 = em análise, 2 = cadastrar, 3 = concluído
   const stage = status === 'PENDING' ? 1 : status === 'APPROVED' ? 2 : owns ? 3 : 0
 
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true)
-    setError(null)
-    try { await action() } catch (caught) { setError(errorMessage(caught, 'Não foi possível concluir. Tente novamente.')) } finally { setBusy(false) }
-  }
+  const request = requestForm.handleSubmit(async ({ note: text }) => {
+    try {
+      onUserChange(await repository.requestEstablishment(text.trim()))
+      toast.success('Solicitação enviada ao administrador.')
+    } catch (caught) {
+      toast.error(errorMessage(caught, 'Não foi possível enviar. Tente novamente.'))
+    }
+  })
 
-  const request = (event: React.FormEvent) => {
-    event.preventDefault()
-    void run(async () => { onUserChange(await repository.requestEstablishment(note.trim())) })
-  }
-
-  const create = (event: React.FormEvent) => {
-    event.preventDefault()
-    void run(async () => {
-      const created = await repository.createEstablishment({ name: name.trim(), slug, ...(address.trim() ? { address: address.trim() } : {}) })
+  const create = shopForm.handleSubmit(async (values) => {
+    try {
+      const address = values.address.trim()
+      const created = await repository.createEstablishment({ name: values.name.trim(), slug: values.slug, ...(address ? { address } : {}) })
       onCreated(created.slug)
-    })
-  }
+    } catch (caught) {
+      toast.error(errorMessage(caught, 'Não foi possível cadastrar. Tente novamente.'))
+    }
+  })
 
   return (
     <main className="page-wrap section-page">
@@ -94,31 +97,35 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
       )}
 
       {(status === 'NONE' || status === 'REJECTED') && (
-        <Card as="form" className="grid max-w-2xl gap-5" onSubmit={request}>
+        <Card as="form" className="grid max-w-2xl gap-5" onSubmit={request} noValidate>
           <FormTitle step="Passo 1 de 3">Pedir liberação</FormTitle>
-          <Field label="Qual é o seu estabelecimento?" hint={`${note.length}/300`}>
-            <Textarea required minLength={3} maxLength={300} rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Nome da barbearia, cidade e como você atua (dono ou barbeiro)" />
+          <Field label="Qual é o seu estabelecimento?" hint={`${note.length}/300`} error={requestForm.formState.errors.note?.message}>
+            <Textarea maxLength={300} rows={3} placeholder="Nome da barbearia, cidade e como você atua (dono ou barbeiro)" {...requestForm.register('note')} />
           </Field>
-          {error && <ErrorNote>{error}</ErrorNote>}
-          <Button type="submit" className="w-fit max-sm:w-full" loading={busy} disabled={note.trim().length < 3}><Send aria-hidden="true" /> Enviar solicitação</Button>
+          <Button type="submit" className="w-fit max-sm:w-full" loading={requestForm.formState.isSubmitting}><Send aria-hidden="true" /> Enviar solicitação</Button>
         </Card>
       )}
 
       {status === 'APPROVED' && (
-        <Card as="form" className="grid max-w-2xl gap-5" onSubmit={create}>
+        <Card as="form" className="grid max-w-2xl gap-5" onSubmit={create} noValidate>
           <FormTitle step="Passo 3 de 3" icon={<Store aria-hidden="true" />}>Dados do estabelecimento</FormTitle>
           <p className="rounded-r-xl border-l-[3px] border-brand bg-[#f8ecd2] px-4 py-3 text-sm text-[#594318]">Liberação aprovada. Preencha os dados básicos — horários, serviços e equipe você ajusta depois.</p>
-          <Field label="Nome da barbearia">
-            <Input required minLength={3} maxLength={80} value={name} onChange={(event) => { setName(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)) }} placeholder="Barbearia do Zé" />
+          <Field label="Nome da barbearia" error={shopForm.formState.errors.name?.message}>
+            <Input
+              maxLength={80} placeholder="Barbearia do Zé"
+              {...shopForm.register('name', {
+                // Enquanto o dono não edita o link à mão, ele acompanha o nome.
+                onChange: (event) => { if (!shopForm.getFieldState('slug').isDirty) shopForm.setValue('slug', slugify(event.target.value), { shouldValidate: shopForm.formState.isSubmitted }) },
+              })}
+            />
           </Field>
-          <Field label="Endereço do seu link" hint={<>Seus clientes agendam em <strong>{window.location.origin}/b/{slug || 'seu-link'}</strong></>}>
-            <SlugInput required minLength={3} maxLength={60} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={(event) => { setSlugTouched(true); setSlug(slugify(event.target.value)) }} placeholder="barbearia-do-ze" />
+          <Field label="Endereço do seu link" hint={<>Seus clientes agendam em <strong>{window.location.origin}/b/{slug || 'seu-link'}</strong></>} error={shopForm.formState.errors.slug?.message}>
+            <SlugInput maxLength={60} placeholder="barbearia-do-ze" {...shopForm.register('slug', { onChange: (event) => shopForm.setValue('slug', slugify(event.target.value), { shouldDirty: true }) })} />
           </Field>
           <Field label="Endereço (opcional)">
-            <Input maxLength={160} value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Rua, número · bairro" />
+            <Input maxLength={160} placeholder="Rua, número · bairro" {...shopForm.register('address')} />
           </Field>
-          {error && <ErrorNote>{error}</ErrorNote>}
-          <Button type="submit" className="w-fit max-sm:w-full" loading={busy} disabled={name.trim().length < 3 || slug.length < 3}><Store aria-hidden="true" /> Cadastrar estabelecimento</Button>
+          <Button type="submit" className="w-fit max-sm:w-full" loading={shopForm.formState.isSubmitting}><Store aria-hidden="true" /> Cadastrar estabelecimento</Button>
         </Card>
       )}
     </main>
@@ -141,10 +148,6 @@ function FormTitle({ children, step, icon }: { children: React.ReactNode; step: 
       <Badge tone="warning" className="shrink-0 normal-case">{step}</Badge>
     </div>
   )
-}
-
-function ErrorNote({ children }: { children: React.ReactNode }) {
-  return <p role="alert" className="rounded-xl border border-[#e8b9ae] bg-[#fdf0ec] px-4 py-3 text-sm font-semibold text-[#7b2d20]">{children}</p>
 }
 
 const tones = { ok: 'bg-[#d9eee2] text-ok', wait: 'bg-[#f6e4b9] text-brand-deep', no: 'bg-[#f6dcd5] text-danger' }

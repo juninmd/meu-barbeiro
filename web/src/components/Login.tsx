@@ -1,6 +1,8 @@
 import { ArrowRight, CalendarCheck, Eye, EyeOff, Lock, Mail, Scissors, ShieldCheck, Store, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useForm, type FieldErrors } from 'react-hook-form'
 import { errorMessage, mockEnabled, repository } from '../lib/repository'
+import { loginSchema, registerSchema } from '../lib/schemas'
 import type { User } from '../types'
 import { Button } from './ui/Button'
 import { Field, Input } from './ui/Field'
@@ -24,15 +26,29 @@ const points = [
   { icon: <ShieldCheck aria-hidden="true" />, text: 'Cadastro de estabelecimento liberado pelo administrador' },
 ]
 
+interface AuthValues { name: string; identifier: string; password: string }
+
 export function Login({ onAuthenticated }: LoginProps) {
   const [mode, setMode] = useState<Mode>('login')
-  const [name, setName] = useState('')
-  const [identifier, setIdentifier] = useState('')
-  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [google, setGoogle] = useState(false)
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<AuthValues>({
+    // No login só exige preenchimento; no cadastro valem as regras de nome, e-mail e senha forte (mesmas da API).
+    resolver: async (values) => {
+      const result = mode === 'login'
+        ? loginSchema.safeParse(values)
+        : registerSchema.safeParse({ name: values.name, email: values.identifier, password: values.password })
+      if (result.success) return { values, errors: {} }
+      const errors: FieldErrors<AuthValues> = {}
+      for (const issue of result.error.issues) {
+        const field = (issue.path[0] === 'email' ? 'identifier' : issue.path[0]) as keyof AuthValues
+        errors[field] ??= { type: 'validation', message: issue.message }
+      }
+      return { values: {}, errors }
+    },
+    defaultValues: { name: '', identifier: '', password: '' },
+  })
 
   useEffect(() => {
     let active = true
@@ -45,33 +61,26 @@ export function Login({ onAuthenticated }: LoginProps) {
     setMode(next as Mode)
     setError(null)
     setShowPassword(false)
+    reset({ name: '', identifier: '', password: '' })
   }
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (busy) return
+  const submit = handleSubmit(async (values) => {
     setError(null)
-    if (mode === 'register' && password.length < 8) {
-      setError('Use uma senha com pelo menos 8 caracteres.')
-      return
-    }
-    setBusy(true)
     try {
       const user = mode === 'login'
-        ? await repository.login(identifier.trim(), password)
-        : await repository.register({ name: name.trim(), email: identifier.trim(), password })
+        ? await repository.login(values.identifier.trim(), values.password)
+        : await repository.register({ name: values.name.trim(), email: values.identifier.trim(), password: values.password })
       onAuthenticated(user)
     } catch (caught) {
       setError(errorMessage(caught, mode === 'login' ? 'Não foi possível entrar. Tente novamente.' : 'Não foi possível criar a conta. Tente novamente.'))
-      setBusy(false)
     }
-  }
+  })
 
   const fillDemo = (account: typeof demoAccounts[number]) => {
     setMode('login')
-    setIdentifier(account.identifier)
-    setPassword(account.password)
     setError(null)
+    setValue('identifier', account.identifier)
+    setValue('password', account.password)
   }
 
   return (
@@ -118,26 +127,27 @@ export function Login({ onAuthenticated }: LoginProps) {
             </p>
 
             <TabsContent value={mode} forceMount>
-              <form className="grid gap-4" onSubmit={submit}>
+              <form className="grid gap-4" onSubmit={submit} noValidate>
                 {mode === 'register' && (
-                  <Field label="Nome completo">
-                    <Input icon={<UserRound />} autoComplete="name" required minLength={2} maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="Como devemos te chamar?" />
+                  <Field label="Nome completo" error={errors.name?.message}>
+                    <Input icon={<UserRound />} autoComplete="name" maxLength={80} placeholder="Como devemos te chamar?" {...register('name')} />
                   </Field>
                 )}
-                <Field label={mode === 'login' ? 'E-mail ou usuário' : 'E-mail'}>
+                <Field label={mode === 'login' ? 'E-mail ou usuário' : 'E-mail'} error={errors.identifier?.message}>
                   <Input
-                    icon={<Mail />} autoComplete={mode === 'login' ? 'username' : 'email'} required
+                    icon={<Mail />} autoComplete={mode === 'login' ? 'username' : 'email'}
                     type={mode === 'register' ? 'email' : 'text'} inputMode={mode === 'register' ? 'email' : undefined}
-                    autoCapitalize="none" spellCheck={false} value={identifier} onChange={(event) => setIdentifier(event.target.value)}
+                    autoCapitalize="none" spellCheck={false}
                     placeholder={mode === 'login' ? 'voce@email.com ou admin' : 'voce@email.com'}
+                    {...register('identifier')}
                   />
                 </Field>
-                <Field label="Senha">
+                <Field label="Senha" error={errors.password?.message}>
                   <Input
-                    icon={<Lock />} type={showPassword ? 'text' : 'password'} required maxLength={128}
+                    icon={<Lock />} type={showPassword ? 'text' : 'password'} maxLength={128}
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                    value={password} onChange={(event) => setPassword(event.target.value)}
                     placeholder={mode === 'login' ? 'Sua senha' : 'Mínimo de 8 caracteres'}
+                    {...register('password')}
                     trailing={(
                       <button type="button" className="grid size-11 place-items-center rounded-[11px] text-muted hover:bg-paper-deep hover:text-ink" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword}>
                         {showPassword ? <EyeOff className="size-[1.1rem]" aria-hidden="true" /> : <Eye className="size-[1.1rem]" aria-hidden="true" />}
@@ -148,8 +158,8 @@ export function Login({ onAuthenticated }: LoginProps) {
 
                 {error && <p role="alert" className="rounded-xl border border-[#e8b9ae] bg-[#fdf0ec] px-4 py-3 text-sm font-semibold text-[#7b2d20]">{error}</p>}
 
-                <Button type="submit" size="lg" block loading={busy}>
-                  {busy ? (mode === 'login' ? 'Entrando…' : 'Criando conta…') : <>{mode === 'login' ? 'Entrar' : 'Criar conta'} <ArrowRight aria-hidden="true" /></>}
+                <Button type="submit" size="lg" block loading={isSubmitting}>
+                  {isSubmitting ? (mode === 'login' ? 'Entrando…' : 'Criando conta…') : <>{mode === 'login' ? 'Entrar' : 'Criar conta'} <ArrowRight aria-hidden="true" /></>}
                 </Button>
               </form>
             </TabsContent>

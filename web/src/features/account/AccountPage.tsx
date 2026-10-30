@@ -1,5 +1,6 @@
 import { KeyRound, Mail, ShieldCheck, Store, UserRound } from 'lucide-react'
-import { useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Avatar } from '../../components/ui/Avatar'
@@ -7,30 +8,27 @@ import { Button, buttonStyles } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
 import { errorMessage, repository } from '../../lib/repository'
+import { passwordChangeSchema } from '../../lib/schemas'
 import type { User } from '../../types'
 
 const roleLabel = (user: User) => user.platformAdmin ? 'Administrador da plataforma'
   : user.role === 'CUSTOMER' ? 'Cliente' : 'Barbeiro / gestão'
 
 export function AccountPage({ user }: { user: User }) {
-  const [current, setCurrent] = useState('')
-  const [next, setNext] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<{ currentPassword: string; newPassword: string }>({
+    resolver: zodResolver(passwordChangeSchema),
+    defaultValues: { currentPassword: '', newPassword: '' },
+  })
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setBusy(true)
+  const submit = handleSubmit(async ({ currentPassword, newPassword }) => {
     try {
-      await repository.changePassword(current, next)
-      setCurrent('')
-      setNext('')
+      await repository.changePassword(currentPassword, newPassword)
+      reset()
       toast.success('Senha atualizada.')
     } catch (caught) {
       toast.error(errorMessage(caught, 'Não foi possível trocar a senha.'))
-    } finally {
-      setBusy(false)
     }
-  }
+  })
 
   const rows = [
     { icon: <UserRound />, label: 'Perfil', value: roleLabel(user) },
@@ -60,11 +58,11 @@ export function AccountPage({ user }: { user: User }) {
           )}
         </Card>
 
-        <Card as="form" className="grid gap-5" onSubmit={submit}>
+        <Card as="form" className="grid gap-5" onSubmit={submit} noValidate>
           <h2 className="flex items-center gap-2 font-serif text-2xl font-medium tracking-tight"><KeyRound className="size-5" aria-hidden="true" /> Trocar senha</h2>
-          <Field label="Senha atual"><Input type="password" autoComplete="current-password" required value={current} onChange={(event) => setCurrent(event.target.value)} /></Field>
-          <Field label="Nova senha" hint="Mínimo de 8 caracteres."><Input type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={next} onChange={(event) => setNext(event.target.value)} /></Field>
-          <Button type="submit" variant="dark" className="w-fit max-sm:w-full" loading={busy} disabled={next.length < 8 || !current}>Atualizar senha</Button>
+          <Field label="Senha atual" error={errors.currentPassword?.message}><Input type="password" autoComplete="current-password" {...register('currentPassword')} /></Field>
+          <Field label="Nova senha" hint="Mínimo de 8 caracteres." error={errors.newPassword?.message}><Input type="password" autoComplete="new-password" maxLength={128} {...register('newPassword')} /></Field>
+          <Button type="submit" variant="dark" className="w-fit max-sm:w-full" loading={isSubmitting}>Atualizar senha</Button>
         </Card>
       </div>
     </main>

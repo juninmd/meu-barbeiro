@@ -1,6 +1,6 @@
 import { cn } from '../../lib/cn'
 
-type CardProps = React.HTMLAttributes<HTMLElement> & { as?: 'section' | 'article' | 'form' | 'div'; onSubmit?: React.FormEventHandler<HTMLElement> }
+type CardProps = React.HTMLAttributes<HTMLElement> & { as?: 'section' | 'article' | 'form' | 'div'; onSubmit?: React.FormEventHandler<HTMLElement>; noValidate?: boolean }
 
 export function Card({ as: Tag = 'div', className, ...props }: CardProps) {
   return <Tag className={cn('rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-8', className)} {...props} />
