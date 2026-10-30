@@ -122,7 +122,7 @@ export default function App() {
       {error && <div className="error-banner" role="alert">{error}<button onClick={() => refresh()}>Tentar novamente</button></div>}
       {/* Só opacidade: um transform aqui viraria bloco de contenção e deslocaria elementos position:fixed (barra de ação mobile). A chave é só a área (cliente/barbeiro/admin): trocar de seção não remonta nem perde o estado da tela. */}
       <MotionConfig reducedMotion="user">
-      <motion.div key={location.pathname.split('/')[1] ?? ''} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
+      <motion.div data-testid="route-transition" key={location.pathname.split('/')[1] ?? ''} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
       <Routes>
         <Route path="/conta" element={<AccountPage user={user} />} />
         {(mockEnabled || isAdmin) && <Route path="/design-system" element={<DesignSystemPage />} />}

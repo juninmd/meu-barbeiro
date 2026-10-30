@@ -52,7 +52,7 @@ export function LoyaltyCardPanel({ userId, canRedeem = false }: LoyaltyCardPanel
           <div><p className="eyebrow"><Stamp aria-hidden="true" /> Cartão fidelidade</p><h3>{program.rewardDescription}</h3></div>
           <strong>{card.availableStamps}<small>/{program.requiredVisits}</small></strong>
         </div>
-        <div className="stamp-row" aria-label={`${card.availableStamps} selos disponíveis de ${program.requiredVisits}`}>
+        <div className="stamp-row" role="img" aria-label={`${card.availableStamps} selos disponíveis de ${program.requiredVisits}`}>
           {Array.from({ length: program.requiredVisits }, (_, index) => (
             <span className={index < Math.min(card.availableStamps, program.requiredVisits) ? 'filled' : ''} key={index}><Stamp aria-hidden="true" /></span>
           ))}

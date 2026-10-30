@@ -9,7 +9,7 @@ import { Calendar } from '../../components/ui/Calendar'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Field, Input, Textarea } from '../../components/ui/Field'
 import { Skeleton } from '../../components/ui/Skeleton'
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/Tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs'
 import { Tooltip } from '../../components/ui/Tooltip'
 import { cn } from '../../lib/cn'
 
@@ -108,6 +108,8 @@ export function DesignSystemPage() {
             <div className="md:col-span-2">
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="max-w-sm"><TabsTrigger value="um">Entrar</TabsTrigger><TabsTrigger value="dois">Criar conta</TabsTrigger></TabsList>
+                <TabsContent value="um" className="mt-3 text-sm text-muted">Conteúdo da aba "Entrar".</TabsContent>
+                <TabsContent value="dois" className="mt-3 text-sm text-muted">Conteúdo da aba "Criar conta".</TabsContent>
               </Tabs>
             </div>
           </Card>
@@ -159,7 +161,7 @@ export function DesignSystemPage() {
         <Section id="ds-calendario" title="Calendário" description="react-day-picker em pt-BR, células de 44px para toque; dias em que a barbearia não abre aparecem riscados.">
           <Card className="max-w-md">
             <p className="mb-3 flex items-center gap-2 font-serif text-lg first-letter:uppercase"><CalendarDays className="size-5 text-brand-deep" aria-hidden="true" /><span className="first-letter:uppercase">{day ? day.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Escolha um dia'}</span></p>
-            <Calendar mode="single" selected={day} onSelect={setDay} modifiers={{ closed: { dayOfWeek: [0, 1] } }} modifiersClassNames={{ closed: '[&>button]:text-bone-500 [&>button]:line-through' }} />
+            <Calendar mode="single" selected={day} onSelect={setDay} modifiers={{ closed: { dayOfWeek: [0, 1] } }} modifiersClassNames={{ closed: '[&>button]:text-muted [&>button]:line-through' }} />
           </Card>
         </Section>
 

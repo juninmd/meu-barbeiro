@@ -45,6 +45,12 @@ O tema segue o sistema (`prefers-color-scheme`) e pode ser forçado em **Menu da
 a escolha fica no navegador (`lib/theme.ts`) e é aplicada antes da primeira pintura (sem "flash").
 Em componentes novos use sempre tokens (`bg-surface`, `text-muted`, `border-line`…), nunca hex.
 
+## Qualidade verificada
+- **Acessibilidade automatizada:** `web/tests/e2e/accessibility.spec.ts` roda o axe (WCAG 2.1 A/AA) em login, cliente, barbeiro (todas as seções), admin
+  e na vitrine, em **tema claro e escuro**, mais agendamento/agenda/ajustes no **celular (390px)**. Zero violações é requisito do CI de e2e.
+- **Sem rolagem horizontal** nas telas principais (auditado em 390px e 1440px, dois temas).
+- CSS legado na camada `components`: utilitários Tailwind sempre vencem.
+
 ## Convenções
 - Todas as telas usam `Button`/`buttonStyles`, `Card`/`cardStyles` e `Badge` (via `StatusBadge`) do kit; as classes `.button`, `.panel` e `.status`
   foram removidas do CSS. O que resta em `index.css` são layouts específicos de tela (agenda, calendário do barbeiro, linha do tempo…)

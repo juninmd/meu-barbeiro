@@ -388,7 +388,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                   defaultMonth={date ? new Date(`${date}T12:00:00`) : new Date(`${dateInTimezone(timezone)}T12:00:00`)}
                   disabled={{ before: new Date(`${dateInTimezone(timezone)}T12:00:00`) }}
                   modifiers={{ closed: { dayOfWeek: closedWeekdays } }}
-                  modifiersClassNames={{ closed: '[&>button]:text-bone-500 [&>button]:line-through [&>button]:decoration-bone-400/70' }}
+                  modifiersClassNames={{ closed: '[&>button]:text-muted [&>button]:line-through' }}
                   onSelect={(picked) => {
                     if (!picked) return
                     setDate(format(picked, 'yyyy-MM-dd'))

@@ -95,7 +95,7 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
   return (
     <div className="app-shell" style={{ '--amber': barbershop?.primaryColor || '#d99b32' } as React.CSSProperties}>
       <header className="topbar">
-        <NavLink className="brand" to={home} aria-label="Meu Barbeiro - início">
+        <NavLink className="brand" to={home} aria-label={`${isAdmin || !barbershop?.name ? 'MEU BARBEIRO' : barbershop.name} - início`}>
           <span className="brand-icon">
             {barbershop?.logoUrl ? <img src={barbershop.logoUrl} alt="" /> : <Scissors aria-hidden="true" />}
           </span>
@@ -103,12 +103,13 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
         </NavLink>
         <div className="profile-actions">
           <DropdownMenu>
-            <DropdownMenuTrigger className="profile-link" aria-label="Menu da conta">
+            <DropdownMenuTrigger className="profile-link">
               <Avatar name={user.name} size="sm" />
               <span className="profile-copy">
                 <strong>{user.name}</strong>
                 <small>{roleLabel}</small>
               </span>
+              <span className="sr-only">, menu da conta</span>
               <ChevronDown className="profile-chevron" aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

@@ -94,7 +94,7 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
       {calendar && !loading && (
         <>
           <div className="calendar-weekdays" aria-hidden="true">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div>
-          <div className="calendar-grid" role="grid" aria-label={`Agenda de ${month}`}>
+          <div className="calendar-grid" role="group" aria-label={`Agenda de ${month}`}>
             {Array.from({ length: firstWeekday }, (_, index) => <span className="calendar-spacer" key={`spacer-${index}`} />)}
             {calendar.days.map((day) => (
               <CalendarDayButton day={day} selected={day.date === selectedDay?.date} today={day.date === today} key={day.date} onClick={() => setSelectedDate(day.date)} onKeyDown={(event) => selectWithKeyboard(event, day)} />
@@ -130,15 +130,14 @@ function CalendarDayButton({ day, selected, today, mobile = false, onClick, onKe
       id={mobile ? undefined : `calendar-day-${day.date}`}
       className={`calendar-day ${mobile ? 'calendar-day-mobile' : ''} ${selected ? 'selected' : ''} ${today ? 'today' : ''} ${day.open ? '' : 'closed'} ${day.absences.length > 0 ? 'has-absence' : ''}`}
       type="button"
-      role={mobile ? undefined : 'gridcell'}
-      aria-label={label}
       aria-pressed={selected}
       aria-current={today ? 'date' : undefined}
       onClick={onClick}
       onKeyDown={onKeyDown}
     >
-      <span className="calendar-day-number"><small>{mobile ? weekdayFormatter.format(dateAtNoon(day.date)) : ''}</small><strong>{Number(day.date.slice(-2))}</strong><em>{day.appointments.length}</em></span>
-      {!day.open && <span className="calendar-closed-reason">{day.reason}</span>}
+      <span className="sr-only">{label}</span>
+      <span className="calendar-day-number" aria-hidden="true"><small>{mobile ? weekdayFormatter.format(dateAtNoon(day.date)) : ''}</small><strong>{Number(day.date.slice(-2))}</strong><em>{day.appointments.length}</em></span>
+      {!day.open && <span className="calendar-closed-reason" aria-hidden="true">{day.reason}</span>}
       {day.absences.slice(0, 1).map((absence) => <span className="calendar-absence" key={absence.id}>{absence.barberName ? `${absence.barberName}: ` : ''}{absence.reason}</span>)}
       {summary.map((appointment) => <span className="calendar-summary" key={appointment.id}>{appointment.time} · {appointment.user.name}</span>)}
       {day.appointments.length > 2 && <span className="calendar-more">+ {day.appointments.length - 2} atendimento(s)</span>}
