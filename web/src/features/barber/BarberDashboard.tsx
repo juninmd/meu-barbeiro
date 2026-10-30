@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { CustomerProfileCard } from '../../components/CustomerProfileCard'
 import { WalkInQueuePanel } from '../../components/WalkInQueuePanel'
 import { MembershipPanel } from '../../components/MembershipPanel'
+import { Badge } from '../../components/ui/Badge'
 import { BookingLinkCard } from './BookingLinkCard'
 import { PackagesPanel } from './PackagesPanel'
 import { ReviewsPanel } from './ReviewsPanel'
@@ -165,20 +166,20 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
   if (!section || !allowedSections.includes(section)) return <Navigate replace to="/barbeiro/hoje" />
 
   const appointmentItem = (appointment: Appointment, compact = false) => (
-    <article className={`timeline-item ${compact ? 'timeline-item-compact' : ''}`} key={appointment.id}>
-      <time>
-        <strong>{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(appointment.scheduledAt))}</strong>
-        <small>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(appointment.scheduledAt))}</small>
+    <article className={cn('grid', compact ? 'grid-cols-1 gap-0.5 sm:grid-cols-[72px_minmax(0,1fr)] sm:gap-4' : 'min-h-36 grid-cols-[48px_1px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[60px_1px_minmax(0,1fr)] sm:gap-4')} key={appointment.id}>
+      <time className={cn('flex flex-col items-end', compact && 'max-sm:flex-row max-sm:items-baseline max-sm:gap-2')}>
+        <strong className="font-serif text-xl font-medium">{new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(appointment.scheduledAt))}</strong>
+        <small className="text-[.65rem] text-muted uppercase">{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(appointment.scheduledAt))}</small>
       </time>
-      {!compact && <div className="timeline-line" />}
-      <div className="timeline-content">
-        <div className="appointment-top"><StatusBadge status={appointment.status} /><span>{formatCurrency(appointment.service.price)}</span></div>
-        <h3>{appointment.user.name}</h3>
+      {!compact && <div className="relative h-full bg-line before:absolute before:top-1.5 before:-left-1 before:size-2.5 before:rounded-full before:bg-brand before:ring-4 before:ring-brand/20" aria-hidden="true" />}
+      <div className={cn('min-w-0 [&_p]:mb-1.5 [&_p]:flex [&_p]:flex-wrap [&_p]:items-center [&_p]:gap-1.5 [&_p]:text-xs [&_p]:text-muted', !compact && 'pb-7')}>
+        <div className="flex items-center justify-between gap-2"><StatusBadge status={appointment.status} /><span className="text-xs text-muted">{formatCurrency(appointment.service.price)}</span></div>
+        <h3 className={cn('font-serif text-xl font-medium', compact ? 'mt-2 mb-1' : 'mt-3 mb-1.5')}>{appointment.user.name}</h3>
         <p><Scissors aria-hidden="true" /> {appointment.service.name} · {appointment.service.duration} min</p>
         {!compact && <p className="reminder-note">{reminderStatus(appointment)}</p>}
         {(appointment.user.noShowCount ?? 0) > 0 && <p className="no-show-note">Histórico: {appointment.user.noShowCount} falta(s) nesta barbearia</p>}
         {appointment.depositRetained && <p className="no-show-note">Sinal pago retido</p>}
-        <div className="action-row">
+        <div className={cn('flex flex-wrap gap-2.5', compact ? 'mt-2' : 'mt-3')}>
           {!compact && <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} type="button" onClick={() => setProfileCustomerId((current) => current === appointment.userId ? null : appointment.userId)}>{profileCustomerId === appointment.userId ? 'Fechar ficha' : 'Abrir ficha'}</button>}
           {appointment.status === 'PENDING' && <button className={buttonStyles({ variant: 'primary', size: 'sm' })} disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}><Check aria-hidden="true" /> Confirmar</button>}
           {appointment.status === 'CONFIRMED' && <button className={buttonStyles({ variant: 'primary', size: 'sm' })} disabled={busy} onClick={() => changeStatus(appointment.id, 'DONE')}><Check aria-hidden="true" /> Concluir</button>}
@@ -227,12 +228,12 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
             <div><p className="eyebrow">Linha do tempo</p><h2 id="agenda-title">Agenda de atendimento</h2></div>
             <span className="count-badge">{active.length}</span>
           </div>
-          <div className="timeline">
+          <div className="grid">
             {timelineGroups.map((group) => (group.appointments.length > 0 || group.empty) && (
-              <section className="timeline-group" aria-labelledby={`timeline-${group.title.toLowerCase()}`} key={group.title}>
-                <div className="timeline-group-heading">
-                  <h3 id={`timeline-${group.title.toLowerCase()}`}>{group.title}</h3>
-                  <span className="count-badge">{group.appointments.length}</span>
+              <section className="mt-6 first:mt-0" aria-labelledby={`timeline-${group.title.toLowerCase()}`} key={group.title}>
+                <div className="mb-3 flex items-center justify-between gap-4 border-b border-line pb-2.5">
+                  <h3 id={`timeline-${group.title.toLowerCase()}`} className="font-serif text-lg font-medium">{group.title}</h3>
+                  <Badge tone="warning">{group.appointments.length}</Badge>
                 </div>
                 {group.appointments.length === 0 && <p className="empty-copy">{group.empty}</p>}
                 {group.appointments.map((appointment) => appointmentItem(appointment))}

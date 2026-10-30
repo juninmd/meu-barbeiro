@@ -53,8 +53,8 @@ Em componentes novos use sempre tokens (`bg-surface`, `text-muted`, `border-line
 
 ## Convenções
 - Todas as telas usam `Button`/`buttonStyles`, `Card`/`cardStyles` e `Badge` (via `StatusBadge`) do kit; as classes `.button`, `.panel` e `.status`
-  foram removidas do CSS. O que resta em `index.css` são layouts específicos de tela (agenda, calendário do barbeiro, linha do tempo…)
-  já ligados aos tokens; ao tocar numa tela, prefira utilitários Tailwind + componentes de `ui/`.
+  foram removidas do CSS. O calendário mensal e a linha do tempo do barbeiro também já são Tailwind puro. O que resta em `index.css` são layouts de formulários e
+  cartões de algumas telas (ajustes, financeiro, escala semanal…) já ligados aos tokens; ao tocar numa tela, prefira utilitários Tailwind + componentes de `ui/`.
 - Animação de página só com **opacidade**: `transform` num ancestral quebraria elementos `position: fixed` (barra de ação mobile).
 - Não use `bone-*`/`amber-*` para superfícies e texto de interface (não mudam no escuro): são para a vitrine e acentos.
 - Cor de marca por barbearia: use `brand*`/`var(--amber)`, nunca o hex.
