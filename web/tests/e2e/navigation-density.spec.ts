@@ -38,6 +38,8 @@ test('prioriza o próximo horário acima do formulário do cliente', async ({ pa
   await expect(page).toHaveURL(/\/cliente\/horarios$/)
   await page.getByRole('link', { name: 'Agendar', exact: true }).click()
 
+  await expect(page.getByTestId('client-next-appointment')).toBeVisible()
+  await expect(page.getByTestId('booking-form')).toBeVisible()
   const nextBox = await page.getByTestId('client-next-appointment').boundingBox()
   const bookingBox = await page.getByTestId('booking-form').boundingBox()
   expect(nextBox).not.toBeNull()
@@ -80,6 +82,7 @@ test('barra inferior não cobre ação principal e alvos principais medem 44px',
 
   const primaryAction = page.getByRole('button', { name: 'Continuar' })
   const bottomNavigation = page.getByRole('navigation', { name: 'Navegação principal' })
+  await expect(primaryAction).toBeVisible()
   const actionBox = await primaryAction.boundingBox()
   const navigationBox = await bottomNavigation.boundingBox()
   expect(actionBox).not.toBeNull()
