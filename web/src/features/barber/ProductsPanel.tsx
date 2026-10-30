@@ -10,6 +10,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { FormRow, InsetForm } from '../../components/ui/FormParts'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
+import { CountBadge } from '../../components/ui/EmptyState'
 
 interface ProductsPanelProps {
   canManage: boolean
@@ -123,7 +124,7 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
       <section className={cn(cardStyles, 'products-panel')} aria-labelledby="products-title">
         <div className="section-heading compact">
           <div><p className="eyebrow">Revenda</p><h2 id="products-title">Produtos</h2></div>
-          <span className="count-badge">{products.length}</span>
+          <CountBadge>{products.length}</CountBadge>
         </div>
         {message && <p className="form-message" role="status">{message}</p>}
         <div className="product-list">

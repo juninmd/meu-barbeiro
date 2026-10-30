@@ -1,4 +1,4 @@
-import { BellRing, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, Star, UserRound, X } from 'lucide-react'
+import { BellRing, CalendarDays, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, Star, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -16,9 +16,13 @@ import { MembershipPanel } from '../../components/MembershipPanel'
 import { formatBusinessHours, formatCurrency, formatDate, paymentLabel } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, MyReview, NewAppointment, Service, User } from '../../types'
-import { buttonStyles } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
+import { buttonStyles, Button } from '../../components/ui/Button'
+import { ActionBar, ChoiceCard, StepFieldset, Stepper } from '../../components/ui/Choice'
+import { Notice, SectionHeading } from '../../components/ui/Notice'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
+import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
@@ -335,64 +339,53 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
             {appointmentCard(upcoming[0], true)}
           </section>
         )}
-        <section ref={bookingPanel} className={cn(cardStyles, 'booking-panel')} data-testid="booking-form" aria-labelledby="booking-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{rescheduleTarget ? 'Remarcar agendamento' : 'Novo agendamento'}</p>
-              <h2 id="booking-title">{rescheduleTarget ? 'Escolha o novo horário' : 'Monte seu horário'}</h2>
-            </div>
-            <span className="step-count">Passo {bookingStep} de 3</span>
-          </div>
-          <ol className="booking-progress" aria-label="Progresso do agendamento">
-            {['Serviço', 'Data', 'Barbeiro e horário'].map((label, index) => (
-              <li className={bookingStep === index + 1 ? 'current' : bookingStep > index + 1 ? 'complete' : ''} aria-current={bookingStep === index + 1 ? 'step' : undefined} key={label}>
-                <span>{index + 1}</span>{label}
-              </li>
-            ))}
-          </ol>
+        <section ref={bookingPanel} className={cn(cardStyles, 'grid gap-5 max-sm:pb-24')} data-testid="booking-form" aria-labelledby="booking-title">
+          <SectionHeading
+            eyebrow={rescheduleTarget ? 'Remarcar agendamento' : 'Novo agendamento'}
+            title={rescheduleTarget ? 'Escolha o novo horário' : 'Monte seu horário'}
+            id="booking-title"
+            aside={<Badge tone="warning">Passo {bookingStep} de 3</Badge>}
+          />
+          <Stepper label="Progresso do agendamento" steps={['Serviço', 'Data', 'Barbeiro e horário']} current={bookingStep} />
           {rescheduleTarget && (
-            <p className="form-message" role="status">
+            <Notice role="status">
               Serviço e barbeiro serão mantidos. O pagamento já feito continua valendo.
-            </p>
+            </Notice>
           )}
           {!rescheduleTarget && lastAppointment && (
-            <div className="repeat-booking">
-              <div><strong>{lastAppointment.service.name}</strong><span>com {lastAppointment.barber.name}</span></div>
-              <button className={buttonStyles({ variant: 'dark', size: 'sm' })} type="button" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</button>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-4">
+              <div className="grid gap-0.5"><strong>{lastAppointment.service.name}</strong><span className="text-sm text-muted">com {lastAppointment.barber.name}</span></div>
+              <Button variant="dark" size="sm" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</Button>
             </div>
           )}
-          <form onSubmit={submit} className="booking-form">
-            {bookingStep === 1 && <fieldset>
-              <legend><span>01</span> O que vamos fazer?</legend>
-              <div className="choice-grid">
+          <form onSubmit={submit} className="grid gap-8">
+            {bookingStep === 1 && <StepFieldset step="01" title="O que vamos fazer?">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {services.length === 0 && (
-                  <div className="empty-state"><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => void onRefresh()}>Tentar novamente</button></div>
+                  <EmptyState><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => void onRefresh()}>Tentar novamente</button></EmptyState>
                 )}
                 {services.map((service) => (
-                  <label className={`choice-card ${form.serviceId === service.id ? 'selected' : ''}`} key={service.id}>
-                    <input
-                      type="radio"
-                      name="service"
-                      value={service.id}
-                      checked={form.serviceId === service.id}
-                      onChange={(event) => setForm({ ...form, serviceId: event.target.value })}
-                      required
-                    />
-                    <Scissors aria-hidden="true" />
-                    <span><strong>{service.name}</strong><small>{service.duration} min · {formatCurrency(service.price)}</small></span>
-                    {form.serviceId === service.id && <Check className="choice-check" aria-hidden="true" />}
-                  </label>
+                  <ChoiceCard
+                    key={service.id}
+                    name="service"
+                    value={service.id}
+                    checked={form.serviceId === service.id}
+                    onChange={(event) => setForm({ ...form, serviceId: event.target.value })}
+                    required
+                    icon={<Scissors />}
+                    title={service.name}
+                    hint={`${service.duration} min · ${formatCurrency(service.price)}`}
+                  />
                 ))}
               </div>
-              {membershipVisit && <p className="form-message" role="status">{membershipVisit.covered ? `Esta visita está incluída na sua assinatura: nenhum sinal será cobrado. Depois dela, restará(ão) ${Math.max(0, membershipVisit.remainingVisits - 1)} visita(s).` : 'Esta visita não está incluída ou o limite do período acabou. A política normal de sinal será aplicada.'}</p>}
-            </fieldset>}
+              {membershipVisit && <Notice role="status">{membershipVisit.covered ? `Esta visita está incluída na sua assinatura: nenhum sinal será cobrado. Depois dela, restará(ão) ${Math.max(0, membershipVisit.remainingVisits - 1)} visita(s).` : 'Esta visita não está incluída ou o limite do período acabou. A política normal de sinal será aplicada.'}</Notice>}
+            </StepFieldset>}
 
-            {bookingStep === 2 && <fieldset>
-              <legend><span>02</span> Quando?</legend>
-              <div className="date-picker" data-testid="date-picker">
-                <p className="date-picker-summary">
-                  <CalendarDays aria-hidden="true" />
-                  <span><strong>{date ? formatPickedDate(date) : 'Escolha um dia'}</strong><small>Duração estimada: {selectedService?.duration ?? '—'} min</small></span>
+            {bookingStep === 2 && <StepFieldset step="02" title="Quando?">
+              <div className="grid gap-3.5 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5" data-testid="date-picker">
+                <p className="flex items-center gap-3.5 rounded-xl bg-gradient-to-br from-tint to-brand-light/40 px-4 py-3.5">
+                  <CalendarDays className="size-6 shrink-0 text-brand-deep" aria-hidden="true" />
+                  <span className="grid"><strong className="font-serif text-lg font-medium first-letter:uppercase">{date ? formatPickedDate(date) : 'Escolha um dia'}</strong><small className="text-xs text-tint-ink/80">Duração estimada: {selectedService?.duration ?? '—'} min</small></span>
                 </p>
                 <Calendar
                   mode="single"
@@ -407,64 +400,56 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                     setForm((current) => ({ ...current, barberId: rescheduleTarget ? current.barberId : '', scheduledAt: '' }))
                   }}
                 />
-                {closedWeekdays.length > 0 && <small className="date-picker-legend">Dias riscados: a barbearia não abre.</small>}
+                {closedWeekdays.length > 0 && <small className="text-center text-xs text-muted">Dias riscados: a barbearia não abre.</small>}
               </div>
-              {loadingBarbers && <p className="availability-status" role="status">Consultando quem atende nesta data…</p>}
-              {barbersError && <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
-            </fieldset>}
+              {loadingBarbers && <p className="text-xs text-muted" role="status">Consultando quem atende nesta data…</p>}
+              {barbersError && <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>}
+            </StepFieldset>}
 
-            {bookingStep === 3 && <fieldset>
-              <legend><span>03</span> Com quem?</legend>
+            {bookingStep === 3 && <StepFieldset step="03" title="Com quem?">
               {rescheduleTarget ? (
-                <p className="form-message">Barbeiro mantido na remarcação. Escolha um novo horário disponível.</p>
+                <Notice>Barbeiro mantido na remarcação. Escolha um novo horário disponível.</Notice>
               ) : loadingBarbers ? (
-                <p className="availability-status" role="status">Consultando quem atende nesta data…</p>
+                <p className="text-xs text-muted" role="status">Consultando quem atende nesta data…</p>
               ) : barbersError ? (
-                <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>
+                <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>
               ) : availableBarbers.length === 0 ? (
-                <div className="empty-state barber-empty-state">
+                <EmptyState className="col-span-full">
                   <UserRound aria-hidden="true" />
                   <strong>Ninguém disponível nesta data</strong>
                   <p>{nextAvailableDate ? `O próximo dia com atendimento é ${formatShortDate(nextAvailableDate)}.` : 'Não encontramos atendimento nos próximos 60 dias.'}</p>
                   {nextAvailableDate && <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
                   <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
-                  {waitlistRequested && <p className="form-message" role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</p>}
-                </div>
+                  {waitlistRequested && <Notice role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</Notice>}
+                </EmptyState>
               ) : (
-              <div className="choice-grid choice-grid-small">
-                <label className={`choice-card any-barber-card ${availableBarbers.length > 1 ? 'recommended' : ''} ${form.barberId === 'any' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="barber"
-                    value="any"
-                    checked={form.barberId === 'any'}
-                    onChange={(event) => setForm({ ...form, barberId: event.target.value })}
-                    required
-                  />
-                  <UserRound aria-hidden="true" />
-                  <span><strong>Qualquer barbeiro disponível</strong><small>{availableBarbers.length > 1 ? 'Mais opções de horário para você' : 'Primeiro horário disponível'}</small></span>
-                  {form.barberId === 'any' && <Check className="choice-check" aria-hidden="true" />}
-                </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ChoiceCard
+                  name="barber"
+                  value="any"
+                  checked={form.barberId === 'any'}
+                  onChange={(event) => setForm({ ...form, barberId: event.target.value })}
+                  required
+                  recommended={availableBarbers.length > 1}
+                  icon={<UserRound />}
+                  title="Qualquer barbeiro disponível"
+                  hint={availableBarbers.length > 1 ? 'Mais opções de horário para você' : 'Primeiro horário disponível'}
+                />
                 {datedBarbers.map((barber) => (
-                  <label className={`choice-card ${barber.available ? '' : 'unavailable'} ${form.barberId === barber.id ? 'selected' : ''}`} key={barber.id}>
-                    <input
-                      type="radio"
-                      name="barber"
-                      value={barber.id}
-                      checked={form.barberId === barber.id}
-                      onChange={(event) => setForm({ ...form, barberId: event.target.value })}
-                      disabled={!barber.available}
-                      required
-                    />
-                    <UserRound aria-hidden="true" />
-                    <span>
-                      <strong>{barber.name}</strong>
-                      <small>{barber.available
-                        ? `${barber.slotCount} horário${barber.slotCount === 1 ? '' : 's'} · primeiro às ${barber.firstAvailableTime}`
-                        : `${barber.unavailableReason}${barber.nextAvailableDate ? ` · atende em ${formatShortDate(barber.nextAvailableDate)}` : ''}`}</small>
-                    </span>
-                    {form.barberId === barber.id && <Check className="choice-check" aria-hidden="true" />}
-                  </label>
+                  <ChoiceCard
+                    key={barber.id}
+                    name="barber"
+                    value={barber.id}
+                    checked={form.barberId === barber.id}
+                    onChange={(event) => setForm({ ...form, barberId: event.target.value })}
+                    disabled={!barber.available}
+                    required
+                    icon={<UserRound />}
+                    title={barber.name}
+                    hint={barber.available
+                      ? `${barber.slotCount} horário${barber.slotCount === 1 ? '' : 's'} · primeiro às ${barber.firstAvailableTime}`
+                      : `${barber.unavailableReason}${barber.nextAvailableDate ? ` · atende em ${formatShortDate(barber.nextAvailableDate)}` : ''}`}
+                  />
                 ))}
               </div>
               )}
@@ -477,9 +462,9 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                 onSelect={(scheduledAt) => setForm({ ...form, scheduledAt })}
                 onRetry={() => setAvailabilityRevision((revision) => revision + 1)}
               />
-            </fieldset>}
+            </StepFieldset>}
 
-            <div className="form-action-bar">
+            <ActionBar>
               {bookingStep > 1 && !rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBookingStep((step) => step - 1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
               {bookingStep < 3 ? (
                 <button className={buttonStyles({ variant: 'primary' })} type="button" disabled={bookingStep === 1 ? !form.serviceId : !date || loadingBarbers || Boolean(barbersError)} onClick={() => setBookingStep((step) => step + 1)}>Continuar <ChevronRight aria-hidden="true" /></button>
@@ -489,7 +474,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                 </button>
               )}
               {rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} disabled={busy} onClick={stopReschedule} type="button">Manter horário atual</button>}
-            </div>
+            </ActionBar>
           </form>
         </section>
         </>
@@ -505,7 +490,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
           <section className={cn(cardStyles, 'appointments-section')} aria-labelledby="upcoming-title">
             <div className="section-heading compact">
               <div><p className="eyebrow">Confirmados e pendentes</p><h2 id="upcoming-title">Próximos horários</h2></div>
-              <span className="count-badge">{upcoming.length}</span>
+              <CountBadge>{upcoming.length}</CountBadge>
             </div>
             <div className="appointment-list">
               {upcoming.length === 0 && <EmptyAppointments />}
@@ -612,10 +597,10 @@ function cancelDescription(appointment: Appointment, quote: CancellationQuote | 
 
 function EmptyAppointments() {
   return (
-    <div className="empty-state">
+    <EmptyState>
       <CalendarDays aria-hidden="true" />
       <strong>Nenhum horário marcado</strong>
       <p>Seu próximo agendamento aparecerá aqui.</p>
-    </div>
+    </EmptyState>
   )
 }

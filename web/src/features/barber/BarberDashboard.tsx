@@ -26,6 +26,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { FormRow, InsetForm } from '../../components/ui/FormParts'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
+import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
 
 interface BarberDashboardProps {
   appointments: Appointment[]
@@ -212,8 +213,8 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
             <Metric icon={<TrendingUp />} label="Entrou" value={formatCurrency(revenue)} note="concluído hoje" />
           </section>
           <section className={cn(cardStyles, 'next-client-panel')} aria-labelledby="next-client-title">
-            <div className="section-heading compact"><div><p className="eyebrow">Na sequência</p><h2 id="next-client-title">{nextToday ? 'Próximo cliente' : 'Agenda livre agora'}</h2></div><span className="count-badge">{remainingToday.length}</span></div>
-            {nextToday ? appointmentItem(nextToday, true) : <div className="empty-state"><CalendarCheck aria-hidden="true" /><strong>Ninguém aguardando hoje</strong><p>{nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Use Agenda para lançar um encaixe.'}</p></div>}
+            <div className="section-heading compact"><div><p className="eyebrow">Na sequência</p><h2 id="next-client-title">{nextToday ? 'Próximo cliente' : 'Agenda livre agora'}</h2></div><CountBadge>{remainingToday.length}</CountBadge></div>
+            {nextToday ? appointmentItem(nextToday, true) : <EmptyState><CalendarCheck aria-hidden="true" /><strong>Ninguém aguardando hoje</strong><p>{nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Use Agenda para lançar um encaixe.'}</p></EmptyState>}
           </section>
           <WalkInQueuePanel canCall callerBarberId={barbershop?.membershipRole === 'BARBER' ? currentUser.id : undefined} onCalled={refreshAfterQueueCall} refreshKey={queueRevision} />
         </>
@@ -228,7 +229,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
         <section className={cn(cardStyles, 'agenda-panel')} aria-labelledby="agenda-title">
           <div className="section-heading">
             <div><p className="eyebrow">Linha do tempo</p><h2 id="agenda-title">Agenda de atendimento</h2></div>
-            <span className="count-badge">{active.length}</span>
+            <CountBadge>{active.length}</CountBadge>
           </div>
           <div className="grid">
             {timelineGroups.map((group) => (group.appointments.length > 0 || group.empty) && (
@@ -250,8 +251,8 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
         <>
           <header className="page-heading"><p className="eyebrow">Relacionamento</p><h1>Clientes.</h1><p>Abra a ficha, consulte fidelidade e registre preferências sem procurar na agenda.</p></header>
           <section className={cn(cardStyles, 'customers-panel')} aria-labelledby="customers-title">
-            <div className="section-heading compact"><div><p className="eyebrow">Base atendida</p><h2 id="customers-title">Fichas de clientes</h2></div><span className="count-badge">{customers.length}</span></div>
-            {customers.length === 0 && <div className="empty-state"><UserRound aria-hidden="true" /><strong>Nenhum cliente ainda</strong><p>As fichas aparecem depois do primeiro agendamento.</p></div>}
+            <div className="section-heading compact"><div><p className="eyebrow">Base atendida</p><h2 id="customers-title">Fichas de clientes</h2></div><CountBadge>{customers.length}</CountBadge></div>
+            {customers.length === 0 && <EmptyState><UserRound aria-hidden="true" /><strong>Nenhum cliente ainda</strong><p>As fichas aparecem depois do primeiro agendamento.</p></EmptyState>}
             <div className="customer-card-list">
               {customers.map((customer) => (
                 <article className="customer-card" key={customer.id}>

@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react'
 import { ConfirmDialog } from './ConfirmDialog'
 import { errorMessage, repository } from '../lib/repository'
 import type { LoyaltyCard } from '../types'
-import { buttonStyles } from './ui/Button'
+import { Button } from './ui/Button'
+import { Notice } from './ui/Notice'
+import { cn } from '../lib/cn'
 
 interface LoyaltyCardPanelProps {
   userId?: string
@@ -41,28 +43,32 @@ export function LoyaltyCardPanel({ userId, canRedeem = false }: LoyaltyCardPanel
     }
   }
 
-  if (!card) return <p className="form-message" role="status">{message || 'Carregando cartão fidelidade…'}</p>
-  if (!card.program?.enabled) return <p className="loyalty-disabled">O programa de fidelidade não está ativo nesta barbearia.</p>
+  if (!card) return <Notice role="status">{message || 'Carregando cartão fidelidade…'}</Notice>
+  if (!card.program?.enabled) return <p className="rounded-xl bg-surface-3 p-3 text-xs text-muted">O programa de fidelidade não está ativo nesta barbearia.</p>
   const program = card.program
+  const filled = Math.min(card.availableStamps, program.requiredVisits)
 
   return (
     <>
-      <section className="loyalty-card" aria-label="Cartão fidelidade">
-        <div className="loyalty-heading">
-          <div><p className="eyebrow"><Stamp aria-hidden="true" /> Cartão fidelidade</p><h3>{program.rewardDescription}</h3></div>
-          <strong>{card.availableStamps}<small>/{program.requiredVisits}</small></strong>
+      <section className="grid gap-3.5 rounded-2xl bg-chrome p-5 text-chrome-ink shadow-sm" aria-label="Cartão fidelidade">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-1 flex items-center gap-2 text-[.72rem] font-extrabold tracking-[.18em] text-brand-light uppercase [&_svg]:size-4"><Stamp aria-hidden="true" /> Cartão fidelidade</p>
+            <h3 className="font-serif text-xl font-medium text-white">{program.rewardDescription}</h3>
+          </div>
+          <strong className="font-serif text-3xl font-medium text-brand tabular-nums">{card.availableStamps}<small className="text-sm text-chrome-ink/60">/{program.requiredVisits}</small></strong>
         </div>
-        <div className="stamp-row" role="img" aria-label={`${card.availableStamps} selos disponíveis de ${program.requiredVisits}`}>
+        <div className="flex flex-wrap gap-1.5" role="img" aria-label={`${card.availableStamps} selos disponíveis de ${program.requiredVisits}`}>
           {Array.from({ length: program.requiredVisits }, (_, index) => (
-            <span className={index < Math.min(card.availableStamps, program.requiredVisits) ? 'filled' : ''} key={index}><Stamp aria-hidden="true" /></span>
+            <span className={cn('grid size-8 place-items-center rounded-full border [&_svg]:size-4', index < filled ? 'border-brand bg-brand text-chrome' : 'border-dashed border-chrome-ink/40 text-chrome-ink/50')} key={index}><Stamp aria-hidden="true" /></span>
           ))}
         </div>
         {card.availableRewards > 0
-          ? <p className="reward-ready"><Gift aria-hidden="true" /> Prêmio disponível para resgate.</p>
-          : <p>Faltam <strong>{card.remainingToReward}</strong> visita(s) concluída(s) para o próximo prêmio.</p>}
-        {message && <p className="form-message" role="status">{message}</p>}
+          ? <p className="flex items-center gap-2 font-extrabold text-brand-light [&_svg]:size-[1.15rem]"><Gift aria-hidden="true" /> Prêmio disponível para resgate.</p>
+          : <p className="text-xs text-chrome-ink/80">Faltam <strong className="text-white">{card.remainingToReward}</strong> visita(s) concluída(s) para o próximo prêmio.</p>}
+        {message && <Notice role="status">{message}</Notice>}
         {canRedeem && card.availableRewards > 0 && (
-          <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setConfirming(true)}>Resgatar prêmio</button>
+          <Button className="justify-self-start" onClick={() => setConfirming(true)}>Resgatar prêmio</Button>
         )}
       </section>
       {confirming && (

@@ -169,19 +169,19 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
   await expect(page.locator('.location-card').filter({ hasText: 'Expediente:' })).toContainText('Expediente: Ter a Sáb · 09:00–20:00')
   await page.getByRole('link', { name: 'Agendar', exact: true }).click()
 
-  await page.getByRole('radio', { name: /Corte assinatura/ }).check()
+  await page.getByRole('group', { name: /O que vamos fazer/ }).getByText('Corte assinatura', { exact: true }).click()
   await page.getByRole('button', { name: 'Continuar' }).click()
   await pickDate(page, '2026-07-18')
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByRole('radio', { name: /Rafael Navalha/ }).check()
+  await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Manhã' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Tarde' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Noite' })).toBeVisible()
-  const morningGrid = page.getByRole('region', { name: 'Manhã' }).locator('.slot-grid')
+  const morningGrid = page.getByRole('region', { name: 'Manhã' }).locator('> div')
   await expect(morningGrid.getByRole('button').first()).toHaveAttribute('aria-label', /Selecionar horário/)
   expect(await morningGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(4)
-  await expect(page.locator('.availability-heading')).toBeVisible()
-  const availabilityTop = (await page.locator('.availability-heading').boundingBox())!.y
+  await expect(page.getByText('Horários disponíveis', { exact: true })).toBeVisible()
+  const availabilityTop = (await page.getByText('Horários disponíveis', { exact: true }).boundingBox())!.y
   const afternoonTop = (await page.getByRole('region', { name: 'Tarde' }).boundingBox())!.y
   expect(afternoonTop - availabilityTop).toBeLessThan(300)
   await capture(page, testInfo, '24-mobile-horarios-compactos')

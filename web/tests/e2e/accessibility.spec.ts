@@ -74,7 +74,7 @@ for (const scheme of ['light', 'dark'] as const) {
 
     await loginAs(page, 'cliente')
     await page.getByRole('link', { name: 'Agendar', exact: true }).click()
-    await page.getByRole('radio', { name: /Corte assinatura/ }).check()
+    await page.getByRole('group', { name: /O que vamos fazer/ }).getByText('Corte assinatura', { exact: true }).click()
     await page.getByRole('button', { name: 'Continuar' }).click()
     await audit(page, `${scheme} mobile agendar/data`)
     await signOut(page)
