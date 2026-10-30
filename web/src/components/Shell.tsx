@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { mockEnabled } from '../lib/repository'
 import { Avatar } from './ui/Avatar'
+import { CommandPalette } from './CommandPalette'
 import { cn } from '../lib/cn'
 import { useTheme, type ThemePreference } from '../lib/theme'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/DropdownMenu'
@@ -103,6 +104,7 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
           <span className="max-sm:hidden">{isAdmin || !barbershop?.name ? <><strong>MEU</strong> BARBEIRO</> : barbershop.name}</span>
         </NavLink>
         <div className="flex min-w-0 items-center gap-3.5 max-sm:gap-2">
+          <CommandPalette links={navigation} onLogout={onLogout} />
           <DropdownMenu>
             <DropdownMenuTrigger className="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/12 bg-white/5 py-1 pr-3 pl-1 text-inherit transition hover:border-brand hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-brand/40 focus-visible:outline-none data-[state=open]:border-brand data-[state=open]:bg-white/10 max-sm:pr-1.5">
               <Avatar name={user.name} size="sm" />

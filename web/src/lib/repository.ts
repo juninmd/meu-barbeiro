@@ -163,6 +163,12 @@ const futureAt = (days: number, hours: number, minutes = 0) => {
   const date = new Date()
   date.setDate(date.getDate() + days)
   date.setHours(hours, minutes, 0, 0)
+  // Os atendimentos de hoje da demonstração nunca ficam no passado: depois do horário, deslizam para a próxima janela livre.
+  const earliest = Date.now() + 30 * 60_000
+  if (days === 0 && date.getTime() < earliest) {
+    const quarter = 15 * 60_000
+    date.setTime(Math.ceil(earliest / quarter) * quarter + Math.max(0, hours - 14) * 3_600_000)
+  }
   return date.toISOString()
 }
 

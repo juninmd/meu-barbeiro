@@ -56,6 +56,8 @@ Em componentes novos use sempre tokens (`bg-surface`, `text-muted`, `border-line
   `EmptyState`/`CountBadge`, `ChoiceCard`/`StepFieldset`/`Stepper`/`ActionBar` (fluxo de agendamento) e `FormParts` (`Group`, `Toggle`, `InsetForm`, `FormRow`).
   Também `IconButton`/`TextButton`, `PageWrap`/`PageHeading`. **Nenhuma tela usa CSS escrito à mão**: `index.css` (~8 KB) só tem tokens, temas e o reset global
   (foco, campos de formulário). Ao criar telas, use utilitários Tailwind + componentes de `ui/`.
+- **Paleta de comandos** (`CommandPalette`, `cmdk` + Radix Dialog): `Ctrl/⌘ + K` ou botão "Buscar" na barra superior; navegação, tema e sessão pelo teclado.
+  **Celebração** (`lib/celebrate.ts`, `canvas-confetti` carregado sob demanda) ao confirmar uma reserva; desligada com `prefers-reduced-motion`.
 - Nos testes e2e, clique no texto do `ChoiceCard` (o input é transparente e cobre o cartão); não use classes CSS como seletor, prefira papéis/rótulos.
 - Animação de página só com **opacidade**: `transform` num ancestral quebraria elementos `position: fixed` (barra de ação mobile).
 - Não use `bone-*`/`amber-*` para superfícies e texto de interface (não mudam no escuro): são para a vitrine e acentos.

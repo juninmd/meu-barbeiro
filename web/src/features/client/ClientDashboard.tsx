@@ -25,6 +25,7 @@ import { cn } from '../../lib/cn'
 import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
 import { PageHeading, PageWrap } from '../../components/ui/Page'
 import { TextButton } from '../../components/ui/IconButton'
+import { celebrate } from '../../lib/celebrate'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
@@ -196,6 +197,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       setMessage(result.appointment.paymentStatus === 'APPROVED'
         ? 'Pagamento aprovado. O barbeiro já recebeu seu horário.'
         : 'Pedido enviado. O barbeiro já recebeu seu horário.')
+      void celebrate()
       await onRefresh()
       navigate('/cliente/horarios')
     } catch (error) {
