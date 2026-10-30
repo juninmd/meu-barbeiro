@@ -329,7 +329,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         <>
         <PageHeading eyebrow="Novo horário" title="Reserve sua cadeira.">Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</PageHeading>
         {upcoming[0] && (
-          <section className={cn(cardStyles, 'mb-5')} aria-labelledby="next-before-booking">
+          <section className={cardStyles} aria-labelledby="next-before-booking">
             <SectionHeading eyebrow="Antes de agendar outro" title="Seu próximo horário" id="next-before-booking" aside={<Link className={buttonStyles({ variant: 'ghost', size: 'sm' })} to="/cliente/horarios">Ver agenda</Link>} className="mb-5" />
             {appointmentCard(upcoming[0], true)}
           </section>

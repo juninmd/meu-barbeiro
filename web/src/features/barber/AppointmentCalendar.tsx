@@ -81,7 +81,7 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
   const firstWeekday = calendar ? dateAtNoon(calendar.from).getUTCDay() : 0
 
   return (
-    <section className={cn(cardStyles, 'mb-6')} aria-labelledby="calendar-title">
+    <section className={cardStyles} aria-labelledby="calendar-title">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="mb-1 flex items-center gap-2 text-[.72rem] font-extrabold tracking-[.18em] text-brand-deep uppercase"><CalendarDays className="size-4" aria-hidden="true" /> Visão mensal</p>

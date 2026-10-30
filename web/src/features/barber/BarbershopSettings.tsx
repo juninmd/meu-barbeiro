@@ -170,7 +170,7 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
 
   return (
     <>
-    <section className="mt-2 grid gap-5" aria-labelledby="settings-title">
+    <section className="grid gap-5" aria-labelledby="settings-title">
       <SectionHeading eyebrow="Operação SaaS" title="Sua barbearia" id="settings-title" />
 
       <div className="grid gap-3 md:grid-cols-3">

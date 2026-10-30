@@ -131,7 +131,7 @@ export function BarberAvailability({ barbers, barbershop, currentUser, onChanged
 
   return (
     <>
-      <section className={cn(cardStyles, 'mt-4 grid gap-6')} aria-labelledby="availability-title">
+      <section className={cn(cardStyles, 'grid gap-6')} aria-labelledby="availability-title">
         <SectionHeading
           eyebrow="Agenda individual" title="Disponibilidade" id="availability-title"
           aside={canChoose && (

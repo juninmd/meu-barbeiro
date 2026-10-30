@@ -202,7 +202,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
   return (
     <>
     <PageWrap id="top" data-section={section}>
-      {message && <Notice className="mb-4" role="status">{message}</Notice>}
+      {message && <Notice role="status">{message}</Notice>}
 
       {section === 'hoje' && (
         <>
@@ -216,16 +216,18 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
               </time>
             )}
           />
-          <section className="mb-3 grid grid-cols-3 gap-1.5 sm:mb-6 sm:gap-4" aria-label="Resumo da agenda">
+          <section className="grid grid-cols-3 gap-1.5 sm:gap-4" aria-label="Resumo da agenda">
             <Metric icon={<Clock3 />} label="Faltam" value={String(remainingToday.length)} note="clientes hoje" />
             <Metric icon={<CalendarCheck />} label="Aguardando" value={String(pending.length)} note="para confirmar" alert={pending.length > 0} />
             <Metric icon={<TrendingUp />} label="Entrou" value={formatCurrency(revenue)} note="concluído hoje" />
           </section>
-          <section className={cn(cardStyles, 'max-w-3xl')} aria-labelledby="next-client-title">
+          <div className="grid items-start gap-5 lg:grid-cols-2">
+          <section className={cardStyles} aria-labelledby="next-client-title">
             <SectionHeading eyebrow="Na sequência" title={nextToday ? 'Próximo cliente' : 'Agenda livre agora'} id="next-client-title" aside={<CountBadge>{remainingToday.length}</CountBadge>} className="mb-5" />
             {nextToday ? appointmentItem(nextToday, true) : <EmptyState><CalendarCheck aria-hidden="true" /><strong>Ninguém aguardando hoje</strong><p>{nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Use Agenda para lançar um encaixe.'}</p></EmptyState>}
           </section>
           <WalkInQueuePanel canCall callerBarberId={barbershop?.membershipRole === 'BARBER' ? currentUser.id : undefined} onCalled={refreshAfterQueueCall} refreshKey={queueRevision} />
+          </div>
         </>
       )}
 

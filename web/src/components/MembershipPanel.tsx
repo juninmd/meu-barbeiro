@@ -128,9 +128,9 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
             <Button type="submit" variant="dark" loading={busy} disabled={planForm.serviceIds.length === 0} className="justify-self-start">Criar plano</Button>
           </InsetForm>
           <div className="grid">{plans.map((plan) => <div className={listRowStyles} key={plan.id}><div><strong>{plan.name} · {formatCurrency(plan.priceCents / 100)}</strong><span>{plan.includedVisits} visita(s) / {plan.intervalDays} dias · {plan.active ? 'ativo' : 'inativo'}</span></div></div>)}</div>
-          <h3>Assinantes</h3>
+          <h3 className="mt-6 mb-1 font-serif text-lg font-medium">Assinantes</h3>
           {subscriptions.length === 0 ? <p className="text-sm text-muted">Nenhum assinante ainda.</p> : subscriptions.map((item) => <div className={listRowStyles} key={item.id}><div><strong>{item.user?.name ?? 'Cliente'} · {item.plan.name}</strong><span>{item.visitsUsed}/{item.plan.includedVisits} visitas usadas · {item.status}</span></div></div>)}
-          <h3>Ocorrências pendentes de resolução</h3>
+          <h3 className="mt-6 mb-1 font-serif text-lg font-medium">Ocorrências pendentes de resolução</h3>
           {pending.length === 0 ? <p className="text-sm text-muted">Nenhuma falha na geração dos horários fixos.</p> : pending.map(({ booking, occurrence }) => <div className={listRowStyles} key={occurrence.id}><div><strong>{booking.user?.name ?? 'Cliente'} · {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(occurrence.scheduledAt))}</strong><span>{occurrence.reason}</span></div></div>)}
         </>
       )}

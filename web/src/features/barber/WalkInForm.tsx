@@ -93,7 +93,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
   }
 
   return (
-    <section className={cn(cardStyles, 'mb-5 grid gap-5')} aria-labelledby="walk-in-title">
+    <section className={cn(cardStyles, 'grid gap-5')} aria-labelledby="walk-in-title">
       <SectionHeading eyebrow="Atendimento pelo balcão" title="Entrada sem horário" id="walk-in-title" aside={<Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Fechar</Button>} />
       {message && <Notice tone="danger" role="alert">{message}</Notice>}
       <form className="grid gap-8" onSubmit={submit}>

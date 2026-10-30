@@ -53,7 +53,7 @@ export function DailyClosing({ barbershop }: DailyClosingProps) {
   }
 
   return (
-    <section className={cn(cardStyles, 'mb-6 grid gap-5')} aria-labelledby="closing-title">
+    <section className={cn(cardStyles, 'grid gap-5')} aria-labelledby="closing-title">
       <SectionHeading
         eyebrow="Caixa realizado" title="Fechamento" id="closing-title"
         aside={(
