@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { MotionConfig, motion } from 'motion/react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Login } from './components/Login'
 import { Shell } from './components/Shell'
 import { AccountPage } from './features/account/AccountPage'
 import { EstablishmentOnboarding } from './features/account/EstablishmentOnboarding'
 import { AdminDashboard } from './features/admin/AdminDashboard'
+import { DesignSystemPage } from './features/design-system/DesignSystemPage'
 import { BarberDashboard } from './features/barber/BarberDashboard'
 import { ClientDashboard } from './features/client/ClientDashboard'
 import { errorMessage, mockEnabled, repository, tenantSlug } from './lib/repository'
@@ -22,6 +24,7 @@ const emptyData: AppData = { appointments: [], barbers: [], barbershop: null, pr
 
 export default function App() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [user, setUser] = useState<User | null>(null)
   const [data, setData] = useState<AppData>(emptyData)
   const [loading, setLoading] = useState(true)
@@ -117,8 +120,12 @@ export default function App() {
   return (
     <Shell user={user} barbershop={data.barbershop} onLogout={logout}>
       {error && <div className="error-banner" role="alert">{error}<button onClick={() => refresh()}>Tentar novamente</button></div>}
+      {/* Só opacidade: um transform aqui viraria bloco de contenção e deslocaria elementos position:fixed (barra de ação mobile). A chave é só a área (cliente/barbeiro/admin): trocar de seção não remonta nem perde o estado da tela. */}
+      <MotionConfig reducedMotion="user">
+      <motion.div key={location.pathname.split('/')[1] ?? ''} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
       <Routes>
         <Route path="/conta" element={<AccountPage user={user} />} />
+        {(mockEnabled || isAdmin) && <Route path="/design-system" element={<DesignSystemPage />} />}
         {isAdmin ? (
           <Route path="/admin/:section" element={<AdminDashboard />} />
         ) : isBarber ? (
@@ -131,6 +138,8 @@ export default function App() {
         )}
         <Route path="*" element={<Navigate replace to={defaultPath} />} />
       </Routes>
+      </motion.div>
+      </MotionConfig>
     </Shell>
   )
 }

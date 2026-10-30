@@ -19,11 +19,21 @@ export async function loginAs(page: Page, role: keyof typeof accounts) {
 }
 
 export async function signOut(page: Page) {
-  await page.getByRole('button', { name: 'Sair' }).click()
+  await page.getByRole('button', { name: 'Menu da conta' }).click()
+  await page.getByRole('menuitem', { name: 'Sair' }).click()
   await expect(page.getByRole('heading', { name: 'Entre na sua conta' })).toBeVisible()
 }
 
 export async function switchTo(page: Page, role: keyof typeof accounts) {
   await signOut(page)
   await loginAs(page, role)
+}
+
+/** Escolhe um dia no calendário do agendamento (formato AAAA-MM-DD, mês atual ou o seguinte). */
+export async function pickDate(page: Page, isoDate: string) {
+  const label = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(`${isoDate}T12:00:00Z`))
+  const day = page.getByRole('button', { name: new RegExp(label, 'i') })
+  if (!(await day.isVisible())) await page.getByRole('button', { name: /próximo mês|next month/i }).click()
+  await day.click()
 }

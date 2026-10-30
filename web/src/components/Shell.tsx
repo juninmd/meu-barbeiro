@@ -5,6 +5,8 @@ import {
   Clock3,
   Inbox,
   LayoutDashboard,
+  ChevronDown,
+  Palette,
   LogOut,
   MoreHorizontal,
   Package,
@@ -18,6 +20,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { mockEnabled } from '../lib/repository'
 import { Avatar } from './ui/Avatar'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/DropdownMenu'
 import type { Barbershop, User } from '../types'
 
 interface ShellProps {
@@ -94,16 +97,34 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
           <span>{isAdmin || !barbershop?.name ? <><strong>MEU</strong> BARBEIRO</> : barbershop.name}</span>
         </NavLink>
         <div className="profile-actions">
-          <NavLink className="profile-link" to="/conta" aria-label="Minha conta">
-            <Avatar name={user.name} size="sm" />
-            <span className="profile-copy">
-              <strong>{user.name}</strong>
-              <small>{roleLabel}</small>
-            </span>
-          </NavLink>
-          <button className="icon-button" onClick={onLogout} aria-label="Sair">
-            <LogOut aria-hidden="true" />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="profile-link" aria-label="Menu da conta">
+              <Avatar name={user.name} size="sm" />
+              <span className="profile-copy">
+                <strong>{user.name}</strong>
+                <small>{roleLabel}</small>
+              </span>
+              <ChevronDown className="profile-chevron" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>
+                <strong className="block text-sm">{user.name}</strong>
+                <small className="text-xs text-muted">{user.email || user.username || roleLabel}</small>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <NavLink to="/conta"><UserRound aria-hidden="true" /> Minha conta</NavLink>
+              </DropdownMenuItem>
+              {(mockEnabled || isAdmin) && (
+                <DropdownMenuItem asChild>
+                  <NavLink to="/design-system"><Palette aria-hidden="true" /> Design system</NavLink>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={onLogout}>
+                <LogOut aria-hidden="true" /> Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
       {mockEnabled && <div className="dev-ribbon">Modo demonstração<span className="ribbon-extra"> · dados salvos apenas neste navegador</span></div>}

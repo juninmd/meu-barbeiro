@@ -59,12 +59,11 @@ describe('client barber choice', () => {
     expect(container.textContent).toContain('Quando?')
     expect(container.textContent).not.toContain('Qualquer barbeiro disponível')
 
-    const date = container.querySelector<HTMLInputElement>('input[type="date"]')
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(date, '2099-08-05')
-      date!.dispatchEvent(new Event('input', { bubbles: true }))
-      date!.dispatchEvent(new Event('change', { bubbles: true }))
-    })
+    // Próximo mês (sempre futuro) e a primeira quarta-feira: a escala do barbeiro só cobre quintas.
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label*="próximo mês"]')!.click())
+    const wednesday = [...container.querySelectorAll<HTMLButtonElement>('table button')]
+      .find((button) => /quarta-feira/i.test(button.getAttribute('aria-label') ?? '') && !button.disabled)
+    act(() => wednesday!.click())
     await flush()
     act(() => [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Continuar'))!.click())
     await flush()
@@ -72,6 +71,6 @@ describe('client barber choice', () => {
     expect(container.textContent).toContain('Qualquer barbeiro disponível')
     const unavailable = container.querySelector<HTMLInputElement>('input[value="barber-demo"]')
     expect(unavailable?.disabled).toBe(true)
-    expect(unavailable?.closest('label')?.textContent).toContain('fora da escala · atende em 06/08')
+    expect(unavailable?.closest('label')?.textContent).toMatch(/fora da escala · atende em \d{2}\/\d{2}/)
   })
 })

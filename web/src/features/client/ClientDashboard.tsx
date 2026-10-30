@@ -1,6 +1,9 @@
 import { BellRing, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Calendar } from '../../components/ui/Calendar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { AppointmentSlots } from '../../components/AppointmentSlots'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -29,6 +32,8 @@ const dateInTimezone = (timezone: string) => {
   }).formatToParts(new Date()).map((part) => [part.type, part.value]))
   return `${parts.year}-${parts.month}-${parts.day}`
 }
+
+const formatPickedDate = (date: string) => format(new Date(`${date}T12:00:00`), "EEEE, d 'de' MMMM", { locale: ptBR })
 
 const formatShortDate = (date: string) => new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit', month: '2-digit', timeZone: 'UTC',
@@ -75,6 +80,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
   const selectedService = services.find((item) => item.id === form.serviceId)
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const timezone = barbershop?.timezone || browserTimezone
+  const closedWeekdays = (barbershop?.businessHours ?? []).filter((hour) => !hour.enabled).map((hour) => hour.weekday)
   const availableBarbers = datedBarbers.filter((barber) => barber.available)
   const nextAvailableDate = datedBarbers
     .map((barber) => barber.nextAvailableDate)
@@ -368,21 +374,26 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
 
             {bookingStep === 2 && <fieldset>
               <legend><span>02</span> Quando?</legend>
-              <label className="date-field">
-                <CalendarDays aria-hidden="true" />
-                <span><strong>Data</strong><small>Duração estimada: {selectedService?.duration ?? '—'} min</small></span>
-                <input
-                  aria-label="Data"
-                  type="date"
-                  value={date}
-                  min={dateInTimezone(timezone)}
-                  onChange={(event) => {
-                    setDate(event.target.value)
+              <div className="date-picker" data-testid="date-picker">
+                <p className="date-picker-summary">
+                  <CalendarDays aria-hidden="true" />
+                  <span><strong>{date ? formatPickedDate(date) : 'Escolha um dia'}</strong><small>Duração estimada: {selectedService?.duration ?? '—'} min</small></span>
+                </p>
+                <Calendar
+                  mode="single"
+                  selected={date ? new Date(`${date}T12:00:00`) : undefined}
+                  defaultMonth={date ? new Date(`${date}T12:00:00`) : new Date(`${dateInTimezone(timezone)}T12:00:00`)}
+                  disabled={{ before: new Date(`${dateInTimezone(timezone)}T12:00:00`) }}
+                  modifiers={{ closed: { dayOfWeek: closedWeekdays } }}
+                  modifiersClassNames={{ closed: '[&>button]:text-bone-500 [&>button]:line-through [&>button]:decoration-bone-400/70' }}
+                  onSelect={(picked) => {
+                    if (!picked) return
+                    setDate(format(picked, 'yyyy-MM-dd'))
                     setForm((current) => ({ ...current, barberId: rescheduleTarget ? current.barberId : '', scheduledAt: '' }))
                   }}
-                  required
                 />
-              </label>
+                {closedWeekdays.length > 0 && <small className="date-picker-legend">Dias riscados: a barbearia não abre.</small>}
+              </div>
               {loadingBarbers && <p className="availability-status" role="status">Consultando quem atende nesta data…</p>}
               {barbersError && <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className="button button-ghost" type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
             </fieldset>}

@@ -19,7 +19,7 @@ export const buttonStyles = cva(
   },
 )
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonStyles> {
+interface ButtonProps extends React.ComponentProps<'button'>, VariantProps<typeof buttonStyles> {
   loading?: boolean
 }
 

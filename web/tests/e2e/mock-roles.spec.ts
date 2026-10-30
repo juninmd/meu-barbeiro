@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test'
-import { loginAs, switchTo } from './helpers'
+import { loginAs, pickDate, signOut, switchTo } from './helpers'
 
 const fixedNow = new Date('2026-07-17T12:00:00-03:00')
 const saturday = '2026-07-18'
@@ -41,8 +41,7 @@ test('registra acesso único, troca de conta e logout', async ({ page }, testInf
   await expect(page.getByRole('heading', { name: 'A cadeira está pronta.' })).toBeVisible()
   await capture(page, testInfo, '03-troca-para-visao-barbeiro')
 
-  await page.getByRole('button', { name: 'Sair' }).click()
-  await expect(page.getByRole('heading', { name: 'Entre na sua conta' })).toBeVisible()
+  await signOut(page)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Entre na sua conta' })).toBeVisible()
   await capture(page, testInfo, '04-logout')
@@ -58,7 +57,7 @@ test('registra agendamento, validações, cancelamento e histórico do cliente',
   await page.getByRole('button', { name: 'Continuar' }).click()
   await capture(page, testInfo, '06-cliente-servico-selecionado')
 
-  await page.getByLabel('Data').fill(saturday)
+  await pickDate(page, saturday)
   await page.getByRole('button', { name: 'Continuar' }).click()
   await page.getByRole('group', { name: /Com quem/ }).getByText('Rafael Navalha', { exact: true }).click()
   await page.getByRole('button', { name: 'Selecionar horário 11:00' }).click()
@@ -73,7 +72,7 @@ test('registra agendamento, validações, cancelamento e histórico do cliente',
   await page.getByRole('link', { name: 'Agendar', exact: true }).click()
   await page.getByRole('group', { name: /O que vamos fazer/ }).getByText('Corte assinatura', { exact: true }).click()
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByLabel('Data').fill(closedSunday)
+  await pickDate(page, closedSunday)
   await page.getByRole('button', { name: 'Continuar' }).click()
   await expect(page.getByText('Ninguém disponível nesta data')).toBeVisible()
   await capture(page, testInfo, '10-cliente-dia-fora-do-expediente')
@@ -146,7 +145,8 @@ test('registra cadastro, exclusão e proteção de serviços', async ({ page }, 
 
   await servicePanel.getByRole('button', { name: 'Excluir Corte assinatura' }).click()
   await page.getByRole('button', { name: 'Sim, excluir' }).click()
-  await expect(page.getByText('Serviço possui agendamentos ativos')).toBeVisible()
+  await expect(page.getByRole('dialog').getByText('Serviço possui agendamentos ativos')).toBeVisible()
+  await page.keyboard.press('Escape')
   await expect(servicePanel.getByText('Corte assinatura')).toBeVisible()
   await capture(page, testInfo, '22-barbeiro-exclusao-de-servico-bloqueada')
 })
@@ -171,7 +171,7 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
 
   await page.getByRole('radio', { name: /Corte assinatura/ }).check()
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByLabel('Data').fill('2026-07-18')
+  await pickDate(page, '2026-07-18')
   await page.getByRole('button', { name: 'Continuar' }).click()
   await page.getByRole('radio', { name: /Rafael Navalha/ }).check()
   await expect(page.getByRole('heading', { name: 'Manhã' })).toBeVisible()
