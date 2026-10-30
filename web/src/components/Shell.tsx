@@ -105,7 +105,7 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
           </button>
         </div>
       </header>
-      {mockEnabled && <div className="dev-ribbon">Modo demonstração · dados salvos apenas neste navegador</div>}
+      {mockEnabled && <div className="dev-ribbon">Modo demonstração<span className="ribbon-extra"> · dados salvos apenas neste navegador</span></div>}
       <span className="sr-only" aria-live="polite">Seção atual: {current?.label ?? 'Início'}</span>
       <div className="workspace">
         <nav className="desktop-navigation" aria-label="Navegação principal">

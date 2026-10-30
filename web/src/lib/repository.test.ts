@@ -45,7 +45,8 @@ describe('development mock repository', () => {
 
   const nextOpenDate = (hour = 11) => {
     const closedWeekdays = ['Sun', 'Mon']
-    let date = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    // +2 dias: os agendamentos de exemplo ficam em hoje/amanhã no fuso do executor, que pode diferir do da barbearia.
+    let date = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
     while (closedWeekdays.includes(String(shopParts(date).weekday))) {
       date = new Date(date.getTime() + 24 * 60 * 60 * 1000)
     }
@@ -577,19 +578,26 @@ describe('development mock repository', () => {
   })
 
   it('builds mock closing from DONE services and recorded product sale prices', async () => {
-    await repository.updateAppointment('appointment-1', 'DONE')
-    await repository.sellProduct('product-pomade', { quantity: 2 })
-    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
-      timeZone: shopTimezone, year: 'numeric', month: '2-digit', day: '2-digit',
-    }).formatToParts(new Date()).map((part) => [part.type, part.value]))
-    const today = `${parts.year}-${parts.month}-${parts.day}`
+    // Relógio fixo ao meio-dia no fuso da barbearia: o exemplo e a venda caem no mesmo dia em qualquer executor.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-05T15:00:00.000Z'))
+    try {
+      await repository.updateAppointment('appointment-1', 'DONE')
+      await repository.sellProduct('product-pomade', { quantity: 2 })
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+        timeZone: shopTimezone, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(new Date()).map((part) => [part.type, part.value]))
+      const today = `${parts.year}-${parts.month}-${parts.day}`
 
-    const report = await repository.report(today, today)
+      const report = await repository.report(today, today)
 
-    expect(report.cashBasis).toBe('DONE_ONLY')
-    expect(report.totals.serviceRevenueCents).toBe(8_500)
-    expect(report.totals.productRevenueCents).toBe(6_400)
-    expect(report.totals.netRevenueCents).toBe(14_815)
+      expect(report.cashBasis).toBe('DONE_ONLY')
+      expect(report.totals.serviceRevenueCents).toBe(8_500)
+      expect(report.totals.productRevenueCents).toBe(6_400)
+      expect(report.totals.netRevenueCents).toBe(14_815)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('waives the deposit only for the included customer membership visits', async () => {
