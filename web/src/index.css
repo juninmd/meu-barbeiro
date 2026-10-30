@@ -304,7 +304,6 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .date-field small { color: var(--muted); font-size: .68rem; }
 .date-field input, .service-form input, .service-form textarea { min-height: 42px; padding: .6rem .7rem; color: var(--ink); border: 1px solid var(--line); background: var(--field); }
 .service-form textarea { min-height: 70px; resize: vertical; }
-.availability-block { display: grid; gap: .75rem; margin-top: .8rem; }
 .availability-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
 .availability-heading strong { font-size: .83rem; }
 .availability-heading small, .availability-status { color: var(--muted); font-size: .72rem; }
@@ -454,18 +453,6 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .hour-row .hour-toggle input { width: auto; min-height: auto; }
 .hour-row > span { color: var(--muted); font-size: .7rem; }
 .holiday-settings { display: grid; gap: 1rem; }
-.availability-panel, .availability-block, .schedule-list, .absence-list { display: grid; gap: 1rem; }
-.availability-panel { margin-top: 1rem; }
-.availability-block { padding-top: 1rem; border-top: 1px solid var(--line); }
-.schedule-row { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; align-items: end; }
-.schedule-enabled { align-self: center; }
-.absence-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; align-items: end; }
-.schedule-row > label:not(.schedule-enabled), .absence-form > label { display: grid; gap: .3rem; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.schedule-row input[type="time"], .absence-form input { width: 100%; min-width: 0; }
-.schedule-row { padding: .65rem .85rem; border-radius: var(--radius-sm); background: var(--surface-2); }
-.absence-item { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .75rem; border: 1px solid var(--line); border-radius: 12px; }
-.absence-item div { display: grid; gap: .2rem; }
-.absence-item span { color: var(--muted); font-size: .85rem; }
 .holiday-settings .section-heading > svg { color: var(--gold-dark); }
 .holiday-form { display: grid; grid-template-columns: 170px 1fr auto; align-items: end; gap: .8rem; }
 .holiday-form label { display: grid; gap: .35rem; color: var(--muted); font-size: .7rem; font-weight: 800; text-transform: uppercase; }
@@ -489,12 +476,12 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 body { color: var(--ink); -webkit-font-smoothing: antialiased; }
 .metric, .billing-card, .confirmation-dialog { border-radius: var(--radius); background: var(--surface); }
 .choice-card, .date-field, .customer-card, .repeat-booking, .customer-profile, .customer-option, .product-row, .stock-form, .fit-now-card,
-.walk-in-queue-item, .hour-row, .holiday-item, .ranking-card, .history, .absence-item { border-radius: var(--radius-sm); }
+.walk-in-queue-item, .hour-row, .holiday-item, .history { border-radius: var(--radius-sm); }
 .location-card, .loyalty-card, .service-form { border-radius: var(--radius); }
-.form-message, .list-feedback, .payment-warning, .cash-notice, .empty-day-note { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.form-message, .list-feedback, .payment-warning, .empty-day-note { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .step-count { border-radius: 99px; padding: .3rem .65rem; }
 .icon-button, .text-button, .section-link, input:not([type="checkbox"]):not([type="radio"]), select, textarea, .date-field input, .service-form input, .service-form textarea,
-.settings-form input, .settings-form select, .holiday-form input, .closing-range input, .sale-row input, .stock-form input { border-radius: var(--radius-sm); }
+.settings-form input, .settings-form select, .holiday-form input, .sale-row input, .stock-form input { border-radius: var(--radius-sm); }
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea { border: 1px solid var(--control); background: var(--field); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
 input:not([type="checkbox"]):not([type="radio"]):hover, select:hover, textarea:hover { border-color: var(--muted); }
 input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px #d99b3233; outline: none; }
@@ -546,8 +533,8 @@ html { scrollbar-color: var(--color-bone-400) transparent; }
 .section-link svg { transition: transform .2s var(--ease-out-quint); }
 .section-link:hover svg { transform: translateY(-1px) scale(1.06); }
 .section-link.active { background: linear-gradient(90deg, #fff, #fffaf0); box-shadow: var(--shadow-sm), inset 3px 0 0 var(--amber); }
-.metric, .closing-metric { font-variant-numeric: tabular-nums; }
-.metric strong, .closing-metric strong { letter-spacing: -.02em; }
+.metric { font-variant-numeric: tabular-nums; }
+.metric strong { letter-spacing: -.02em; }
 .hero { border-radius: 28px; background: radial-gradient(circle at 88% -10%, #d99b3250, transparent 45%), radial-gradient(circle at 0% 110%, #d99b3222, transparent 40%), linear-gradient(135deg, #15140f, #2b271b); }
 .hero h1 { font-weight: 400; }
 .choice-card.selected, .slot-button.selected { box-shadow: 0 0 0 2px var(--amber), 0 10px 24px -10px #d99b32aa; }
@@ -606,7 +593,6 @@ label:has(> input[type="checkbox"]), label.check-row { display: flex !important;
   .billing-grid { grid-template-columns: 1fr; }
   .schedule-column { grid-template-columns: 1fr 1fr; }
   .schedule-column > * { grid-row: span 3; }
-  .closing-totals { grid-template-columns: 1fr 1fr; }
   .workspace { display: block; }
   .desktop-navigation { display: none; }
   .mobile-navigation { position: fixed; z-index: 40; right: 0; bottom: 0; left: 0; min-height: 72px; display: flex; justify-content: space-around; padding: .3rem max(.35rem, env(safe-area-inset-right)) max(.3rem, env(safe-area-inset-bottom)) max(.35rem, env(safe-area-inset-left)); color: var(--chrome-ink); border-top: 1px solid #ffffff1c; background: var(--chrome); box-shadow: 0 -8px 24px #17171324; }
@@ -690,21 +676,7 @@ label:has(> input[type="checkbox"]), label.check-row { display: flex !important;
   .profile-grid { grid-template-columns: 1fr; }
   .customer-card { grid-template-columns: 1fr; }
   .customer-card .customer-profile { grid-column: 1; }
-  .schedule-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .schedule-row > label { min-width: 0; display: grid; gap: .3rem; }
-  .schedule-row input { min-width: 0; width: 100%; }
-  .schedule-enabled { grid-column: 1 / -1; display: flex !important; min-height: 44px; align-items: center; }
-  .schedule-enabled input { width: 18px; }
-  .absence-form { grid-template-columns: 1fr; }
-  .absence-form input { min-width: 0; width: 100%; }
-  .availability-panel > .section-heading { flex-direction: column; }
-  .availability-panel > .section-heading > label,
-  .availability-panel > .section-heading select { width: 100%; }
   .settings-columns, .hours-grid, .holiday-form { grid-template-columns: 1fr; }
-  .closing-heading, .closing-range { align-items: stretch; flex-direction: column; }
-  .closing-range { width: 100%; }
-  .closing-range input, .closing-range > button { width: 100%; }
-  .closing-totals, .ranking-grid { grid-template-columns: 1fr; }
   .barber-report-list { grid-template-columns: 1fr; }
 }
 
