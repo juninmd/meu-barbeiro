@@ -245,7 +245,7 @@ test('registra personalização, horários, sinal e conexão Mercado Pago', asyn
   await settings.getByLabel('Abertura Sáb').fill('10:00')
   await settings.getByLabel('Fechamento Sáb').fill('18:00')
   await settings.getByRole('button', { name: 'Salvar configurações' }).click()
-  await expect(page.locator('.brand')).toContainText('Navalha Club')
+  await expect(page.getByRole('link', { name: / - início/ })).toContainText('Navalha Club')
   await expect(page.getByText('Configurações publicadas.')).toBeVisible()
   await capture(page, testInfo, '29-barbeiro-marca-horarios-e-sinal-personalizados')
 

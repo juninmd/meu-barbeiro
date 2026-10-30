@@ -78,7 +78,7 @@ test('o administrador libera um usuário a cadastrar o estabelecimento onde é b
   await expect(page.getByLabel('Endereço do seu link')).toHaveValue('barbearia-do-joao')
   await page.getByRole('button', { name: 'Cadastrar estabelecimento' }).click()
   await expect(page).toHaveURL(/\/barbeiro\/hoje$/)
-  await expect(page.locator('.brand')).toContainText('Barbearia do João')
+  await expect(page.getByRole('link', { name: / - início/ })).toContainText('Barbearia do João')
 })
 
 test('tema escuro: escolha no menu da conta vale na página e persiste após recarregar', async ({ page }) => {

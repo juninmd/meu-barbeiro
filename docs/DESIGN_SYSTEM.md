@@ -52,9 +52,11 @@ Em componentes novos use sempre tokens (`bg-surface`, `text-muted`, `border-line
 - CSS legado na camada `components`: utilitários Tailwind sempre vencem.
 
 ## Convenções
-- Todas as telas usam `Button`/`buttonStyles`, `Card`/`cardStyles` e `Badge` (via `StatusBadge`) do kit; as classes `.button`, `.panel` e `.status`
-  foram removidas do CSS. O calendário mensal e a linha do tempo do barbeiro também já são Tailwind puro. O que resta em `index.css` são layouts de formulários e
-  cartões de algumas telas (ajustes, financeiro, escala semanal…) já ligados aos tokens; ao tocar numa tela, prefira utilitários Tailwind + componentes de `ui/`.
+- Todas as telas usam o kit de `web/src/components/ui`: `Button`, `Card`, `Badge`, `Field/Input/Select/Textarea`, `Notice`, `SectionHeading`, `StatTile`,
+  `EmptyState`/`CountBadge`, `ChoiceCard`/`StepFieldset`/`Stepper`/`ActionBar` (fluxo de agendamento) e `FormParts` (`Group`, `Toggle`, `InsetForm`, `FormRow`).
+  O shell (topbar, navegação lateral e inferior), agenda, financeiro, escala, ajustes e agendamento do cliente são Tailwind puro. O que resta em `index.css`
+  (~20 KB, tokens + temas incluídos) são cartões de métricas, listas de produtos/clientes e o card de agendamento; ao tocar numa tela, prefira utilitários + `ui/`.
+- Nos testes e2e, clique no texto do `ChoiceCard` (o input é transparente e cobre o cartão); não use classes CSS como seletor, prefira papéis/rótulos.
 - Animação de página só com **opacidade**: `transform` num ancestral quebraria elementos `position: fixed` (barra de ação mobile).
 - Não use `bone-*`/`amber-*` para superfícies e texto de interface (não mudam no escuro): são para a vitrine e acentos.
 - Cor de marca por barbearia: use `brand*`/`var(--amber)`, nunca o hex.
