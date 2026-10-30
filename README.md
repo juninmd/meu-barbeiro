@@ -59,7 +59,7 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
 
 - **Frontend**: [React 19](https://react.dev/) + [Vite 6](https://vite.dev/)
 - **Backend**: Node.js (API)
-- **Estilização**: Tailwind CSS v4
+- **Estilização**: Tailwind CSS v4 (tokens em `@theme`), componentes em `web/src/components/ui` com `class-variance-authority`, `clsx`/`tailwind-merge`, Radix UI (`Tabs`), `sonner` (avisos) e fonte Inter self-hosted
 - **Deployment**: Nginx + Docker
 
 ## 🚀 Como Rodar Localmente

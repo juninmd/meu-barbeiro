@@ -17,6 +17,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { mockEnabled } from '../lib/repository'
+import { Avatar } from './ui/Avatar'
 import type { Barbershop, User } from '../types'
 
 interface ShellProps {
@@ -94,7 +95,7 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
         </NavLink>
         <div className="profile-actions">
           <NavLink className="profile-link" to="/conta" aria-label="Minha conta">
-            <span className="avatar" aria-hidden="true">{user.name.slice(0, 1).toUpperCase()}</span>
+            <Avatar name={user.name} size="sm" />
             <span className="profile-copy">
               <strong>{user.name}</strong>
               <small>{roleLabel}</small>
