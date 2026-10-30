@@ -21,7 +21,9 @@ import { CancellationReportPanel } from './CancellationReportPanel'
 import { ProductsPanel } from './ProductsPanel'
 import { NotificationSettings } from './NotificationSettings'
 import { WalkInForm } from './WalkInForm'
-import { buttonStyles } from '../../components/ui/Button'
+import { buttonStyles, Button } from '../../components/ui/Button'
+import { Field, Input } from '../../components/ui/Field'
+import { FormRow, InsetForm } from '../../components/ui/FormParts'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
 
@@ -297,15 +299,14 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
             ))}
           </div>
           {canManageBarbershop && (
-            <form className="service-form" onSubmit={createService}>
-              <h3><Plus aria-hidden="true" /> Novo serviço</h3>
-              <label>Nome<input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} required minLength={3} /></label>
-              <div className="form-row">
-                <label>Duração (min)<input type="number" min="10" max="240" step="5" value={serviceForm.duration} onChange={(event) => setServiceForm({ ...serviceForm, duration: Number(event.target.value) })} required /></label>
-                <label>Preço (R$)<input type="number" min="1" step="0.01" value={serviceForm.price || ''} onChange={(event) => setServiceForm({ ...serviceForm, price: Number(event.target.value) })} required /></label>
-              </div>
-              <button className={buttonStyles({ variant: 'dark', block: true })} disabled={busy}><Plus aria-hidden="true" /> Adicionar ao menu</button>
-            </form>
+            <InsetForm title="Novo serviço" icon={<Plus aria-hidden="true" />} onSubmit={createService}>
+              <Field label="Nome"><Input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} required minLength={3} /></Field>
+              <FormRow>
+                <Field label="Duração (min)"><Input type="number" min="10" max="240" step="5" value={serviceForm.duration} onChange={(event) => setServiceForm({ ...serviceForm, duration: Number(event.target.value) })} required /></Field>
+                <Field label="Preço (R$)"><Input type="number" min="1" step="0.01" value={serviceForm.price || ''} onChange={(event) => setServiceForm({ ...serviceForm, price: Number(event.target.value) })} required /></Field>
+              </FormRow>
+              <Button type="submit" variant="dark" block loading={busy}><Plus aria-hidden="true" /> Adicionar ao menu</Button>
+            </InsetForm>
           )}
           </section>
           {canManageBarbershop && <MembershipPanel mode="management" services={services} barbers={barbers} />}

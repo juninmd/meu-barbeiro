@@ -5,7 +5,9 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { NewProduct, Product } from '../../types'
-import { buttonStyles } from '../../components/ui/Button'
+import { buttonStyles, Button } from '../../components/ui/Button'
+import { Field, Input } from '../../components/ui/Field'
+import { FormRow, InsetForm } from '../../components/ui/FormParts'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
 
@@ -180,16 +182,15 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
         )}
 
         {canManage && (
-          <form className="service-form product-form" onSubmit={saveProduct}>
-            <h3><Plus aria-hidden="true" /> {editing ? 'Editar produto' : 'Novo produto'}</h3>
-            <label>Nome<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required minLength={3} maxLength={80} /></label>
-            <div className="form-row">
-              <label>Preço (R$)<input type="number" min="0.01" max="10000" step="0.01" value={form.price || ''} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} required /></label>
-              {!editing && <label>Estoque inicial<input type="number" min="0" step="1" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: Number(event.target.value) })} required /></label>}
-            </div>
-            <button className={buttonStyles({ variant: 'dark', block: true })} disabled={busy}><Plus aria-hidden="true" /> {editing ? 'Salvar alterações' : 'Adicionar produto'}</button>
-            {editing && <button className={buttonStyles({ variant: 'ghost', block: true })} type="button" onClick={resetForm}>Cancelar edição</button>}
-          </form>
+          <InsetForm title={editing ? 'Editar produto' : 'Novo produto'} icon={<Plus aria-hidden="true" />} onSubmit={saveProduct}>
+            <Field label="Nome"><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required minLength={3} maxLength={80} /></Field>
+            <FormRow>
+              <Field label="Preço (R$)"><Input type="number" min="0.01" max="10000" step="0.01" value={form.price || ''} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} required /></Field>
+              {!editing && <Field label="Estoque inicial"><Input type="number" min="0" step="1" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: Number(event.target.value) })} required /></Field>}
+            </FormRow>
+            <Button type="submit" variant="dark" block loading={busy}><Plus aria-hidden="true" /> {editing ? 'Salvar alterações' : 'Adicionar produto'}</Button>
+            {editing && <Button variant="ghost" block onClick={resetForm}>Cancelar edição</Button>}
+          </InsetForm>
         )}
       </section>
       {productToDelete && (

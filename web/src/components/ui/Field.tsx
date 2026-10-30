@@ -46,3 +46,7 @@ export function Input({ icon, trailing, className, ...props }: InputProps) {
 export function Textarea({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cn(control, 'min-h-24 resize-y leading-relaxed', className)} {...props} />
 }
+
+export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className={inputStyles(className)} {...props} />
+}

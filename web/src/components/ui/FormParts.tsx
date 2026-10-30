@@ -1,3 +1,5 @@
+import { cn } from '../../lib/cn'
+
 /** Peças de formulário de configuração: grupo com legenda, dica e interruptor com alvo de toque de 44px. */
 export function Group({ legend, children }: { legend: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -18,3 +20,17 @@ export function Toggle({ checked, disabled, onChange, children }: { checked: boo
   )
 }
 
+
+/** Formulário embutido em um card: painel suave com título, para criar itens de uma lista. */
+export function InsetForm({ title, icon, className, children, ...props }: Omit<React.FormHTMLAttributes<HTMLFormElement>, 'title'> & { title?: string; icon?: React.ReactNode }) {
+  return (
+    <form className={cn('mt-5 grid gap-4 rounded-xl border border-line bg-surface-2 p-4 sm:p-5', className)} {...props}>
+      {title && <h3 className="flex items-center gap-2 font-serif text-lg font-medium [&_svg]:size-[1.1rem] [&_svg]:text-brand-deep">{icon}{title}</h3>}
+      {children}
+    </form>
+  )
+}
+
+export function FormRow({ columns = 2, children }: { columns?: 2 | 3; children: React.ReactNode }) {
+  return <div className={cn('grid gap-3', columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>{children}</div>
+}

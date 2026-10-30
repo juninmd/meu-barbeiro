@@ -4,7 +4,10 @@ import { errorMessage, repository } from '../lib/repository'
 import type { CustomerProfileFields, CustomerProfileResponse } from '../types'
 import { CustomerPackagesAdmin } from './CustomerPackages'
 import { LoyaltyCardPanel } from './LoyaltyCardPanel'
-import { buttonStyles } from './ui/Button'
+import { Button } from './ui/Button'
+import { Field, Textarea } from './ui/Field'
+import { InsetForm } from './ui/FormParts'
+import { Notice } from './ui/Notice'
 
 interface CustomerProfileCardProps {
   userId: string
@@ -60,14 +63,14 @@ export function CustomerProfileCard({ userId }: CustomerProfileCardProps) {
         <span>Ticket médio: {formatCurrency(data.history.averageTicket)}</span>
         {data.history.lastService && <span>Último: {data.history.lastService.name} com {data.history.lastBarber?.name}</span>}
       </div>
-      <form className="service-form" onSubmit={save}>
-        <label>Como gosta do corte<textarea value={form.preferences ?? ''} onChange={(event) => setForm({ ...form, preferences: event.target.value || null })} maxLength={2000} /></label>
-        <label>Alergias<textarea value={form.allergies ?? ''} onChange={(event) => setForm({ ...form, allergies: event.target.value || null })} maxLength={2000} /></label>
-        <label>Observações internas<textarea value={form.notes ?? ''} onChange={(event) => setForm({ ...form, notes: event.target.value || null })} maxLength={2000} /></label>
-        {data.profile && <small>Atualizada por {data.profile.updatedBy.name} em {formatDate(data.profile.updatedAt)}</small>}
-        {message && <p className="form-message" role="status">{message}</p>}
-        <button className={buttonStyles({ variant: 'dark', size: 'sm' })} disabled={busy}>{busy ? 'Salvando…' : 'Salvar ficha'}</button>
-      </form>
+      <InsetForm onSubmit={save}>
+        <Field label="Como gosta do corte"><Textarea value={form.preferences ?? ''} onChange={(event) => setForm({ ...form, preferences: event.target.value || null })} maxLength={2000} /></Field>
+        <Field label="Alergias"><Textarea value={form.allergies ?? ''} onChange={(event) => setForm({ ...form, allergies: event.target.value || null })} maxLength={2000} /></Field>
+        <Field label="Observações internas"><Textarea value={form.notes ?? ''} onChange={(event) => setForm({ ...form, notes: event.target.value || null })} maxLength={2000} /></Field>
+        {data.profile && <small className="text-xs text-muted">Atualizada por {data.profile.updatedBy.name} em {formatDate(data.profile.updatedAt)}</small>}
+        {message && <Notice role="status">{message}</Notice>}
+        <Button type="submit" variant="dark" size="sm" loading={busy} className="justify-self-start">{busy ? 'Salvando…' : 'Salvar ficha'}</Button>
+      </InsetForm>
     </section>
   )
 }

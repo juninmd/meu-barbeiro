@@ -302,8 +302,7 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .date-field span { display: grid; gap: .15rem; }
 .date-field strong { font-size: .83rem; }
 .date-field small { color: var(--muted); font-size: .68rem; }
-.date-field input, .service-form input, .service-form textarea { min-height: 42px; padding: .6rem .7rem; color: var(--ink); border: 1px solid var(--line); background: var(--field); }
-.service-form textarea { min-height: 70px; resize: vertical; }
+.date-field input { min-height: 42px; padding: .6rem .7rem; color: var(--ink); border: 1px solid var(--line); background: var(--field); }
 .availability-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
 .availability-heading strong { font-size: .83rem; }
 .availability-heading small, .availability-status { color: var(--muted); font-size: .72rem; }
@@ -341,7 +340,6 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .repeat-booking div, .profile-history { display: grid; gap: .2rem; }
 .repeat-booking span, .profile-history span { color: var(--muted); font-size: .78rem; }
 .customer-profile { margin-top: .8rem; padding: 1rem; border: 1px solid var(--line); background: var(--surface-3); }
-.customer-profile .service-form { margin-top: .8rem; }
 .customer-option { display: flex; align-items: center; gap: .7rem; padding: .8rem; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
 .customer-option.selected { border-color: #ae7720; background: var(--tint); }
 .customer-option svg { width: 20px; }
@@ -399,12 +397,6 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .service-row div { display: grid; gap: .2rem; }
 .service-row strong { font-size: .82rem; }
 .service-row span { color: var(--muted); font-size: .7rem; }
-.service-form { display: grid; gap: .8rem; margin-top: 1.5rem; padding: 1.2rem; color: var(--chrome-ink); background: #292820; }
-.service-form h3 { display: flex; align-items: center; gap: .5rem; margin-bottom: .2rem; font: 1rem var(--font-display); }
-.service-form label { display: grid; gap: .3rem; color: #bbb5a8; font-size: .67rem; font-weight: 800; text-transform: uppercase; }
-.form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .6rem; }
-.form-row > *, .service-form label { min-width: 0; }
-.service-form input:not([type="checkbox"]):not([type="radio"]), .service-form textarea { width: 100%; min-width: 0; }
 .product-list { display: grid; gap: .8rem; }
 .product-row { display: grid; gap: .65rem; padding: .9rem; border: 1px solid var(--line); background: var(--field); }
 .product-stock-low { border-color: #d8a94e; background: var(--tint); }
@@ -440,10 +432,10 @@ body { color: var(--ink); -webkit-font-smoothing: antialiased; }
 .metric, .confirmation-dialog { border-radius: var(--radius); background: var(--surface); }
 .choice-card, .date-field, .customer-card, .repeat-booking, .customer-profile, .customer-option, .product-row, .stock-form, .fit-now-card,
 .walk-in-queue-item, .history { border-radius: var(--radius-sm); }
-.location-card, .loyalty-card, .service-form { border-radius: var(--radius); }
+.location-card, .loyalty-card { border-radius: var(--radius); }
 .form-message, .list-feedback, .payment-warning, .empty-day-note { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .step-count { border-radius: 99px; padding: .3rem .65rem; }
-.icon-button, .text-button, .section-link, input:not([type="checkbox"]):not([type="radio"]), select, textarea, .date-field input, .service-form input, .service-form textarea,
+.icon-button, .text-button, .section-link, input:not([type="checkbox"]):not([type="radio"]), select, textarea, .date-field input,
 .sale-row input, .stock-form input { border-radius: var(--radius-sm); }
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea { border: 1px solid var(--control); background: var(--field); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
 input:not([type="checkbox"]):not([type="radio"]):hover, select:hover, textarea:hover { border-color: var(--muted); }
@@ -514,17 +506,12 @@ html { scrollbar-color: var(--color-bone-400) transparent; }
 .date-picker-summary small, .date-picker-legend { color: var(--muted); font-size: .75rem; }
 .date-picker-legend { text-align: center; }
 
-.form-row > label { display: grid; gap: .3rem; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.form-row > label input { width: 100%; min-width: 0; }
-.service-form .form-row > label { color: #cfc9bb; }
 /* Textos sobre fundos sempre escuros precisam de âmbar claro (contraste AA). */
-.loyalty-card .eyebrow, .service-form .eyebrow, .location-card .eyebrow, .hero .eyebrow { color: var(--amber-light); }
+.loyalty-card .eyebrow, .location-card .eyebrow, .hero .eyebrow { color: var(--amber-light); }
 
 /* Linhas com caixa de seleção: rótulo ao lado, sem caixa gigante nem texto empilhado. */
 input[type="checkbox"], input[type="radio"] { width: 1.15rem; height: 1.15rem; flex: none; accent-color: var(--amber); }
 label:has(> input[type="checkbox"]), label.check-row { display: flex !important; align-items: center; gap: .65rem; min-height: 44px; text-transform: none !important; letter-spacing: 0 !important; font-size: .88rem !important; font-weight: 600 !important; color: inherit !important; cursor: pointer; }
-.service-form fieldset { gap: .15rem; }
-.service-form legend { margin-bottom: .35rem; }
 
 /* ---------- Modo escuro: ajustes dos componentes legados ---------- */
 :root[data-theme="dark"] .product-stock-low { background: #2f2610; border-color: #7a5d1f; }

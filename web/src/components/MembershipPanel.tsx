@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react'
 import { formatCurrency } from '../lib/format'
 import { errorMessage, repository } from '../lib/repository'
 import type { Barber, CustomerSubscription, MembershipPlan, NewMembershipPlan, RecurringBooking, Service } from '../types'
-import { buttonStyles } from './ui/Button'
+import { buttonStyles, Button } from './ui/Button'
+import { Field, Input, Select } from './ui/Field'
+import { FormRow, Group, InsetForm, Toggle } from './ui/FormParts'
 import { cardStyles } from './ui/Card'
 import { cn } from '../lib/cn'
 
@@ -99,28 +101,32 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
             </div>
           )}
           {subscription?.status === 'ACTIVE' && (
-            <form className="service-form" onSubmit={createBooking}>
-              <h3><CalendarDays aria-hidden="true" /> Horário fixo</h3>
-              <label>Serviço<select required value={bookingForm.serviceId} onChange={(event) => setBookingForm({ ...bookingForm, serviceId: event.target.value })}><option value="">Selecione</option>{services.filter((service) => subscription.plan.serviceIds.includes(service.id)).map((service) => <option value={service.id} key={service.id}>{service.name}</option>)}</select></label>
-              <label>Profissional<select required value={bookingForm.barberId} onChange={(event) => setBookingForm({ ...bookingForm, barberId: event.target.value })}><option value="">Selecione</option>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</select></label>
-              <div className="form-row">
-                <label>Dia<select value={bookingForm.weekday} onChange={(event) => setBookingForm({ ...bookingForm, weekday: Number(event.target.value) })}>{weekdays.map((label, index) => <option value={index} key={label}>{label}</option>)}</select></label>
-                <label>Hora<input type="time" required value={bookingForm.time} onChange={(event) => setBookingForm({ ...bookingForm, time: event.target.value })} /></label>
-              </div>
-              <button className={buttonStyles({ variant: 'dark' })} disabled={busy}><Plus aria-hidden="true" /> Criar horário fixo</button>
-            </form>
+            <InsetForm title="Horário fixo" icon={<CalendarDays aria-hidden="true" />} onSubmit={createBooking}>
+              <Field label="Serviço"><Select required value={bookingForm.serviceId} onChange={(event) => setBookingForm({ ...bookingForm, serviceId: event.target.value })}><option value="">Selecione</option>{services.filter((service) => subscription.plan.serviceIds.includes(service.id)).map((service) => <option value={service.id} key={service.id}>{service.name}</option>)}</Select></Field>
+              <Field label="Profissional"><Select required value={bookingForm.barberId} onChange={(event) => setBookingForm({ ...bookingForm, barberId: event.target.value })}><option value="">Selecione</option>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</Select></Field>
+              <FormRow>
+                <Field label="Dia"><Select value={bookingForm.weekday} onChange={(event) => setBookingForm({ ...bookingForm, weekday: Number(event.target.value) })}>{weekdays.map((label, index) => <option value={index} key={label}>{label}</option>)}</Select></Field>
+                <Field label="Hora"><Input type="time" required value={bookingForm.time} onChange={(event) => setBookingForm({ ...bookingForm, time: event.target.value })} /></Field>
+              </FormRow>
+              <Button type="submit" variant="dark" loading={busy} className="justify-self-start"><Plus aria-hidden="true" /> Criar horário fixo</Button>
+            </InsetForm>
           )}
           {bookings.filter((booking) => booking.active).map((booking) => <div className="service-row" key={booking.id}><div><strong>{weekdays[booking.weekday]} às {booking.time}</strong><span>{booking.barber?.name ?? 'Profissional definido'} · ocorrências futuras respeitam agenda e conflitos</span></div><button className="icon-button subtle" aria-label="Excluir horário fixo" disabled={busy} onClick={() => void act(() => repository.deleteRecurringBooking(booking.id), 'Horário fixo desativado. Agendamentos já criados foram mantidos.')}><Trash2 aria-hidden="true" /></button></div>)}
         </>
       ) : (
         <>
-          <form className="service-form" onSubmit={createPlan}>
-            <h3><Plus aria-hidden="true" /> Novo plano</h3>
-            <label>Nome<input required minLength={3} value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })} /></label>
-            <div className="form-row"><label>Preço (R$)<input type="number" min="1" step="0.01" required value={planForm.priceCents ? planForm.priceCents / 100 : ''} onChange={(event) => setPlanForm({ ...planForm, priceCents: Math.round(Number(event.target.value) * 100) })} /></label><label>Período (dias)<input type="number" min="1" required value={planForm.intervalDays} onChange={(event) => setPlanForm({ ...planForm, intervalDays: Number(event.target.value) })} /></label><label>Visitas<input type="number" min="1" required value={planForm.includedVisits} onChange={(event) => setPlanForm({ ...planForm, includedVisits: Number(event.target.value) })} /></label></div>
-            <fieldset><legend>Serviços cobertos</legend>{services.map((service) => <label className="check-row" key={service.id}><input type="checkbox" checked={planForm.serviceIds.includes(service.id)} onChange={(event) => setPlanForm({ ...planForm, serviceIds: event.target.checked ? [...planForm.serviceIds, service.id] : planForm.serviceIds.filter((id) => id !== service.id) })} /> {service.name}</label>)}</fieldset>
-            <button className={buttonStyles({ variant: 'dark' })} disabled={busy || planForm.serviceIds.length === 0}>Criar plano</button>
-          </form>
+          <InsetForm title="Novo plano" icon={<Plus aria-hidden="true" />} onSubmit={createPlan}>
+            <Field label="Nome"><Input required minLength={3} value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })} /></Field>
+            <FormRow columns={3}>
+              <Field label="Preço (R$)"><Input type="number" min="1" step="0.01" required value={planForm.priceCents ? planForm.priceCents / 100 : ''} onChange={(event) => setPlanForm({ ...planForm, priceCents: Math.round(Number(event.target.value) * 100) })} /></Field>
+              <Field label="Período (dias)"><Input type="number" min="1" required value={planForm.intervalDays} onChange={(event) => setPlanForm({ ...planForm, intervalDays: Number(event.target.value) })} /></Field>
+              <Field label="Visitas"><Input type="number" min="1" required value={planForm.includedVisits} onChange={(event) => setPlanForm({ ...planForm, includedVisits: Number(event.target.value) })} /></Field>
+            </FormRow>
+            <Group legend="Serviços cobertos">
+              {services.map((service) => <Toggle key={service.id} checked={planForm.serviceIds.includes(service.id)} onChange={(checked) => setPlanForm({ ...planForm, serviceIds: checked ? [...planForm.serviceIds, service.id] : planForm.serviceIds.filter((id) => id !== service.id) })}>{service.name}</Toggle>)}
+            </Group>
+            <Button type="submit" variant="dark" loading={busy} disabled={planForm.serviceIds.length === 0} className="justify-self-start">Criar plano</Button>
+          </InsetForm>
           <div className="service-list">{plans.map((plan) => <div className="service-row" key={plan.id}><div><strong>{plan.name} · {formatCurrency(plan.priceCents / 100)}</strong><span>{plan.includedVisits} visita(s) / {plan.intervalDays} dias · {plan.active ? 'ativo' : 'inativo'}</span></div></div>)}</div>
           <h3>Assinantes</h3>
           {subscriptions.length === 0 ? <p className="empty-copy">Nenhum assinante ainda.</p> : subscriptions.map((item) => <div className="service-row" key={item.id}><div><strong>{item.user?.name ?? 'Cliente'} · {item.plan.name}</strong><span>{item.visitsUsed}/{item.plan.includedVisits} visitas usadas · {item.status}</span></div></div>)}
