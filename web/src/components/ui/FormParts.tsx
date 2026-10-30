@@ -34,3 +34,6 @@ export function InsetForm({ title, icon, className, children, ...props }: Omit<R
 export function FormRow({ columns = 2, children }: { columns?: 2 | 3; children: React.ReactNode }) {
   return <div className={cn('grid gap-3', columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>{children}</div>
 }
+
+/** Linha de lista com título + detalhe à esquerda e ação opcional à direita. */
+export const listRowStyles = 'flex items-center justify-between gap-2 border-b border-line py-3.5 [&>div]:grid [&>div]:gap-0.5 [&_strong]:text-[.88rem] [&_span]:text-xs [&_span]:text-muted'

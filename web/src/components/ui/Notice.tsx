@@ -21,9 +21,9 @@ export function Eyebrow({ className, ...props }: React.HTMLAttributes<HTMLParagr
   return <p className={cn('mb-1 flex items-center gap-2 text-[.72rem] font-extrabold tracking-[.18em] text-brand-deep uppercase', className)} {...props} />
 }
 
-export function SectionHeading({ eyebrow, title, id, aside }: { eyebrow: string; title: string; id: string; aside?: React.ReactNode }) {
+export function SectionHeading({ eyebrow, title, id, aside, className }: { eyebrow: string; title: string; id: string; aside?: React.ReactNode; className?: string }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className={cn('flex flex-wrap items-end justify-between gap-4', className)}>
       <div><Eyebrow>{eyebrow}</Eyebrow><h2 id={id} className="font-serif text-2xl font-medium tracking-tight">{title}</h2></div>
       {aside}
     </div>

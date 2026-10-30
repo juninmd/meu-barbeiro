@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge'
 import { buttonStyles } from '../../components/ui/Button'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
+import { IconButton } from '../../components/ui/IconButton'
 
 interface AppointmentCalendarProps {
   barbershop: Barbershop
@@ -87,9 +88,9 @@ export function AppointmentCalendar({ barbershop, refreshKey }: AppointmentCalen
           <h2 id="calendar-title" className="font-serif text-2xl font-medium tracking-tight">Calendário da agenda</h2>
         </div>
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto" role="group" aria-label="Navegação entre meses">
-          <button className="icon-button subtle" type="button" onClick={() => setMonth(moveMonth(month, -1))} aria-label="Mostrar mês anterior"><ChevronLeft aria-hidden="true" /></button>
+          <IconButton tone="subtle" type="button" onClick={() => setMonth(moveMonth(month, -1))} aria-label="Mostrar mês anterior"><ChevronLeft aria-hidden="true" /></IconButton>
           <strong className="min-w-40 text-center font-serif text-base capitalize" aria-live="polite">{new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(dateAtNoon(`${month}-01`))}</strong>
-          <button className="icon-button subtle" type="button" onClick={() => setMonth(moveMonth(month, 1))} aria-label="Mostrar próximo mês"><ChevronRight aria-hidden="true" /></button>
+          <IconButton tone="subtle" type="button" onClick={() => setMonth(moveMonth(month, 1))} aria-label="Mostrar próximo mês"><ChevronRight aria-hidden="true" /></IconButton>
         </div>
       </div>
 

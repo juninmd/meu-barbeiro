@@ -12,6 +12,7 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs'
 import { Tooltip } from '../../components/ui/Tooltip'
 import { cn } from '../../lib/cn'
+import { PageWrap } from '../../components/ui/Page'
 
 // Classes completas (não montadas por string) para o Tailwind enxergá-las no build.
 const swatches: Array<{ title: string; items: Array<{ token: string; className: string }> }> = [
@@ -51,7 +52,7 @@ export function DesignSystemPage() {
   const [day, setDay] = useState<Date | undefined>(new Date())
 
   return (
-    <main className="page-wrap section-page" data-section="design-system">
+    <PageWrap data-section="design-system">
       <PageHeader eyebrow="Design system" title="Navalha.">
         Fundamentos, componentes e padrões do Meu Barbeiro. Tailwind v4 com tokens em <code className="rounded bg-paper-deep px-1.5 py-0.5 text-sm">@theme</code>, Radix para acessibilidade e Fraunces + Inter na tipografia.
       </PageHeader>
@@ -188,6 +189,6 @@ export function DesignSystemPage() {
           onConfirm={() => { setDialog(false); toast.success('Horário cancelado.') }}
         />
       )}
-    </main>
+    </PageWrap>
   )
 }

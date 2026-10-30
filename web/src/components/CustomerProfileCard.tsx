@@ -51,13 +51,13 @@ export function CustomerProfileCard({ userId }: CustomerProfileCardProps) {
     }
   }
 
-  if (!data) return <p className="form-message" role="status">{message || 'Carregando ficha do cliente…'}</p>
+  if (!data) return <Notice role="status">{message || 'Carregando ficha do cliente…'}</Notice>
 
   return (
-    <section className="customer-profile" aria-label="Ficha interna do cliente">
+    <section className="mt-3 grid gap-4 rounded-xl border border-line bg-surface-3 p-4" aria-label="Ficha interna do cliente">
       <LoyaltyCardPanel userId={userId} canRedeem />
       <CustomerPackagesAdmin userId={userId} />
-      <div className="profile-history">
+      <div className="grid gap-0.5 text-sm text-muted [&_strong]:text-ink">
         <strong>{data.history.completedAppointments} concluído(s)</strong>
         <span>{data.history.noShows} falta(s)</span>
         <span>Ticket médio: {formatCurrency(data.history.averageTicket)}</span>

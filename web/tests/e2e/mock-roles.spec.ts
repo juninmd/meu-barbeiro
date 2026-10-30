@@ -166,7 +166,7 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
   expect(bookingBox).not.toBeNull()
   expect(scheduleBox!.y).toBeLessThan(bookingBox!.y)
   await page.getByRole('link', { name: 'Perfil' }).click()
-  await expect(page.locator('.location-card').filter({ hasText: 'Expediente:' })).toContainText('Expediente: Ter a Sáb · 09:00–20:00')
+  await expect(page.getByTestId('location-card').filter({ hasText: 'Expediente:' })).toContainText('Expediente: Ter a Sáb · 09:00–20:00')
   await page.getByRole('link', { name: 'Agendar', exact: true }).click()
 
   await page.getByRole('group', { name: /O que vamos fazer/ }).getByText('Corte assinatura', { exact: true }).click()
@@ -197,8 +197,8 @@ test('registra responsividade das duas visões', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: 'Sim, cancelar' }).click()
   await page.getByRole('link', { name: 'Meus horários' }).click()
   await page.getByText(/Ver histórico/).click()
-  await expect(page.locator('.history-item')).toContainText('Cancelado')
-  await expect(page.locator('.history-item')).not.toContainText('Pagamento estornado')
+  await expect(page.getByTestId('history-item')).toContainText('Cancelado')
+  await expect(page.getByTestId('history-item')).not.toContainText('Pagamento estornado')
   await capture(page, testInfo, '24-mobile-visao-cliente')
 
   await page.evaluate(() => {
@@ -251,7 +251,7 @@ test('registra personalização, horários, sinal e conexão Mercado Pago', asyn
 
   await switchTo(page, 'cliente')
   await page.getByRole('link', { name: 'Perfil' }).click()
-  await expect(page.locator('.location-card').filter({ hasText: 'Expediente:' })).toContainText('Navalha Club')
+  await expect(page.getByTestId('location-card').filter({ hasText: 'Expediente:' })).toContainText('Navalha Club')
   await expect(page.getByText('Rua do Corte, 100 · Centro')).toBeVisible()
   await capture(page, testInfo, '30-cliente-experiencia-personalizada')
 })

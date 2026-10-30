@@ -27,6 +27,9 @@ import { FormRow, InsetForm } from '../../components/ui/FormParts'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
 import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
+import { PageHeading, PageWrap } from '../../components/ui/Page'
+import { Notice, SectionHeading } from '../../components/ui/Notice'
+import { IconButton } from '../../components/ui/IconButton'
 
 interface BarberDashboardProps {
   appointments: Appointment[]
@@ -180,8 +183,8 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
         <h3 className={cn('font-serif text-xl font-medium', compact ? 'mt-2 mb-1' : 'mt-3 mb-1.5')}>{appointment.user.name}</h3>
         <p><Scissors aria-hidden="true" /> {appointment.service.name} · {appointment.service.duration} min</p>
         {!compact && <p className="reminder-note">{reminderStatus(appointment)}</p>}
-        {(appointment.user.noShowCount ?? 0) > 0 && <p className="no-show-note">Histórico: {appointment.user.noShowCount} falta(s) nesta barbearia</p>}
-        {appointment.depositRetained && <p className="no-show-note">Sinal pago retido</p>}
+        {(appointment.user.noShowCount ?? 0) > 0 && <p className="mt-1.5 text-[.82rem] font-bold text-muted">Histórico: {appointment.user.noShowCount} falta(s) nesta barbearia</p>}
+        {appointment.depositRetained && <p className="mt-1.5 text-[.82rem] font-bold text-muted">Sinal pago retido</p>}
         <div className={cn('flex flex-wrap gap-2.5', compact ? 'mt-2' : 'mt-3')}>
           {!compact && <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} type="button" onClick={() => setProfileCustomerId((current) => current === appointment.userId ? null : appointment.userId)}>{profileCustomerId === appointment.userId ? 'Fechar ficha' : 'Abrir ficha'}</button>}
           {appointment.status === 'PENDING' && <button className={buttonStyles({ variant: 'primary', size: 'sm' })} disabled={busy} onClick={() => changeStatus(appointment.id, 'CONFIRMED')}><Check aria-hidden="true" /> Confirmar</button>}
@@ -198,22 +201,28 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
 
   return (
     <>
-    <main id="top" className="page-wrap section-page" data-section={section}>
-      {message && <p className="form-message global-message" role="status">{message}</p>}
+    <PageWrap id="top" data-section={section}>
+      {message && <Notice className="mb-4" role="status">{message}</Notice>}
 
       {section === 'hoje' && (
         <>
-          <header className="page-heading today-heading">
-            <div><p className="eyebrow"><Scissors aria-hidden="true" /> {new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(new Date())}</p><h1>A cadeira está pronta.</h1></div>
-            <time><strong>{new Date().getDate()}</strong><span>{new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date())}</span></time>
-          </header>
-          <section className="metric-grid today-metrics" aria-label="Resumo da agenda">
+          <PageHeading
+            eyebrow={<><Scissors aria-hidden="true" /> {new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(new Date())}</>}
+            title="A cadeira está pronta."
+            aside={(
+              <time className="grid shrink-0 justify-items-center text-brand-deep uppercase">
+                <strong className="font-serif text-[2.7rem] leading-[.8] font-medium sm:text-[3.5rem]">{new Date().getDate()}</strong>
+                <span className="text-[.7rem] font-black tracking-[.12em]">{new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date())}</span>
+              </time>
+            )}
+          />
+          <section className="mb-3 grid grid-cols-3 gap-1.5 sm:mb-6 sm:gap-4" aria-label="Resumo da agenda">
             <Metric icon={<Clock3 />} label="Faltam" value={String(remainingToday.length)} note="clientes hoje" />
             <Metric icon={<CalendarCheck />} label="Aguardando" value={String(pending.length)} note="para confirmar" alert={pending.length > 0} />
             <Metric icon={<TrendingUp />} label="Entrou" value={formatCurrency(revenue)} note="concluído hoje" />
           </section>
-          <section className={cn(cardStyles, 'next-client-panel')} aria-labelledby="next-client-title">
-            <div className="section-heading compact"><div><p className="eyebrow">Na sequência</p><h2 id="next-client-title">{nextToday ? 'Próximo cliente' : 'Agenda livre agora'}</h2></div><CountBadge>{remainingToday.length}</CountBadge></div>
+          <section className={cn(cardStyles, 'max-w-3xl')} aria-labelledby="next-client-title">
+            <SectionHeading eyebrow="Na sequência" title={nextToday ? 'Próximo cliente' : 'Agenda livre agora'} id="next-client-title" aside={<CountBadge>{remainingToday.length}</CountBadge>} className="mb-5" />
             {nextToday ? appointmentItem(nextToday, true) : <EmptyState><CalendarCheck aria-hidden="true" /><strong>Ninguém aguardando hoje</strong><p>{nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Use Agenda para lançar um encaixe.'}</p></EmptyState>}
           </section>
           <WalkInQueuePanel canCall callerBarberId={barbershop?.membershipRole === 'BARBER' ? currentUser.id : undefined} onCalled={refreshAfterQueueCall} refreshKey={queueRevision} />
@@ -222,15 +231,12 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
 
       {section === 'agenda' && (
         <>
-          <header className="page-heading"><p className="eyebrow">Operação</p><h1>Agenda e disponibilidade.</h1><p>Atendimentos, encaixes, calendário e ausências reunidos.</p></header>
+          <PageHeading eyebrow="Operação" title="Agenda e disponibilidade.">Atendimentos, encaixes, calendário e ausências reunidos.</PageHeading>
           {barbershop && <WalkInForm barbers={barbers} barbershop={barbershop} currentUser={currentUser} services={services} onCreated={refreshAfterWalkIn} />}
           {barbershop && <BarberAvailability barbers={barbers} barbershop={barbershop} currentUser={currentUser} onChanged={() => setCalendarRevision((current) => current + 1)} />}
           {barbershop && <AppointmentCalendar barbershop={barbershop} refreshKey={`${calendarRevision}:${appointments.map((item) => `${item.id}:${item.status}`).join(',')}`} />}
         <section className={cn(cardStyles, 'agenda-panel')} aria-labelledby="agenda-title">
-          <div className="section-heading">
-            <div><p className="eyebrow">Linha do tempo</p><h2 id="agenda-title">Agenda de atendimento</h2></div>
-            <CountBadge>{active.length}</CountBadge>
-          </div>
+          <SectionHeading eyebrow="Linha do tempo" title="Agenda de atendimento" id="agenda-title" aside={<CountBadge>{active.length}</CountBadge>} className="mb-5" />
           <div className="grid">
             {timelineGroups.map((group) => (group.appointments.length > 0 || group.empty) && (
               <section className="mt-6 first:mt-0" aria-labelledby={`timeline-${group.title.toLowerCase()}`} key={group.title}>
@@ -238,7 +244,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
                   <h3 id={`timeline-${group.title.toLowerCase()}`} className="font-serif text-lg font-medium">{group.title}</h3>
                   <Badge tone="warning">{group.appointments.length}</Badge>
                 </div>
-                {group.appointments.length === 0 && <p className="empty-copy">{group.empty}</p>}
+                {group.appointments.length === 0 && <p className="text-sm text-muted">{group.empty}</p>}
                 {group.appointments.map((appointment) => appointmentItem(appointment))}
               </section>
             ))}
@@ -249,14 +255,14 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
 
       {section === 'clientes' && (
         <>
-          <header className="page-heading"><p className="eyebrow">Relacionamento</p><h1>Clientes.</h1><p>Abra a ficha, consulte fidelidade e registre preferências sem procurar na agenda.</p></header>
-          <section className={cn(cardStyles, 'customers-panel')} aria-labelledby="customers-title">
-            <div className="section-heading compact"><div><p className="eyebrow">Base atendida</p><h2 id="customers-title">Fichas de clientes</h2></div><CountBadge>{customers.length}</CountBadge></div>
+          <PageHeading eyebrow="Relacionamento" title="Clientes.">Abra a ficha, consulte fidelidade e registre preferências sem procurar na agenda.</PageHeading>
+          <section className={cardStyles} aria-labelledby="customers-title">
+            <SectionHeading eyebrow="Base atendida" title="Fichas de clientes" id="customers-title" aside={<CountBadge>{customers.length}</CountBadge>} className="mb-5" />
             {customers.length === 0 && <EmptyState><UserRound aria-hidden="true" /><strong>Nenhum cliente ainda</strong><p>As fichas aparecem depois do primeiro agendamento.</p></EmptyState>}
-            <div className="customer-card-list">
+            <div className="grid gap-3">
               {customers.map((customer) => (
-                <article className="customer-card" key={customer.id}>
-                  <div><strong>{customer.name}</strong><span>{appointments.filter((appointment) => appointment.userId === customer.id).length} atendimento(s)</span></div>
+                <article className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-line bg-surface-2 p-4 max-sm:grid-cols-1" key={customer.id}>
+                  <div className="grid gap-0.5"><strong>{customer.name}</strong><span className="text-xs text-muted">{appointments.filter((appointment) => appointment.userId === customer.id).length} atendimento(s)</span></div>
                   <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} type="button" onClick={() => setProfileCustomerId((current) => current === customer.id ? null : customer.id)}>{profileCustomerId === customer.id ? 'Fechar ficha' : 'Abrir ficha'}</button>
                   {profileCustomerId === customer.id && <CustomerProfileCard userId={customer.id} />}
                 </article>
@@ -268,33 +274,31 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
       )}
 
       {section === 'produtos' && (
-        <><header className="page-heading"><p className="eyebrow">Estoque e balcão</p><h1>Produtos.</h1><p>Venda, entrada e catálogo em uma área própria.</p></header><ProductsPanel canManage={canManageBarbershop} products={products} onRefresh={onRefresh} /></>
+        <><PageHeading eyebrow="Estoque e balcão" title="Produtos.">Venda, entrada e catálogo em uma área própria.</PageHeading><ProductsPanel canManage={canManageBarbershop} products={products} onRefresh={onRefresh} /></>
       )}
 
       {section === 'financeiro' && barbershop && (
-        <><header className="page-heading"><p className="eyebrow">Resultados</p><h1>Financeiro.</h1><p>Feche o período e acompanhe o que entrou.</p></header><DailyClosing barbershop={barbershop} /><CancellationReportPanel /></>
+        <><PageHeading eyebrow="Resultados" title="Financeiro.">Feche o período e acompanhe o que entrou.</PageHeading><DailyClosing barbershop={barbershop} /><CancellationReportPanel /></>
       )}
 
       {section === 'ajustes' && (
         <>
-          <header className="page-heading"><p className="eyebrow">Administração</p><h1>Ajustes.</h1><p>Serviços, marca, horários, sinal, lembretes e fidelidade.</p></header>
-          <section className={cn(cardStyles, 'services-panel')} aria-labelledby="services-title">
-          <div className="section-heading compact">
-            <div><p className="eyebrow">Seu menu</p><h2 id="services-title">Serviços</h2></div>
-          </div>
-          <div className="service-list">
-            {services.length === 0 && <p className="empty-copy">Nenhum serviço cadastrado. Adicione o primeiro serviço abaixo.</p>}
+          <PageHeading eyebrow="Administração" title="Ajustes.">Serviços, marca, horários, sinal, lembretes e fidelidade.</PageHeading>
+          <section className={cardStyles} aria-labelledby="services-title">
+          <SectionHeading eyebrow="Seu menu" title="Serviços" id="services-title" className="mb-5" />
+          <div className="grid">
+            {services.length === 0 && <p className="text-sm text-muted">Nenhum serviço cadastrado. Adicione o primeiro serviço abaixo.</p>}
             {services.map((service) => (
-              <article className="service-row" key={service.id}>
-                <div><strong>{service.name}</strong><span>{service.duration} min · {formatCurrency(service.price)}</span></div>
+              <article className="flex items-center justify-between gap-2 border-b border-line py-3.5" key={service.id}>
+                <div className="grid gap-0.5"><strong className="text-[.88rem]">{service.name}</strong><span className="text-xs text-muted">{service.duration} min · {formatCurrency(service.price)}</span></div>
                 {canManageBarbershop && (
-                  <button className="icon-button subtle" disabled={busy} onClick={() => {
+                  <IconButton tone="subtle" disabled={busy} onClick={() => {
                     setMessage(null)
                     setDeleteError(null)
                     setServiceToDelete(service)
                   }} aria-label={`Excluir ${service.name}`}>
                     <Trash2 aria-hidden="true" />
-                  </button>
+                  </IconButton>
                 )}
               </article>
             ))}
@@ -317,7 +321,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
           {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
         </>
       )}
-    </main>
+    </PageWrap>
     {serviceToDelete && (
       <ConfirmDialog
         eyebrow="Confirmar exclusão"
@@ -378,9 +382,13 @@ interface MetricProps {
 
 function Metric({ icon, label, value, note, alert = false }: MetricProps) {
   return (
-    <article className={`metric ${alert ? 'metric-alert' : ''}`}>
-      <div className="metric-icon" aria-hidden="true">{icon}</div>
-      <div><span>{label}</span><strong>{value}</strong><small>{note}</small></div>
+    <article className={cn('grid min-w-0 justify-items-start gap-1.5 rounded-2xl border p-2.5 tabular-nums shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:flex sm:items-center sm:gap-4 sm:p-5', alert ? 'border-brand bg-tint' : 'border-line bg-surface')}>
+      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-linear-to-br from-[#f7e3b6] to-[#efd08c] text-brand-deep sm:size-11" aria-hidden="true">{icon}</div>
+      <div className="grid min-w-0">
+        <span className="text-[.58rem] font-extrabold tracking-wide text-muted uppercase sm:text-[.68rem]">{label}</span>
+        <strong className="my-0.5 font-serif text-lg font-medium tracking-tight sm:text-[1.65rem]">{value}</strong>
+        <small className="truncate text-[.58rem] text-muted sm:text-[.68rem]">{note}</small>
+      </div>
     </article>
   )
 }

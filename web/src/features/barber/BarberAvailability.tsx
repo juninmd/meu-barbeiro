@@ -8,6 +8,7 @@ import { Input, inputStyles } from '../../components/ui/Field'
 import { Notice, SectionHeading } from '../../components/ui/Notice'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
+import { IconButton } from '../../components/ui/IconButton'
 
 const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
@@ -177,7 +178,7 @@ export function BarberAvailability({ barbers, barbershop, currentUser, onChanged
               {absences.map((absence) => (
                 <li className="flex items-center justify-between gap-4 rounded-xl border border-line p-3" key={absence.id}>
                   <div className="grid gap-0.5"><strong>{absence.reason}</strong><span className="text-sm text-muted">{formatDateTime(absence.startsAt)} até {formatDateTime(absence.endsAt)}</span></div>
-                  <button className="grid size-11 shrink-0 place-items-center rounded-full border border-line text-danger transition hover:border-danger hover:bg-danger-soft focus-visible:ring-4 focus-visible:ring-danger/25 focus-visible:outline-none" type="button" aria-label={`Remover ausência: ${absence.reason}`} onClick={() => setTarget(absence)}><Trash2 className="size-[1.1rem]" aria-hidden="true" /></button>
+                  <IconButton tone="danger" type="button" aria-label={`Remover ausência: ${absence.reason}`} onClick={() => setTarget(absence)}><Trash2 className="size-[1.1rem]" aria-hidden="true" /></IconButton>
                 </li>
               ))}
             </ul>

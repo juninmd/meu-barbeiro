@@ -10,6 +10,7 @@ import { Group, Hint, Toggle } from '../../components/ui/FormParts'
 import { Eyebrow, Notice, SectionHeading } from '../../components/ui/Notice'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
+import { IconButton } from '../../components/ui/IconButton'
 
 interface BarbershopSettingsProps {
   barbershop: Barbershop
@@ -308,10 +309,10 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
             {holidays.map((holiday) => (
               <li className="flex items-center justify-between gap-4 rounded-xl border border-line p-3" key={holiday.id}>
                 <div className="grid gap-0.5"><strong>{formatHolidayDate(holiday.date)}</strong><span className="text-sm text-muted">{holiday.description}</span></div>
-                <button className="grid size-11 shrink-0 place-items-center rounded-full border border-line text-danger transition hover:border-danger hover:bg-danger-soft focus-visible:ring-4 focus-visible:ring-danger/25 focus-visible:outline-none disabled:opacity-60" aria-label={`Remover ${holiday.description}`} disabled={holidayBusy} onClick={() => {
+                <IconButton tone="danger" aria-label={`Remover ${holiday.description}`} disabled={holidayBusy} onClick={() => {
                   setHolidayDeleteError(null)
                   setHolidayTarget(holiday)
-                }} type="button"><Trash2 className="size-[1.1rem]" aria-hidden="true" /></button>
+                }} type="button"><Trash2 className="size-[1.1rem]" aria-hidden="true" /></IconButton>
               </li>
             ))}
           </ul>

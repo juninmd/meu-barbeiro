@@ -12,6 +12,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { cn } from '../../lib/cn'
 import { errorMessage, repository } from '../../lib/repository'
 import type { AdminUser, EstablishmentRequestStatus } from '../../types'
+import { PageWrap } from '../../components/ui/Page'
 
 const statusLabel: Record<EstablishmentRequestStatus, string> = {
   NONE: 'Sem solicitação', PENDING: 'Em análise', APPROVED: 'Liberado', REJECTED: 'Recusado',
@@ -91,7 +92,7 @@ export function AdminDashboard() {
   const pending = users.filter((user) => user.establishmentRequest === 'PENDING')
 
   return (
-    <main className="page-wrap section-page" data-section={section}>
+    <PageWrap data-section={section}>
       {section === 'visao' && <PageHeader eyebrow="Administração" title="Visão da plataforma.">Quem está na plataforma e quem aguarda liberação para cadastrar um estabelecimento.</PageHeader>}
       {section === 'solicitacoes' && <PageHeader eyebrow="Liberações" title="Quem pode cadastrar barbearias.">Aprove os barbeiros que pediram acesso ou autorize alguém direto pelo e-mail.</PageHeader>}
       {section === 'estabelecimentos' && <PageHeader eyebrow="Rede" title="Estabelecimentos cadastrados.">Todas as barbearias ativas na plataforma e seus responsáveis.</PageHeader>}
@@ -169,7 +170,7 @@ export function AdminDashboard() {
           </ShopGrid>
         </Card>
       )}
-    </main>
+    </PageWrap>
   )
 }
 

@@ -10,6 +10,7 @@ import { cn } from '../../lib/cn'
 import { errorMessage, repository } from '../../lib/repository'
 import { establishmentRequestSchema, establishmentSchema } from '../../lib/schemas'
 import type { User } from '../../types'
+import { PageWrap } from '../../components/ui/Page'
 
 interface Props {
   user: User
@@ -57,7 +58,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
   })
 
   return (
-    <main className="page-wrap section-page">
+    <PageWrap>
       <PageHeader eyebrow="Meu negócio" title="Cadastre o estabelecimento onde você atende.">
         O administrador da plataforma libera o cadastro. Depois disso, a barbearia ganha um link próprio para os clientes agendarem.
       </PageHeader>
@@ -128,7 +129,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
           <Button type="submit" className="w-fit max-sm:w-full" loading={shopForm.formState.isSubmitting}><Store aria-hidden="true" /> Cadastrar estabelecimento</Button>
         </Card>
       )}
-    </main>
+    </PageWrap>
   )
 }
 

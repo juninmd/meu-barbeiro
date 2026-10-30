@@ -8,6 +8,9 @@ import { Field, Input, Select } from './ui/Field'
 import { FormRow, Group, InsetForm, Toggle } from './ui/FormParts'
 import { cardStyles } from './ui/Card'
 import { cn } from '../lib/cn'
+import { Notice, SectionHeading } from './ui/Notice'
+import { IconButton } from './ui/IconButton'
+import { listRowStyles } from './ui/FormParts'
 
 interface MembershipPanelProps {
   mode: 'customer' | 'management'
@@ -70,17 +73,14 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
 
   return (
     <section className={cn(cardStyles, 'membership-panel')} aria-labelledby={`membership-${mode}`}>
-      <div className="section-heading compact">
-        <div><p className="eyebrow">Clube da barbearia</p><h2 id={`membership-${mode}`}>{mode === 'customer' ? 'Sua assinatura de cliente' : 'Planos e assinantes'}</h2></div>
-        <CreditCard aria-hidden="true" />
-      </div>
-      <p className="form-message">Esta assinatura liga o cliente à barbearia. Ela é diferente da assinatura da barbearia com a plataforma Meu Barbeiro.</p>
-      {message && <p className="form-message" role="status">{message}</p>}
+      <SectionHeading eyebrow="Clube da barbearia" title={mode === 'customer' ? 'Sua assinatura de cliente' : 'Planos e assinantes'} id={`membership-${mode}`} aside={<CreditCard aria-hidden="true" />} className="mb-5" />
+      <Notice>Esta assinatura liga o cliente à barbearia. Ela é diferente da assinatura da barbearia com a plataforma Meu Barbeiro.</Notice>
+      {message && <Notice role="status">{message}</Notice>}
 
       {mode === 'customer' ? (
         <>
           {subscription ? (
-            <div className="service-row">
+            <div className={listRowStyles}>
               <div>
                 <strong>{subscription.plan.name} · {subscription.status}</strong>
                 <span>{subscription.visitsUsed} usadas · {Math.max(0, subscription.plan.includedVisits - subscription.visitsUsed)} restantes até {new Intl.DateTimeFormat('pt-BR').format(new Date(subscription.currentPeriodEnd))}</span>
@@ -88,9 +88,9 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
               {subscription.status !== 'CANCELLED' && <button className={buttonStyles({ variant: 'ghost', size: 'sm' })} disabled={busy} onClick={() => void act(() => repository.cancelCustomerSubscription(subscription.id), 'Assinatura cancelada. Os horários já criados continuam válidos.')}>Cancelar</button>}
             </div>
           ) : (
-            <div className="service-list">
+            <div className="grid">
               {plans.filter((plan) => plan.active).map((plan) => (
-                <article className="service-row" key={plan.id}>
+                <article className={listRowStyles} key={plan.id}>
                   <div><strong>{plan.name} · {formatCurrency(plan.priceCents / 100)}</strong><span>{plan.includedVisits} visita(s) a cada {plan.intervalDays} dias</span></div>
                   <button className={buttonStyles({ variant: 'primary', size: 'sm' })} disabled={busy} onClick={() => void act(async () => {
                     const result = await repository.subscribeMembership(plan.id)
@@ -111,7 +111,7 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
               <Button type="submit" variant="dark" loading={busy} className="justify-self-start"><Plus aria-hidden="true" /> Criar horário fixo</Button>
             </InsetForm>
           )}
-          {bookings.filter((booking) => booking.active).map((booking) => <div className="service-row" key={booking.id}><div><strong>{weekdays[booking.weekday]} às {booking.time}</strong><span>{booking.barber?.name ?? 'Profissional definido'} · ocorrências futuras respeitam agenda e conflitos</span></div><button className="icon-button subtle" aria-label="Excluir horário fixo" disabled={busy} onClick={() => void act(() => repository.deleteRecurringBooking(booking.id), 'Horário fixo desativado. Agendamentos já criados foram mantidos.')}><Trash2 aria-hidden="true" /></button></div>)}
+          {bookings.filter((booking) => booking.active).map((booking) => <div className={listRowStyles} key={booking.id}><div><strong>{weekdays[booking.weekday]} às {booking.time}</strong><span>{booking.barber?.name ?? 'Profissional definido'} · ocorrências futuras respeitam agenda e conflitos</span></div><IconButton tone="subtle" aria-label="Excluir horário fixo" disabled={busy} onClick={() => void act(() => repository.deleteRecurringBooking(booking.id), 'Horário fixo desativado. Agendamentos já criados foram mantidos.')}><Trash2 aria-hidden="true" /></IconButton></div>)}
         </>
       ) : (
         <>
@@ -127,11 +127,11 @@ export function MembershipPanel({ mode, services, barbers }: MembershipPanelProp
             </Group>
             <Button type="submit" variant="dark" loading={busy} disabled={planForm.serviceIds.length === 0} className="justify-self-start">Criar plano</Button>
           </InsetForm>
-          <div className="service-list">{plans.map((plan) => <div className="service-row" key={plan.id}><div><strong>{plan.name} · {formatCurrency(plan.priceCents / 100)}</strong><span>{plan.includedVisits} visita(s) / {plan.intervalDays} dias · {plan.active ? 'ativo' : 'inativo'}</span></div></div>)}</div>
+          <div className="grid">{plans.map((plan) => <div className={listRowStyles} key={plan.id}><div><strong>{plan.name} · {formatCurrency(plan.priceCents / 100)}</strong><span>{plan.includedVisits} visita(s) / {plan.intervalDays} dias · {plan.active ? 'ativo' : 'inativo'}</span></div></div>)}</div>
           <h3>Assinantes</h3>
-          {subscriptions.length === 0 ? <p className="empty-copy">Nenhum assinante ainda.</p> : subscriptions.map((item) => <div className="service-row" key={item.id}><div><strong>{item.user?.name ?? 'Cliente'} · {item.plan.name}</strong><span>{item.visitsUsed}/{item.plan.includedVisits} visitas usadas · {item.status}</span></div></div>)}
+          {subscriptions.length === 0 ? <p className="text-sm text-muted">Nenhum assinante ainda.</p> : subscriptions.map((item) => <div className={listRowStyles} key={item.id}><div><strong>{item.user?.name ?? 'Cliente'} · {item.plan.name}</strong><span>{item.visitsUsed}/{item.plan.includedVisits} visitas usadas · {item.status}</span></div></div>)}
           <h3>Ocorrências pendentes de resolução</h3>
-          {pending.length === 0 ? <p className="empty-copy">Nenhuma falha na geração dos horários fixos.</p> : pending.map(({ booking, occurrence }) => <div className="service-row" key={occurrence.id}><div><strong>{booking.user?.name ?? 'Cliente'} · {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(occurrence.scheduledAt))}</strong><span>{occurrence.reason}</span></div></div>)}
+          {pending.length === 0 ? <p className="text-sm text-muted">Nenhuma falha na geração dos horários fixos.</p> : pending.map(({ booking, occurrence }) => <div className={listRowStyles} key={occurrence.id}><div><strong>{booking.user?.name ?? 'Cliente'} · {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(occurrence.scheduledAt))}</strong><span>{occurrence.reason}</span></div></div>)}
         </>
       )}
     </section>

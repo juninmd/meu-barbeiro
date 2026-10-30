@@ -23,6 +23,8 @@ import { Notice, SectionHeading } from '../../components/ui/Notice'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
 import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
+import { PageHeading, PageWrap } from '../../components/ui/Page'
+import { TextButton } from '../../components/ui/IconButton'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
@@ -287,13 +289,13 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
   }
 
   const appointmentCard = (appointment: Appointment, spotlight = false) => (
-    <article className={`appointment-card ${spotlight ? 'appointment-spotlight' : ''}`} data-testid={spotlight ? 'client-next-appointment' : undefined} key={appointment.id}>
-      <div className="appointment-top"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
-      <h3>{appointment.service.name}</h3>
+    <article className={cn('border-t border-line py-4 first:border-t-0 first:pt-0 [&_p]:mb-1.5 [&_p]:flex [&_p]:items-center [&_p]:gap-1.5 [&_p]:text-xs [&_p]:text-muted', spotlight && 'border-0 p-0')} data-testid={spotlight ? 'client-next-appointment' : undefined} key={appointment.id}>
+      <div className="flex items-center justify-between gap-2 [&_time]:text-xs [&_time]:text-muted"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
+      <h3 className="mt-3 mb-1.5 font-serif text-[1.15rem] font-medium">{appointment.service.name}</h3>
       <p><UserRound aria-hidden="true" /> {appointment.barber.name}</p>
       <p><Clock3 aria-hidden="true" /> {appointment.service.duration} min · {formatCurrency(appointment.service.price)}</p>
       {appointment.paymentStatus === 'PENDING' ? (
-        <div className="payment-warning">
+        <div className="my-2.5 rounded-r-lg border-l-[3px] border-brand bg-tint p-2.5 text-tint-ink [&_p]:text-tint-ink [&_p:last-child]:mb-0">
           {appointment.paymentExpiresAt && new Date(appointment.paymentExpiresAt).getTime() <= now ? (
             <p><span aria-hidden="true">$</span> Reserva expirada. O horário não está mais reservado.</p>
           ) : (
@@ -306,36 +308,29 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       ) : appointment.paymentStatus !== 'NOT_REQUIRED' && (
         <p><span aria-hidden="true">$</span> {paymentLabel(appointment.paymentAmount, appointment.service.price)} {formatCurrency(appointment.paymentAmount)} · {appointment.paymentStatus === 'APPROVED' ? 'pago' : appointment.paymentStatus === 'REFUNDED' ? 'estornado' : 'não aprovado'}</p>
       )}
-      <div className="appointment-actions">
-        <button className="text-button" disabled={busy} onClick={() => startReschedule(appointment)}>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <TextButton disabled={busy} onClick={() => startReschedule(appointment)}>
           <CalendarDays aria-hidden="true" /> Remarcar
-        </button>
-        <button className="text-button danger" disabled={busy} onClick={() => void openCancellation(appointment)}>
+        </TextButton>
+        <TextButton tone="danger" disabled={busy} onClick={() => void openCancellation(appointment)}>
           <X aria-hidden="true" /> Cancelar horário
-        </button>
+        </TextButton>
       </div>
     </article>
   )
 
   return (
     <>
-    <main id="top" className="page-wrap section-page" data-section={section} inert={cancelTarget ? true : undefined} aria-hidden={cancelTarget ? true : undefined}>
-      {message && <p className="form-message global-message" role="status">{message}</p>}
+    <PageWrap id="top" data-section={section} inert={cancelTarget ? true : undefined} aria-hidden={cancelTarget ? true : undefined}>
+      {message && <Notice role="status">{message}</Notice>}
       <WalkInQueuePanel hideWhenEmpty />
 
       {section === 'agendar' && (
         <>
-        <header className="page-heading">
-          <p className="eyebrow">Novo horário</p>
-          <h1>Reserve sua cadeira.</h1>
-          <p>Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</p>
-        </header>
+        <PageHeading eyebrow="Novo horário" title="Reserve sua cadeira.">Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</PageHeading>
         {upcoming[0] && (
-          <section className={cn(cardStyles, 'next-appointment-summary')} aria-labelledby="next-before-booking">
-            <div className="section-heading compact">
-              <div><p className="eyebrow">Antes de agendar outro</p><h2 id="next-before-booking">Seu próximo horário</h2></div>
-              <Link className={buttonStyles({ variant: 'ghost', size: 'sm' })} to="/cliente/horarios">Ver agenda</Link>
-            </div>
+          <section className={cn(cardStyles, 'mb-5')} aria-labelledby="next-before-booking">
+            <SectionHeading eyebrow="Antes de agendar outro" title="Seu próximo horário" id="next-before-booking" aside={<Link className={buttonStyles({ variant: 'ghost', size: 'sm' })} to="/cliente/horarios">Ver agenda</Link>} className="mb-5" />
             {appointmentCard(upcoming[0], true)}
           </section>
         )}
@@ -482,27 +477,20 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
 
       {section === 'horarios' && (
         <>
-          <header className="page-heading">
-            <p className="eyebrow">Sua agenda</p>
-            <h1>{upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}</h1>
-            <p>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</p>
-          </header>
-          <section className={cn(cardStyles, 'appointments-section')} aria-labelledby="upcoming-title">
-            <div className="section-heading compact">
-              <div><p className="eyebrow">Confirmados e pendentes</p><h2 id="upcoming-title">Próximos horários</h2></div>
-              <CountBadge>{upcoming.length}</CountBadge>
-            </div>
-            <div className="appointment-list">
+          <PageHeading eyebrow="Sua agenda" title={upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</PageHeading>
+          <section className={cn(cardStyles, 'max-w-[820px]')} aria-labelledby="upcoming-title">
+            <SectionHeading eyebrow="Confirmados e pendentes" title="Próximos horários" id="upcoming-title" aside={<CountBadge>{upcoming.length}</CountBadge>} className="mb-5" />
+            <div className="grid gap-3.5">
               {upcoming.length === 0 && <EmptyAppointments />}
               {upcoming.map((appointment, index) => appointmentCard(appointment, index === 0))}
             </div>
-            <Link className={cn(buttonStyles({ variant: 'primary' }), 'section-primary-action')} to="/cliente/agendar"><CalendarDays aria-hidden="true" /> {upcoming.length > 0 ? 'Agendar outro horário' : 'Agendar agora'}</Link>
+            <Link className={cn(buttonStyles({ variant: 'primary' }), 'mt-5 w-fit no-underline')} to="/cliente/agendar"><CalendarDays aria-hidden="true" /> {upcoming.length > 0 ? 'Agendar outro horário' : 'Agendar agora'}</Link>
           </section>
           {history.length > 0 && (
-            <details className={cn(cardStyles, 'history')}>
+            <details className={cn(cardStyles, 'rounded-xl border-dashed text-xs text-muted [&_summary]:cursor-pointer [&_summary]:text-sm [&_summary]:font-bold [&_summary]:text-ink')}>
               <summary>Ver histórico ({history.length})</summary>
               {history.map((item) => (
-                <div className="history-item" key={item.id}>
+                <div className="mt-3 grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1 [&_p]:m-0 [&>strong]:col-start-2 [&>strong]:text-[.68rem] [&>strong]:text-danger" data-testid="history-item" key={item.id}>
                   <StatusBadge status={item.status} />
                   <p>{formatDate(item.scheduledAt)} · {item.service.name}</p>
                   {item.paymentStatus === 'REFUNDED' && <strong>Pagamento estornado</strong>}
@@ -517,18 +505,18 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               ))}
             </details>
           )}
-          {history.length === 0 && <p className="empty-copy">Seu histórico aparecerá aqui depois do primeiro atendimento concluído ou cancelado.</p>}
+          {history.length === 0 && <p className="mt-4 text-sm text-muted">Seu histórico aparecerá aqui depois do primeiro atendimento concluído ou cancelado.</p>}
         </>
       )}
 
       {section === 'perfil' && (
         <>
-          <header className="page-heading"><p className="eyebrow">Seu perfil</p><h1>Preferências e benefícios.</h1><p>Fidelidade, endereço e lembretes em um só lugar.</p></header>
-          <div className="profile-grid">
+          <PageHeading eyebrow="Seu perfil" title="Preferências e benefícios.">Fidelidade, endereço e lembretes em um só lugar.</PageHeading>
+          <div className="grid max-w-[900px] gap-4 md:grid-cols-[1.2fr_1fr]">
             <MyPackages />
             <MembershipPanel mode="customer" services={services} barbers={barbers} />
             <LoyaltyCardPanel />
-            <div className="location-card">
+            <div className="flex items-center gap-3 rounded-2xl bg-chrome p-4 text-chrome-ink [&>svg]:size-5 [&>svg]:text-brand-light [&>div]:grid [&>div]:gap-0.5 [&_span]:text-xs [&_span]:text-chrome-ink/70" data-testid="location-card">
             <MapPin aria-hidden="true" />
             <div>
               <strong>{barbershop?.name || 'Barbearia'}</strong>
@@ -536,7 +524,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               {barbershop && <span>Expediente: {formatBusinessHours(barbershop.businessHours)}</span>}
             </div>
           </div>
-            <div className="location-card">
+            <div className="flex items-center gap-3 rounded-2xl bg-chrome p-4 text-chrome-ink [&>svg]:size-5 [&>svg]:text-brand-light [&>div]:grid [&>div]:gap-0.5 [&_span]:text-xs [&_span]:text-chrome-ink/70">
             <BellRing aria-hidden="true" />
             <div>
               <strong>Avisos do seu horário</strong>
@@ -552,7 +540,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
           </div>
         </>
       )}
-    </main>
+    </PageWrap>
     {reviewTarget && (
       <ReviewDialog appointment={reviewTarget} onClose={() => setReviewTarget(null)} onSubmitted={(review) => { setMyReviews((current) => [...current, review]); setReviewTarget(null) }} />
     )}

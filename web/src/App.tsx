@@ -103,7 +103,7 @@ export default function App() {
   }
 
   if (loading) {
-    return <div className="loading-screen" role="status"><span className="loader" /><p>Preparando a cadeira…</p></div>
+    return <div className="grid min-h-screen place-content-center justify-items-center gap-4 bg-[radial-gradient(circle_at_50%_30%,#2b271b,var(--chrome))] text-chrome-ink" role="status"><span className="size-[46px] animate-spin rounded-full border-2 border-white/10 border-t-brand" /><p>Preparando a cadeira…</p></div>
   }
 
   if (!user && isTenantUrl && !entering) {
@@ -127,7 +127,7 @@ export default function App() {
 
   return (
     <Shell user={user} barbershop={data.barbershop} onLogout={logout}>
-      {error && <div className="error-banner" role="alert">{error}<button onClick={() => refresh()}>Tentar novamente</button></div>}
+      {error && <div className="flex items-center justify-center gap-4 bg-linear-to-r from-[#a44635] to-[#b4503c] p-3 text-sm text-white" role="alert">{error}<button className="min-h-11 cursor-pointer border-0 border-b border-current bg-transparent px-1 font-bold" onClick={() => refresh()}>Tentar novamente</button></div>}
       {/* Só opacidade: um transform aqui viraria bloco de contenção e deslocaria elementos position:fixed (barra de ação mobile). A chave é só a área (cliente/barbeiro/admin): trocar de seção não remonta nem perde o estado da tela. */}
       <MotionConfig reducedMotion="user">
       <motion.div data-testid="route-transition" key={location.pathname.split('/')[1] ?? ''} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: 'easeOut' }}>

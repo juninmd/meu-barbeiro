@@ -10,6 +10,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { errorMessage, repository } from '../../lib/repository'
 import { passwordChangeSchema } from '../../lib/schemas'
 import type { User } from '../../types'
+import { PageWrap } from '../../components/ui/Page'
 
 const roleLabel = (user: User) => user.platformAdmin ? 'Administrador da plataforma'
   : user.role === 'CUSTOMER' ? 'Cliente' : 'Barbeiro / gestão'
@@ -37,7 +38,7 @@ export function AccountPage({ user }: { user: User }) {
   ]
 
   return (
-    <main className="page-wrap section-page">
+    <PageWrap>
       <PageHeader eyebrow="Minha conta" title="Seus dados e segurança.">Um único acesso para todas as suas funções na plataforma.</PageHeader>
       <div className="grid max-w-4xl items-start gap-4 md:grid-cols-2">
         <Card as="section" className="grid content-start gap-4" aria-labelledby="account-id">
@@ -65,6 +66,6 @@ export function AccountPage({ user }: { user: User }) {
           <Button type="submit" variant="dark" className="w-fit max-sm:w-full" loading={isSubmitting}>Atualizar senha</Button>
         </Card>
       </div>
-    </main>
+    </PageWrap>
   )
 }
