@@ -391,7 +391,6 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .loyalty-card .reward-ready { display: flex; align-items: center; gap: .4rem; color: #f0c772; font-weight: 800; }
 .loyalty-card .reward-ready svg { width: 18px; }
 .loyalty-disabled { padding: .8rem; color: var(--muted); background: var(--surface-3); font-size: .75rem; }
-.loyalty-settings h3 { display: flex; align-items: center; gap: .45rem; }
 .barber-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(310px, .7fr); gap: 1.5rem; align-items: start; }
 .catalog-stack { display: grid; gap: 1.5rem; }
 .action-row { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .8rem; }
@@ -425,42 +424,6 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 .empty-copy { color: var(--muted); }
 
 
-.settings-stack { display: grid; gap: 1.25rem; margin-top: 3rem; }
-.settings-stack > .section-heading { margin-bottom: 0; }
-.billing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-.billing-card { display: grid; align-content: start; gap: .7rem; min-height: 245px; padding: 1.4rem; border: 1px solid var(--line); background: var(--surface); }
-.billing-card > svg { width: 1.5rem; height: 1.5rem; color: var(--amber-deep); }
-.billing-card > span { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.billing-card > strong { font: 1.8rem var(--font-display); }
-.billing-card > strong small { margin-left: .25rem; color: var(--muted); font: .7rem "Aptos", sans-serif; }
-.billing-card p { min-height: 38px; margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
-.billing-card > button, .billing-card > a { align-self: end; margin-top: auto; }
-.settings-form { display: grid; gap: 1.6rem; }
-.settings-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-.settings-form fieldset { display: grid; gap: .8rem; min-width: 0; padding: 0; border: 0; }
-.settings-form legend { margin-bottom: .45rem; font: 1.15rem var(--font-display); }
-.settings-form label { display: grid; gap: .35rem; color: var(--muted); font-size: .7rem; font-weight: 800; text-transform: uppercase; }
-.settings-form input, .settings-form select { width: 100%; min-height: 42px; padding: .55rem .7rem; border: 1px solid var(--line); background: var(--field); }
-.settings-form input[type="color"] { padding: .25rem; }
-.settings-hint { color: var(--muted); font-size: .76rem; line-height: 1.5; }
-.hours-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: .75rem; }
-.hour-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .45rem; padding: .75rem; background: var(--surface-2); }
-.hour-row > .hour-toggle, .hour-row > span:nth-child(5) { grid-column: 1 / -1; }
-.hour-row > .hour-toggle { font-weight: 700; }
-.hour-row > input[type="time"] { width: 100%; min-width: 0; }
-.hour-row > span:nth-child(5) { margin-top: .25rem; }
-.hour-row .hour-toggle { display: flex; align-items: center; gap: .4rem; }
-.hour-row .hour-toggle input { width: auto; min-height: auto; }
-.hour-row > span { color: var(--muted); font-size: .7rem; }
-.holiday-settings { display: grid; gap: 1rem; }
-.holiday-settings .section-heading > svg { color: var(--gold-dark); }
-.holiday-form { display: grid; grid-template-columns: 170px 1fr auto; align-items: end; gap: .8rem; }
-.holiday-form label { display: grid; gap: .35rem; color: var(--muted); font-size: .7rem; font-weight: 800; text-transform: uppercase; }
-.holiday-form input { width: 100%; min-height: 42px; padding: .55rem .7rem; border: 1px solid var(--line); background: var(--field); }
-.holiday-list { display: grid; gap: .55rem; }
-.holiday-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem .85rem; background: var(--surface-2); }
-.holiday-item div { display: grid; gap: .15rem; }
-.holiday-item span, .empty-inline { color: var(--muted); font-size: .78rem; }
 
 .fit-now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .75rem; }
 .fit-now-card { display: grid; gap: .35rem; padding: 1rem; border: 1px solid var(--line); background: var(--surface-2); }
@@ -474,14 +437,14 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; }
 
 /* ---------- Refinamento visual: raio, profundidade e estados ---------- */
 body { color: var(--ink); -webkit-font-smoothing: antialiased; }
-.metric, .billing-card, .confirmation-dialog { border-radius: var(--radius); background: var(--surface); }
+.metric, .confirmation-dialog { border-radius: var(--radius); background: var(--surface); }
 .choice-card, .date-field, .customer-card, .repeat-booking, .customer-profile, .customer-option, .product-row, .stock-form, .fit-now-card,
-.walk-in-queue-item, .hour-row, .holiday-item, .history { border-radius: var(--radius-sm); }
+.walk-in-queue-item, .history { border-radius: var(--radius-sm); }
 .location-card, .loyalty-card, .service-form { border-radius: var(--radius); }
 .form-message, .list-feedback, .payment-warning, .empty-day-note { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .step-count { border-radius: 99px; padding: .3rem .65rem; }
 .icon-button, .text-button, .section-link, input:not([type="checkbox"]):not([type="radio"]), select, textarea, .date-field input, .service-form input, .service-form textarea,
-.settings-form input, .settings-form select, .holiday-form input, .sale-row input, .stock-form input { border-radius: var(--radius-sm); }
+.sale-row input, .stock-form input { border-radius: var(--radius-sm); }
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea { border: 1px solid var(--control); background: var(--field); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
 input:not([type="checkbox"]):not([type="radio"]):hover, select:hover, textarea:hover { border-color: var(--muted); }
 input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px #d99b3233; outline: none; }
@@ -554,17 +517,14 @@ html { scrollbar-color: var(--color-bone-400) transparent; }
 .form-row > label { display: grid; gap: .3rem; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .form-row > label input { width: 100%; min-width: 0; }
 .service-form .form-row > label { color: #cfc9bb; }
-.settings-columns > div { display: grid; align-content: start; gap: .3rem; padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
-.settings-columns > div h3 { margin: 0 0 .25rem; font: 500 1.1rem var(--font-display); }
-.settings-columns > div p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.5; }
 /* Textos sobre fundos sempre escuros precisam de âmbar claro (contraste AA). */
 .loyalty-card .eyebrow, .service-form .eyebrow, .location-card .eyebrow, .hero .eyebrow { color: var(--amber-light); }
 
 /* Linhas com caixa de seleção: rótulo ao lado, sem caixa gigante nem texto empilhado. */
 input[type="checkbox"], input[type="radio"] { width: 1.15rem; height: 1.15rem; flex: none; accent-color: var(--amber); }
 label:has(> input[type="checkbox"]), label.check-row { display: flex !important; align-items: center; gap: .65rem; min-height: 44px; text-transform: none !important; letter-spacing: 0 !important; font-size: .88rem !important; font-weight: 600 !important; color: inherit !important; cursor: pointer; }
-.settings-form fieldset, .service-form fieldset { gap: .15rem; }
-.settings-form legend, .service-form legend { margin-bottom: .35rem; }
+.service-form fieldset { gap: .15rem; }
+.service-form legend { margin-bottom: .35rem; }
 
 /* ---------- Modo escuro: ajustes dos componentes legados ---------- */
 :root[data-theme="dark"] .product-stock-low { background: #2f2610; border-color: #7a5d1f; }
@@ -590,7 +550,6 @@ label:has(> input[type="checkbox"]), label.check-row { display: flex !important;
   .auth-preview { display: none; }
   .auth-points { display: none; }
   .client-grid, .barber-grid { grid-template-columns: 1fr; }
-  .billing-grid { grid-template-columns: 1fr; }
   .schedule-column { grid-template-columns: 1fr 1fr; }
   .schedule-column > * { grid-row: span 3; }
   .workspace { display: block; }
@@ -676,7 +635,6 @@ label:has(> input[type="checkbox"]), label.check-row { display: flex !important;
   .profile-grid { grid-template-columns: 1fr; }
   .customer-card { grid-template-columns: 1fr; }
   .customer-card .customer-profile { grid-column: 1; }
-  .settings-columns, .hours-grid, .holiday-form { grid-template-columns: 1fr; }
   .barber-report-list { grid-template-columns: 1fr; }
 }
 

@@ -4,7 +4,10 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Barbershop, Holiday, LoyaltyProgramInput } from '../../types'
-import { buttonStyles } from '../../components/ui/Button'
+import { Button } from '../../components/ui/Button'
+import { Field, Input, inputStyles } from '../../components/ui/Field'
+import { Group, Hint, Toggle } from '../../components/ui/FormParts'
+import { Eyebrow, Notice, SectionHeading } from '../../components/ui/Notice'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
 
@@ -158,191 +161,160 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
 
   if (barbershop.membershipRole !== 'OWNER' && barbershop.membershipRole !== 'ADMIN') return null
 
+  const patchHour = (index: number, changes: Partial<Barbershop['businessHours'][number]>) => {
+    const next = [...form.businessHours]
+    next[index] = { ...next[index], ...changes }
+    updateForm({ ...form, businessHours: next })
+  }
+
   return (
     <>
-    <section className="settings-stack" aria-labelledby="settings-title">
-      <div className="section-heading">
-        <div><p className="eyebrow">Operação SaaS</p><h2 id="settings-title">Sua barbearia</h2></div>
-      </div>
+    <section className="mt-2 grid gap-5" aria-labelledby="settings-title">
+      <SectionHeading eyebrow="Operação SaaS" title="Sua barbearia" id="settings-title" />
 
-      <div className="billing-grid">
-        <article className="billing-card">
-          <CreditCard aria-hidden="true" />
-          <span>Assinatura do sistema</span>
-          <strong>{formatCurrency(barbershop.monthlyFeeCents / 100)}<small>/mês</small></strong>
-          <p>Status: <b>{subscriptionLabel(barbershop.subscriptionStatus)}</b></p>
-          {barbershop.subscriptionStatus !== 'ACTIVE' && (
-            <button className={buttonStyles({ variant: 'primary' })} disabled={busy} onClick={subscribe}>Assinar por R$ 20/mês</button>
-          )}
-        </article>
-        <article className="billing-card">
-          <Link2 aria-hidden="true" />
-          <span>Recebimentos</span>
-          <strong>Mercado Pago</strong>
+      <div className="grid gap-3 md:grid-cols-3">
+        <BillingCard icon={<CreditCard />} label="Assinatura do sistema" value={<>{formatCurrency(barbershop.monthlyFeeCents / 100)}<small className="ml-1 text-sm font-normal text-muted">/mês</small></>}>
+          <p>Status: <b className="text-ink">{subscriptionLabel(barbershop.subscriptionStatus)}</b></p>
+          {barbershop.subscriptionStatus !== 'ACTIVE' && <Button loading={busy} onClick={subscribe}>Assinar por R$ 20/mês</Button>}
+        </BillingCard>
+        <BillingCard icon={<Link2 />} label="Recebimentos" value="Mercado Pago">
           <p>{barbershop.mercadoPagoConnected ? 'Conta conectada' : 'Conecte a conta que receberá os serviços'}</p>
-          <button className={buttonStyles({ variant: barbershop.mercadoPagoConnected ? 'ghost' : 'primary' })} disabled={busy} onClick={barbershop.mercadoPagoConnected ? () => {
+          <Button variant={barbershop.mercadoPagoConnected ? 'ghost' : 'primary'} disabled={busy} onClick={barbershop.mercadoPagoConnected ? () => {
             setMessage(null)
             setDisconnectError(null)
             setDisconnectOpen(true)
           } : connect}>
             {barbershop.mercadoPagoConnected ? 'Desconectar' : 'Conectar Mercado Pago'}
-          </button>
-        </article>
-        <article className="billing-card">
-          <Store aria-hidden="true" />
-          <span>Comissão da plataforma</span>
-          <strong>{barbershop.commissionBps / 100}%</strong>
+          </Button>
+        </BillingCard>
+        <BillingCard icon={<Store />} label="Comissão da plataforma" value={`${barbershop.commissionBps / 100}%`}>
           <p>Calculada sobre o valor de cada serviço pago.</p>
-        </article>
+        </BillingCard>
       </div>
 
-      <form className={cn(cardStyles, 'settings-form')} onSubmit={save}>
-        <div className="settings-columns">
-          <fieldset>
-            <legend>Marca e endereço</legend>
-            <label>Nome<input value={form.name} minLength={3} required onChange={(event) => updateForm({ ...form, name: event.target.value })} /></label>
-            <label>URL do logotipo<input type="url" placeholder="https://.../logo.png" value={form.logoUrl || ''} onChange={(event) => updateForm({ ...form, logoUrl: event.target.value })} /></label>
-            <label>Cor principal<input type="color" value={form.primaryColor} onChange={(event) => updateForm({ ...form, primaryColor: event.target.value })} /></label>
-            <label>Endereço<input value={form.address || ''} onChange={(event) => updateForm({ ...form, address: event.target.value })} /></label>
-          </fieldset>
+      <form className={cn(cardStyles, 'grid gap-6')} onSubmit={save}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Group legend="Marca e endereço">
+            <Field label="Nome"><Input value={form.name} minLength={3} required onChange={(event) => updateForm({ ...form, name: event.target.value })} /></Field>
+            <Field label="URL do logotipo"><Input type="url" placeholder="https://.../logo.png" value={form.logoUrl || ''} onChange={(event) => updateForm({ ...form, logoUrl: event.target.value })} /></Field>
+            <Field label="Cor principal"><Input type="color" className="h-12 cursor-pointer p-1.5" value={form.primaryColor} onChange={(event) => updateForm({ ...form, primaryColor: event.target.value })} /></Field>
+            <Field label="Endereço"><Input value={form.address || ''} onChange={(event) => updateForm({ ...form, address: event.target.value })} /></Field>
+          </Group>
 
-          <fieldset>
-            <legend>Pagamento antecipado</legend>
-            <label>Tipo de sinal
-              <select value={form.depositType} onChange={(event) => updateForm({ ...form, depositType: event.target.value as Barbershop['depositType'], depositValue: 0 })}>
+          <Group legend="Pagamento antecipado">
+            <Field label="Tipo de sinal">
+              <select className={inputStyles()} value={form.depositType} onChange={(event) => updateForm({ ...form, depositType: event.target.value as Barbershop['depositType'], depositValue: 0 })}>
                 <option value="NONE">Sem sinal</option>
                 <option value="FULL">Pagamento integral</option>
                 <option value="PERCENTAGE">Percentual</option>
                 <option value="FIXED">Valor fixo</option>
               </select>
-            </label>
+            </Field>
             {form.depositType === 'PERCENTAGE' && (
-              <label>Percentual<input type="number" min="1" max="100" value={form.depositValue || ''} onChange={(event) => updateForm({ ...form, depositValue: Number(event.target.value) })} required /></label>
+              <Field label="Percentual"><Input type="number" min="1" max="100" value={form.depositValue || ''} onChange={(event) => updateForm({ ...form, depositValue: Number(event.target.value) })} required /></Field>
             )}
             {form.depositType === 'FIXED' && (
-              <label>Valor do sinal (R$)<input type="number" min="0.01" step="0.01" value={form.depositValue ? form.depositValue / 100 : ''} onChange={(event) => updateForm({ ...form, depositValue: Math.round(Number(event.target.value) * 100) })} required /></label>
+              <Field label="Valor do sinal (R$)"><Input type="number" min="0.01" step="0.01" value={form.depositValue ? form.depositValue / 100 : ''} onChange={(event) => updateForm({ ...form, depositValue: Math.round(Number(event.target.value) * 100) })} required /></Field>
             )}
-            <p className="settings-hint">A comissão permanece em 1% do serviço. O Mercado Pago desconta a tarifa própria antes do repasse.</p>
-          </fieldset>
+            <Hint>A comissão permanece em 1% do serviço. O Mercado Pago desconta a tarifa própria antes do repasse.</Hint>
+          </Group>
 
-          <fieldset>
-            <legend>Cancelamento</legend>
-            <label>Janela de cancelamento tardio (horas)<input type="number" min="0" max="720" value={form.cancellationWindowHours} onChange={(event) => updateForm({ ...form, cancellationWindowHours: Number(event.target.value) })} required /></label>
-            <label>Percentual do sinal retido<input type="number" min="0" max="100" step="0.01" value={form.lateCancellationFeeBps / 100} onChange={(event) => updateForm({ ...form, lateCancellationFeeBps: Math.round(Number(event.target.value) * 100) })} required /></label>
-            <p className="settings-hint">Se o cliente cancelar faltando até {form.cancellationWindowHours} hora(s), a barbearia retém {form.lateCancellationFeeBps / 100}% do sinal. Fora dessa janela, ou quando a própria barbearia cancela, o valor é devolvido integralmente.</p>
-          </fieldset>
+          <Group legend="Cancelamento">
+            <Field label="Janela de cancelamento tardio (horas)"><Input type="number" min="0" max="720" value={form.cancellationWindowHours} onChange={(event) => updateForm({ ...form, cancellationWindowHours: Number(event.target.value) })} required /></Field>
+            <Field label="Percentual do sinal retido"><Input type="number" min="0" max="100" step="0.01" value={form.lateCancellationFeeBps / 100} onChange={(event) => updateForm({ ...form, lateCancellationFeeBps: Math.round(Number(event.target.value) * 100) })} required /></Field>
+            <Hint>Se o cliente cancelar faltando até {form.cancellationWindowHours} hora(s), a barbearia retém {form.lateCancellationFeeBps / 100}% do sinal. Fora dessa janela, ou quando a própria barbearia cancela, o valor é devolvido integralmente.</Hint>
+          </Group>
 
-          <fieldset>
-            <legend><BellRing aria-hidden="true" /> Lembretes automáticos</legend>
-            <label className="hour-toggle"><input type="checkbox" checked={form.remindersEnabled ?? true} onChange={(event) => updateForm({ ...form, remindersEnabled: event.target.checked })} /> Enviar pelo Telegram</label>
-            <p className="settings-hint">Escolha quando o cliente deve receber o aviso. O lembrete de 24 horas permite confirmar presença.</p>
+          <Group legend={<><BellRing aria-hidden="true" className="size-4 text-brand-deep" /> Lembretes automáticos</>}>
+            <Toggle checked={form.remindersEnabled ?? true} onChange={(checked) => updateForm({ ...form, remindersEnabled: checked })}>Enviar pelo Telegram</Toggle>
+            <Hint>Escolha quando o cliente deve receber o aviso. O lembrete de 24 horas permite confirmar presença.</Hint>
             {[24, 2].map((hour) => {
-              const selected = (form.reminderHoursBefore ?? [24, 2]).includes(hour)
+              const current = form.reminderHoursBefore ?? [24, 2]
+              const selected = current.includes(hour)
               return (
-                <label className="hour-toggle" key={hour}>
-                  <input type="checkbox" checked={selected} disabled={selected && (form.reminderHoursBefore ?? [24, 2]).length === 1} onChange={(event) => {
-                    const current = form.reminderHoursBefore ?? [24, 2]
-                    const reminderHoursBefore = event.target.checked
-                      ? [...current, hour].sort((left, right) => right - left)
-                      : current.filter((item) => item !== hour)
-                    updateForm({ ...form, reminderHoursBefore })
-                  }} /> {hour === 24 ? '24 horas antes' : '2 horas antes'}
-                </label>
+                <Toggle key={hour} checked={selected} disabled={selected && current.length === 1} onChange={(checked) => {
+                  const reminderHoursBefore = checked
+                    ? [...current, hour].sort((left, right) => right - left)
+                    : current.filter((item) => item !== hour)
+                  updateForm({ ...form, reminderHoursBefore })
+                }}>{hour === 24 ? '24 horas antes' : '2 horas antes'}</Toggle>
               )
             })}
-          </fieldset>
+          </Group>
         </div>
 
-        <fieldset>
-          <legend>Horários de funcionamento</legend>
-          <p className="settings-hint">O intervalo de almoço é opcional e bloqueia novos agendamentos durante esse período.</p>
-          <div className="hours-grid">
-            {form.businessHours.map((hour, index) => (
-              <div className="hour-row" key={hour.weekday}>
-                <label className="hour-toggle"><input type="checkbox" checked={hour.enabled} onChange={(event) => {
-                  const next = [...form.businessHours]
-                  next[index] = {
-                    ...hour,
-                    enabled: event.target.checked,
-                    ...(!event.target.checked && { breakStartsAt: null, breakEndsAt: null }),
-                  }
-                  updateForm({ ...form, businessHours: next })
-                }} /> {weekdays[hour.weekday]}</label>
-                <input aria-label={`Abertura ${weekdays[hour.weekday]}`} type="time" value={hour.opensAt} disabled={!hour.enabled} onChange={(event) => {
-                  const next = [...form.businessHours]
-                  next[index] = { ...hour, opensAt: event.target.value }
-                  updateForm({ ...form, businessHours: next })
-                }} />
-                <span>até</span>
-                <input aria-label={`Fechamento ${weekdays[hour.weekday]}`} type="time" value={hour.closesAt} disabled={!hour.enabled} onChange={(event) => {
-                  const next = [...form.businessHours]
-                  next[index] = { ...hour, closesAt: event.target.value }
-                  updateForm({ ...form, businessHours: next })
-                }} />
-                <span>almoço</span>
-                <input aria-label={`Início do almoço ${weekdays[hour.weekday]}`} type="time" value={hour.breakStartsAt || ''} disabled={!hour.enabled} onChange={(event) => {
-                  const next = [...form.businessHours]
-                  next[index] = { ...hour, breakStartsAt: event.target.value || null }
-                  updateForm({ ...form, businessHours: next })
-                }} />
-                <span>até</span>
-                <input aria-label={`Fim do almoço ${weekdays[hour.weekday]}`} type="time" value={hour.breakEndsAt || ''} disabled={!hour.enabled} onChange={(event) => {
-                  const next = [...form.businessHours]
-                  next[index] = { ...hour, breakEndsAt: event.target.value || null }
-                  updateForm({ ...form, businessHours: next })
-                }} />
-              </div>
-            ))}
+        <Group legend="Horários de funcionamento">
+          <Hint>O intervalo de almoço é opcional e bloqueia novos agendamentos durante esse período.</Hint>
+          <div className="grid gap-3 md:grid-cols-[repeat(auto-fill,minmax(min(100%,21rem),1fr))]">
+            {form.businessHours.map((hour, index) => {
+              const day = weekdays[hour.weekday]
+              const time = 'min-h-11 min-w-0 px-2.5 py-1.5 text-sm'
+              return (
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-2 rounded-xl bg-surface-2 p-3" key={hour.weekday}>
+                  <div className="col-span-3">
+                    <Toggle checked={hour.enabled} onChange={(checked) => patchHour(index, { enabled: checked, ...(!checked && { breakStartsAt: null, breakEndsAt: null }) })}>{day}</Toggle>
+                  </div>
+                  <Input className={time} aria-label={`Abertura ${day}`} type="time" value={hour.opensAt} disabled={!hour.enabled} onChange={(event) => patchHour(index, { opensAt: event.target.value })} />
+                  <span className="text-xs text-muted">até</span>
+                  <Input className={time} aria-label={`Fechamento ${day}`} type="time" value={hour.closesAt} disabled={!hour.enabled} onChange={(event) => patchHour(index, { closesAt: event.target.value })} />
+                  <span className="col-span-3 text-xs font-bold text-muted uppercase">almoço</span>
+                  <Input className={time} aria-label={`Início do almoço ${day}`} type="time" value={hour.breakStartsAt || ''} disabled={!hour.enabled} onChange={(event) => patchHour(index, { breakStartsAt: event.target.value || null })} />
+                  <span className="text-xs text-muted">até</span>
+                  <Input className={time} aria-label={`Fim do almoço ${day}`} type="time" value={hour.breakEndsAt || ''} disabled={!hour.enabled} onChange={(event) => patchHour(index, { breakEndsAt: event.target.value || null })} />
+                </div>
+              )
+            })}
           </div>
-        </fieldset>
+        </Group>
 
-        {message && <p className="form-message" role="status">{message}</p>}
-        <button className={buttonStyles({ variant: 'dark' })} disabled={busy || saved}>
+        {message && <Notice role="status">{message}</Notice>}
+        <Button type="submit" variant="dark" loading={busy} disabled={saved} className="justify-self-start max-sm:w-full">
           {saved ? <Check aria-hidden="true" /> : <Save aria-hidden="true" />}
           {saved ? 'Configurações salvas' : 'Salvar configurações'}
-        </button>
+        </Button>
       </form>
 
-      <form className={cn(cardStyles, 'settings-form loyalty-settings')} onSubmit={saveLoyalty}>
-        <div className="section-heading compact">
-          <div><p className="eyebrow">Retenção</p><h3><Gift aria-hidden="true" /> Programa de fidelidade</h3></div>
+      <form className={cn(cardStyles, 'grid gap-4')} onSubmit={saveLoyalty}>
+        <div>
+          <Eyebrow>Retenção</Eyebrow>
+          <h3 className="flex items-center gap-2 font-serif text-xl font-medium [&_svg]:size-5 [&_svg]:text-brand-deep"><Gift aria-hidden="true" /> Programa de fidelidade</h3>
         </div>
-        <label className="hour-toggle"><input type="checkbox" checked={loyaltyForm.enabled} onChange={(event) => setLoyaltyForm({ ...loyaltyForm, enabled: event.target.checked })} /> Programa ativo</label>
-        <div className="settings-columns">
-          <label>Visitas para ganhar<input type="number" min="1" max="100" value={loyaltyForm.requiredVisits} onChange={(event) => setLoyaltyForm({ ...loyaltyForm, requiredVisits: Number(event.target.value) })} required /></label>
-          <label>Prêmio<input minLength={3} maxLength={160} value={loyaltyForm.rewardDescription} onChange={(event) => setLoyaltyForm({ ...loyaltyForm, rewardDescription: event.target.value })} required /></label>
+        <Toggle checked={loyaltyForm.enabled} onChange={(checked) => setLoyaltyForm({ ...loyaltyForm, enabled: checked })}>Programa ativo</Toggle>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Visitas para ganhar"><Input type="number" min="1" max="100" value={loyaltyForm.requiredVisits} onChange={(event) => setLoyaltyForm({ ...loyaltyForm, requiredVisits: Number(event.target.value) })} required /></Field>
+          <Field label="Prêmio"><Input minLength={3} maxLength={160} value={loyaltyForm.rewardDescription} onChange={(event) => setLoyaltyForm({ ...loyaltyForm, rewardDescription: event.target.value })} required /></Field>
         </div>
-        <p className="settings-hint">Cada atendimento concluído (DONE) gera um selo. Cancelamentos, faltas e atendimentos ainda agendados não geram.</p>
-        {loyaltyMessage && <p className="form-message" role="status">{loyaltyMessage}</p>}
-        <button className={buttonStyles({ variant: 'dark' })} disabled={loyaltyBusy}>{loyaltyBusy ? 'Salvando…' : 'Salvar fidelidade'}</button>
+        <Hint>Cada atendimento concluído (DONE) gera um selo. Cancelamentos, faltas e atendimentos ainda agendados não geram.</Hint>
+        {loyaltyMessage && <Notice role="status">{loyaltyMessage}</Notice>}
+        <Button type="submit" variant="dark" loading={loyaltyBusy} className="justify-self-start max-sm:w-full">{loyaltyBusy ? 'Salvando…' : 'Salvar fidelidade'}</Button>
       </form>
 
-      <section className={cn(cardStyles, 'holiday-settings')} aria-labelledby="holidays-title">
-        <div className="section-heading">
-          <div><p className="eyebrow">Agenda bloqueada</p><h3 id="holidays-title">Feriados</h3></div>
-          <CalendarOff aria-hidden="true" />
+      <section className={cn(cardStyles, 'grid gap-4')} aria-labelledby="holidays-title">
+        <div className="flex items-start justify-between gap-4">
+          <div><Eyebrow>Agenda bloqueada</Eyebrow><h3 id="holidays-title" className="font-serif text-xl font-medium">Feriados</h3></div>
+          <CalendarOff className="size-5 text-brand-deep" aria-hidden="true" />
         </div>
-        <p className="settings-hint">Nas datas cadastradas, nenhum horário ficará disponível para agendamento.</p>
-        <form className="holiday-form" onSubmit={createHoliday}>
-          <label>Data<input type="date" required value={holidayForm.date} onChange={(event) => setHolidayForm({ ...holidayForm, date: event.target.value })} /></label>
-          <label>Descrição<input minLength={3} maxLength={80} required placeholder="Ex.: Natal" value={holidayForm.description} onChange={(event) => setHolidayForm({ ...holidayForm, description: event.target.value })} /></label>
-          <button className={buttonStyles({ variant: 'dark' })} disabled={holidayBusy}>Cadastrar feriado</button>
+        <Hint>Nas datas cadastradas, nenhum horário ficará disponível para agendamento.</Hint>
+        <form className="grid items-end gap-3 sm:grid-cols-[11rem_1fr_auto]" onSubmit={createHoliday}>
+          <Field label="Data"><Input type="date" required value={holidayForm.date} onChange={(event) => setHolidayForm({ ...holidayForm, date: event.target.value })} /></Field>
+          <Field label="Descrição"><Input minLength={3} maxLength={80} required placeholder="Ex.: Natal" value={holidayForm.description} onChange={(event) => setHolidayForm({ ...holidayForm, description: event.target.value })} /></Field>
+          <Button type="submit" variant="dark" loading={holidayBusy}>Cadastrar feriado</Button>
         </form>
-        {holidayMessage && <p className="form-message" role="status">{holidayMessage}</p>}
+        {holidayMessage && <Notice role="status">{holidayMessage}</Notice>}
         {holidays.length === 0 ? (
-          <p className="empty-inline">Nenhum feriado cadastrado.</p>
+          <p className="text-sm text-muted">Nenhum feriado cadastrado.</p>
         ) : (
-          <div className="holiday-list">
+          <ul className="grid gap-2.5">
             {holidays.map((holiday) => (
-              <div className="holiday-item" key={holiday.id}>
-                <div><strong>{formatHolidayDate(holiday.date)}</strong><span>{holiday.description}</span></div>
-                <button className="icon-button danger" aria-label={`Remover ${holiday.description}`} disabled={holidayBusy} onClick={() => {
+              <li className="flex items-center justify-between gap-4 rounded-xl border border-line p-3" key={holiday.id}>
+                <div className="grid gap-0.5"><strong>{formatHolidayDate(holiday.date)}</strong><span className="text-sm text-muted">{holiday.description}</span></div>
+                <button className="grid size-11 shrink-0 place-items-center rounded-full border border-line text-danger transition hover:border-danger hover:bg-danger-soft focus-visible:ring-4 focus-visible:ring-danger/25 focus-visible:outline-none disabled:opacity-60" aria-label={`Remover ${holiday.description}`} disabled={holidayBusy} onClick={() => {
                   setHolidayDeleteError(null)
                   setHolidayTarget(holiday)
-                }} type="button"><Trash2 aria-hidden="true" /></button>
-              </div>
+                }} type="button"><Trash2 className="size-[1.1rem]" aria-hidden="true" /></button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </section>
     </section>
@@ -388,3 +360,14 @@ const subscriptionLabel = (status: Barbershop['subscriptionStatus']) => ({
 
 const formatHolidayDate = (date: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' })
   .format(new Date(`${date}T00:00:00.000Z`))
+
+function BillingCard({ icon, label, value, children }: { icon: React.ReactNode; label: string; value: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <article className="grid content-start gap-2 rounded-2xl border border-line bg-surface p-5 text-sm text-muted [&_svg]:size-5 [&_svg]:text-brand-deep">
+      {icon}
+      <span className="text-[.68rem] font-extrabold tracking-wide uppercase">{label}</span>
+      <strong className="font-serif text-2xl font-medium text-ink">{value}</strong>
+      {children}
+    </article>
+  )
+}
