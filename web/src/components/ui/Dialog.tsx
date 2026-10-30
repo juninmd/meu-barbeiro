@@ -8,7 +8,7 @@ export const DialogDescription = Primitive.Description
 export function DialogContent({ className, children, ...props }: React.ComponentProps<typeof Primitive.Content>) {
   return (
     <Primitive.Portal>
-      <Primitive.Overlay className="fixed inset-0 z-50 bg-ink/65 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+      <Primitive.Overlay className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
       <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center p-5">
         <Primitive.Content
           className={cn(

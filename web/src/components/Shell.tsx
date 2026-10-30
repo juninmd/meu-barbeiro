@@ -6,7 +6,10 @@ import {
   Inbox,
   LayoutDashboard,
   ChevronDown,
+  Monitor,
+  Moon,
   Palette,
+  Sun,
   LogOut,
   MoreHorizontal,
   Package,
@@ -20,7 +23,8 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { mockEnabled } from '../lib/repository'
 import { Avatar } from './ui/Avatar'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/DropdownMenu'
+import { useTheme, type ThemePreference } from '../lib/theme'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/DropdownMenu'
 import type { Barbershop, User } from '../types'
 
 interface ShellProps {
@@ -61,6 +65,7 @@ const barberNavigation: NavigationItem[] = [
 export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [theme, setTheme] = useTheme()
   const moreMenu = useRef<HTMLDivElement>(null)
   const isAdmin = Boolean(user.platformAdmin)
   const isBarber = !isAdmin && (user.role === 'BARBER' || user.role === 'ADMIN')
@@ -115,6 +120,14 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
               <DropdownMenuItem asChild>
                 <NavLink to="/conta"><UserRound aria-hidden="true" /> Minha conta</NavLink>
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel><small className="text-[.68rem] font-extrabold tracking-wider text-muted uppercase">Aparência</small></DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as ThemePreference)}>
+                <DropdownMenuRadioItem value="light"><Sun aria-hidden="true" /> Claro</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="dark"><Moon aria-hidden="true" /> Escuro</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="system"><Monitor aria-hidden="true" /> Automático</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
               {(mockEnabled || isAdmin) && (
                 <DropdownMenuItem asChild>
                   <NavLink to="/design-system"><Palette aria-hidden="true" /> Design system</NavLink>

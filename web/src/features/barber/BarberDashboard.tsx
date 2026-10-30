@@ -302,7 +302,6 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
           </section>
           {canManageBarbershop && <MembershipPanel mode="management" services={services} barbers={barbers} />}
           <NotificationSettings />
-          {canManageBarbershop && <MembershipPanel mode="management" services={services} barbers={barbers} />}
           {barbershop && <BarbershopSettings barbershop={barbershop} onRefresh={onRefresh} />}
         </>
       )}

@@ -143,10 +143,10 @@ export function DesignSystemPage() {
               <strong className="font-serif text-4xl leading-none font-medium tabular-nums">128</strong>
               <span className="text-[.78rem] font-bold text-muted">Cortes no mês</span>
             </article>
-            <div className="grid gap-2 rounded-2xl bg-linear-to-br from-bone-900 to-bone-800 p-6 text-paper shadow-lg">
+            <div className="grid gap-2 rounded-2xl bg-linear-to-br from-bone-900 to-bone-800 p-6 text-chrome-ink shadow-lg">
               <p className="text-[.72rem] font-extrabold tracking-[.18em] text-amber-300 uppercase">Destaque</p>
               <p className="font-serif text-2xl">Cartão fidelidade</p>
-              <p className="text-sm text-bone-400">Faltam 3 visitas para o próximo prêmio.</p>
+              <p className="text-sm text-muted/40">Faltam 3 visitas para o próximo prêmio.</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm font-semibold sm:grid-cols-4">

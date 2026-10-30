@@ -1,7 +1,7 @@
 import { cloneElement, isValidElement, useId } from 'react'
 import { cn } from '../../lib/cn'
 
-const control = 'w-full rounded-xl border border-[#d3ccba] bg-surface px-3.5 py-2.5 text-base text-ink transition placeholder:text-[#9a9486] hover:border-[#b9ad90] focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand/20 focus-visible:outline-none disabled:opacity-60'
+const control = 'w-full rounded-xl border border-control bg-surface px-3.5 py-2.5 text-base text-ink transition placeholder:text-muted/70 hover:border-muted focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand/20 focus-visible:outline-none disabled:opacity-60'
 
 export const inputStyles = (extra?: string) => cn(control, 'min-h-12', extra)
 
@@ -19,7 +19,7 @@ export function Field({ label, hint, error, className, children }: FieldProps) {
   const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(' ') || undefined
   return (
     <div className={cn('grid gap-1.5', className)}>
-      <label htmlFor={id} className="text-[.8rem] font-bold text-[#4a463c]">{label}</label>
+      <label htmlFor={id} className="text-[.8rem] font-bold text-ink/80">{label}</label>
       {isValidElement(children) ? cloneElement(children, { id, 'aria-describedby': describedBy }) : children}
       {hint && <small id={`${id}-hint`} className="text-xs text-muted">{hint}</small>}
       {error && <small id={`${id}-error`} role="alert" className="text-xs font-semibold text-danger">{error}</small>}
@@ -36,7 +36,7 @@ export function Input({ icon, trailing, className, ...props }: InputProps) {
   if (!icon && !trailing) return <input className={inputStyles(className)} {...props} />
   return (
     <div className="relative flex items-center">
-      {icon && <span className="pointer-events-none absolute left-3.5 text-[#9a9486] [&_svg]:size-[1.1rem]" aria-hidden="true">{icon}</span>}
+      {icon && <span className="pointer-events-none absolute left-3.5 text-muted [&_svg]:size-[1.1rem]" aria-hidden="true">{icon}</span>}
       <input className={inputStyles(cn(icon && 'pl-11', trailing && 'pr-12', className))} {...props} />
       {trailing && <span className="absolute right-1 flex">{trailing}</span>}
     </div>

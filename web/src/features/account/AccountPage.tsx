@@ -52,7 +52,7 @@ export function AccountPage({ user }: { user: User }) {
             ))}
           </dl>
           {user.platformAdmin ? (
-            <p className="flex items-center gap-2 rounded-r-xl border-l-[3px] border-brand bg-[#f8ecd2] px-4 py-3 text-sm text-[#594318]"><ShieldCheck className="size-4 shrink-0" aria-hidden="true" /> Você aprova quem pode cadastrar estabelecimentos.</p>
+            <p className="flex items-center gap-2 rounded-r-xl border-l-[3px] border-brand bg-tint px-4 py-3 text-sm text-tint-ink"><ShieldCheck className="size-4 shrink-0" aria-hidden="true" /> Você aprova quem pode cadastrar estabelecimentos.</p>
           ) : user.role === 'CUSTOMER' && (
             <Link className={buttonStyles({ variant: 'ghost' })} to="/cliente/negocio"><Store aria-hidden="true" /> Sou barbeiro: cadastrar meu estabelecimento</Link>
           )}

@@ -80,3 +80,16 @@ test('o administrador libera um usuário a cadastrar o estabelecimento onde é b
   await expect(page).toHaveURL(/\/barbeiro\/hoje$/)
   await expect(page.locator('.brand')).toContainText('Barbearia do João')
 })
+
+test('tema escuro: escolha no menu da conta vale na página e persiste após recarregar', async ({ page }) => {
+  await openCleanApp(page)
+  await loginAs(page, 'cliente')
+  await page.getByRole('button', { name: 'Menu da conta' }).click()
+  await page.getByRole('menuitemradio', { name: 'Escuro' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.getByRole('button', { name: 'Menu da conta' }).click()
+  await page.getByRole('menuitemradio', { name: 'Automático' }).click()
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/)
+})

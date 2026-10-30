@@ -38,8 +38,16 @@ tipografia, botões, campos, feedback, superfícies e calendário renderizados c
 Bibliotecas de apoio: `class-variance-authority` (variantes), `clsx` + `tailwind-merge` (`cn()`), `react-hook-form` + `zod`
 (formulários), TanStack Query (dados), `motion` (entrada de página, só opacidade), `@formkit/auto-animate` (listas).
 
+## Tema claro e escuro
+Tokens semânticos (`--ink`, `--paper`, `--surface`, `--surface-2/3`, `--tint`, `--line`, `--muted`, `--field`, `--control`, estados `*-soft`/`*-ink`)
+mudam por tema; `--chrome`/`--chrome-ink` ficam fixos para áreas sempre escuras (topo, destaque, login).
+O tema segue o sistema (`prefers-color-scheme`) e pode ser forçado em **Menu da conta → Aparência** (Claro/Escuro/Automático);
+a escolha fica no navegador (`lib/theme.ts`) e é aplicada antes da primeira pintura (sem "flash").
+Em componentes novos use sempre tokens (`bg-surface`, `text-muted`, `border-line`…), nunca hex.
+
 ## Convenções
 - Telas novas: utilitários Tailwind + componentes de `ui/`. As telas antigas ainda usam as classes legadas de `index.css`
   (`.panel`, `.button`, `.status`…), já alinhadas aos mesmos tokens; migre uma tela por vez.
 - Animação de página só com **opacidade**: `transform` num ancestral quebraria elementos `position: fixed` (barra de ação mobile).
+- Não use `bone-*`/`amber-*` para superfícies e texto de interface (não mudam no escuro): são para a vitrine e acentos.
 - Cor de marca por barbearia: use `brand*`/`var(--amber)`, nunca o hex.

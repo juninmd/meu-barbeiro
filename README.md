@@ -59,7 +59,7 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
 
 - **Frontend**: [React 19](https://react.dev/) + [Vite 6](https://vite.dev/)
 - **Backend**: Node.js (API)
-- **Estilização**: Tailwind CSS v4 — design system **Navalha** ([docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md), vitrine em `/design-system`) — tokens em `@theme`, Fraunces + Inter, Radix (Dialog, Dropdown, Tooltip, Tabs), `react-day-picker`, `motion`, componentes em `web/src/components/ui` com `class-variance-authority`, `clsx`/`tailwind-merge`, Radix UI (`Tabs`), `sonner` (avisos) fonte Inter self-hosted, `react-hook-form` + `zod` (validação por campo), TanStack Query (cache do painel admin), `@formkit/auto-animate` (listas) e PWA instalável (`vite-plugin-pwa`)
+- **Estilização**: Tailwind CSS v4 — design system **Navalha** ([docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md), vitrine em `/design-system`) — tokens em `@theme`, Fraunces + Inter, Radix (Dialog, Dropdown, Tooltip, Tabs), `react-day-picker`, `motion`, tema claro/escuro, componentes em `web/src/components/ui` com `class-variance-authority`, `clsx`/`tailwind-merge`, Radix UI (`Tabs`), `sonner` (avisos) fonte Inter self-hosted, `react-hook-form` + `zod` (validação por campo), TanStack Query (cache do painel admin), `@formkit/auto-animate` (listas) e PWA instalável (`vite-plugin-pwa`)
 - **Deployment**: Nginx + Docker
 
 ## 🚀 Como Rodar Localmente

@@ -47,7 +47,7 @@ export function ConfirmDialog({
         <DialogTitle className="mb-3 font-serif text-3xl leading-tight font-medium tracking-tight">{title}</DialogTitle>
         <DialogDescription className="leading-relaxed text-muted">{description}</DialogDescription>
         {children && <div className="mt-4 grid gap-3 [&_label]:grid [&_label]:gap-1.5 [&_label]:text-sm [&_label]:font-bold [&_textarea]:min-h-24 [&_textarea]:rounded-xl [&_textarea]:border [&_textarea]:border-bone-400 [&_textarea]:bg-surface [&_textarea]:p-3 [&_textarea]:text-base [&_textarea]:font-normal">{children}</div>}
-        {error && <p className="mt-4 rounded-xl border border-[#e8b9ae] bg-[#fdf0ec] px-4 py-3 text-sm font-semibold text-[#7b2d20]" role="alert">{error}</p>}
+        {error && <p className="mt-4 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-ink" role="alert">{error}</p>}
         <div className="mt-6 flex justify-end gap-2.5 max-sm:flex-col-reverse [&>button]:max-sm:w-full">
           <Button ref={safeButton} variant="ghost" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>
           <Button variant="danger" disabled={busy || confirmDisabled} onClick={onConfirm}>{confirmLabel}</Button>

@@ -24,7 +24,7 @@ export function Calendar({ className, classNames, ...props }: CalendarProps) {
         month_grid: 'w-full border-separate border-spacing-1',
         weekday: 'pb-1 text-center text-[.68rem] font-extrabold tracking-wider text-muted uppercase',
         day: 'p-0 text-center',
-        day_button: 'mx-auto grid size-11 w-full max-w-12 place-items-center rounded-xl text-sm font-bold transition hover:bg-brand/15 focus-visible:outline-3 focus-visible:outline-brand disabled:cursor-not-allowed disabled:text-bone-400 disabled:hover:bg-transparent',
+        day_button: 'mx-auto grid size-11 w-full max-w-12 place-items-center rounded-xl text-sm font-bold transition hover:bg-brand/15 focus-visible:outline-3 focus-visible:outline-brand disabled:cursor-not-allowed disabled:text-muted/40 disabled:hover:bg-transparent',
         selected: '[&>button]:bg-linear-to-b [&>button]:from-brand-light [&>button]:to-brand [&>button]:text-[#1c1810] [&>button]:shadow-glow [&>button:hover]:bg-brand',
         today: '[&>button]:ring-2 [&>button]:ring-brand/60 [&>button]:ring-inset',
         disabled: 'opacity-100',

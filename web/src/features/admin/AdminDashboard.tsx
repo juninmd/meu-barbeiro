@@ -96,7 +96,7 @@ export function AdminDashboard() {
       {section === 'solicitacoes' && <PageHeader eyebrow="Liberações" title="Quem pode cadastrar barbearias.">Aprove os barbeiros que pediram acesso ou autorize alguém direto pelo e-mail.</PageHeader>}
       {section === 'estabelecimentos' && <PageHeader eyebrow="Rede" title="Estabelecimentos cadastrados.">Todas as barbearias ativas na plataforma e seus responsáveis.</PageHeader>}
 
-      {error && <p role="alert" className="mb-4 rounded-xl border border-[#e8b9ae] bg-[#fdf0ec] px-4 py-3 text-sm font-semibold text-[#7b2d20]">{error}</p>}
+      {error && <p role="alert" className="mb-4 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-ink">{error}</p>}
       {loading && <p className="flex items-center gap-2 text-muted"><LoaderCircle className="animate-spin" aria-hidden="true" /> Carregando…</p>}
 
       {!loading && section === 'visao' && overview && (
@@ -155,7 +155,7 @@ export function AdminDashboard() {
           </div>
           <ShopGrid>
             {shops.map((shop) => (
-              <article className="grid gap-2 rounded-xl border border-line bg-[#fdfbf6] p-5" key={shop.id}>
+              <article className="grid gap-2 rounded-xl border border-line bg-surface-2 p-5" key={shop.id}>
                 <h3 className="font-serif text-xl font-medium">{shop.name}</h3>
                 <code className="w-fit rounded-md bg-paper-deep px-1.5 py-0.5 text-xs">/b/{shop.slug}</code>
                 {shop.address && <Meta icon={<MapPin />}>{shop.address}</Meta>}
@@ -180,8 +180,8 @@ function ShopGrid({ children }: { children: React.ReactNode }) {
 
 function Stat({ icon, value, label, alert }: { icon: React.ReactNode; value: number; label: string; alert?: boolean }) {
   return (
-    <article className={cn('grid gap-0.5 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5', alert && 'border-[#cf9b40] bg-[#fff8e8]')}>
-      <span className="mb-2 grid size-10 place-items-center rounded-xl bg-linear-to-br from-[#f7e3b6] to-[#efd08c] text-brand-deep [&_svg]:size-5" aria-hidden="true">{icon}</span>
+    <article className={cn('grid gap-0.5 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5', alert && 'border-brand bg-tint')}>
+      <span className="mb-2 grid size-10 place-items-center rounded-xl bg-linear-to-br from-brand/30 to-brand/10 text-brand-deep [&_svg]:size-5" aria-hidden="true">{icon}</span>
       <strong className="font-serif text-4xl leading-none font-medium">{value}</strong>
       <span className="text-[.78rem] font-bold text-muted">{label}</span>
     </article>
@@ -199,7 +199,7 @@ function RequestList({ users, busyId, onDecide }: { users: AdminUser[]; busyId: 
       {users.map((user) => {
         const busy = busyId === user.id
         return (
-          <li className="grid gap-3 rounded-xl border border-line bg-[#fdfbf6] p-4 transition hover:border-[#d7c9a4] hover:shadow-sm" key={user.id}>
+          <li className="grid gap-3 rounded-xl border border-line bg-surface-2 p-4 transition hover:border-brand/50 hover:shadow-sm" key={user.id}>
             <div className="flex items-center gap-3">
               <Avatar name={user.name} />
               <div className="grid min-w-0 flex-1">
@@ -208,7 +208,7 @@ function RequestList({ users, busyId, onDecide }: { users: AdminUser[]; busyId: 
               </div>
               <Badge tone={statusTone[user.establishmentRequest]}>{statusLabel[user.establishmentRequest]}</Badge>
             </div>
-            {user.establishmentRequestNote && <blockquote className="rounded-r-xl border-l-[3px] border-brand bg-[#f8f1df] px-4 py-3 text-sm text-[#4a463c]">{user.establishmentRequestNote}</blockquote>}
+            {user.establishmentRequestNote && <blockquote className="rounded-r-xl border-l-[3px] border-brand bg-tint px-4 py-3 text-sm text-ink/80">{user.establishmentRequestNote}</blockquote>}
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
               <small>{user.establishmentRequestedAt ? `Pedido em ${dateLabel(user.establishmentRequestedAt)}` : `Conta criada em ${dateLabel(user.createdAt)}`}</small>
               {user.memberships.length > 0 && <small>{user.memberships.map((item) => item.barbershop.name).join(', ')}</small>}

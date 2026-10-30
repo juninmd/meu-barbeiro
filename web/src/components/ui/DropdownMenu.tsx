@@ -36,3 +36,17 @@ export function DropdownMenuLabel({ className, ...props }: React.ComponentProps<
 export function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typeof Primitive.Separator>) {
   return <Primitive.Separator className={cn('mx-1 my-1.5 h-px bg-line', className)} {...props} />
 }
+
+export const DropdownMenuRadioGroup = Primitive.RadioGroup
+
+export function DropdownMenuRadioItem({ className, children, ...props }: React.ComponentProps<typeof Primitive.RadioItem>) {
+  return (
+    <Primitive.RadioItem
+      className={cn('flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-semibold outline-none select-none data-[highlighted]:bg-paper-deep [&_svg]:size-4 [&_svg]:text-muted', className)}
+      {...props}
+    >
+      {children}
+      <Primitive.ItemIndicator className="ml-auto text-brand-deep"><span aria-hidden="true">●</span></Primitive.ItemIndicator>
+    </Primitive.RadioItem>
+  )
+}

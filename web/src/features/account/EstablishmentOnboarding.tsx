@@ -88,7 +88,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
       {status === 'PENDING' && (
         <StatusCard tone="wait" icon={<Clock3 />} title="Solicitação em análise">
           A resposta do administrador aparece nesta tela: volte aqui para acompanhar. Você informou:
-          <blockquote className="mt-3 rounded-r-xl border-l-[3px] border-brand bg-[#f8f1df] px-4 py-3 text-sm text-[#4a463c]">{user.establishmentRequestNote}</blockquote>
+          <blockquote className="mt-3 rounded-r-xl border-l-[3px] border-brand bg-tint px-4 py-3 text-sm text-ink/80">{user.establishmentRequestNote}</blockquote>
         </StatusCard>
       )}
 
@@ -109,7 +109,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
       {status === 'APPROVED' && (
         <Card as="form" className="grid max-w-2xl gap-5" onSubmit={create} noValidate>
           <FormTitle step="Passo 3 de 3" icon={<Store aria-hidden="true" />}>Dados do estabelecimento</FormTitle>
-          <p className="rounded-r-xl border-l-[3px] border-brand bg-[#f8ecd2] px-4 py-3 text-sm text-[#594318]">Liberação aprovada. Preencha os dados básicos — horários, serviços e equipe você ajusta depois.</p>
+          <p className="rounded-r-xl border-l-[3px] border-brand bg-tint px-4 py-3 text-sm text-tint-ink">Liberação aprovada. Preencha os dados básicos — horários, serviços e equipe você ajusta depois.</p>
           <Field label="Nome da barbearia" error={shopForm.formState.errors.name?.message}>
             <Input
               maxLength={80} placeholder="Barbearia do Zé"
@@ -135,7 +135,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
 function SlugInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="flex items-stretch">
-      <span className="grid place-items-center rounded-l-xl border border-r-0 border-[#d3ccba] bg-paper-deep px-3.5 font-bold text-muted">/b/</span>
+      <span className="grid place-items-center rounded-l-xl border border-r-0 border-control bg-paper-deep px-3.5 font-bold text-muted">/b/</span>
       <Input {...props} className="rounded-l-none" />
     </div>
   )
@@ -150,7 +150,7 @@ function FormTitle({ children, step, icon }: { children: React.ReactNode; step: 
   )
 }
 
-const tones = { ok: 'bg-[#d9eee2] text-ok', wait: 'bg-[#f6e4b9] text-brand-deep', no: 'bg-[#f6dcd5] text-danger' }
+const tones = { ok: 'bg-success-soft text-success-ink', wait: 'bg-tint text-brand-deep', no: 'bg-danger-soft text-danger-ink' }
 
 function StatusCard({ tone, icon, title, children }: { tone: keyof typeof tones; icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
