@@ -1,0 +1,46 @@
+# Modelo para K3s/ArgoCD. Ajuste domínio, namespace e registry ao seu cluster.
+# O Secret real NÃO fica no repositório: crie-o com `kubectl create secret generic meu-barbeiro-api ...`
+# (veja docs/DEPLOY.md) ou use SealedSecrets/ExternalSecrets.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meu-barbeiro-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: meu-barbeiro-api }
+  template:
+    metadata:
+      labels: { app: meu-barbeiro-api }
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/juninmd/meu-barbeiro-api:latest
+          ports:
+            - containerPort: 3333
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PORT, value: "3333" }
+            - { name: FRONTEND_URL, value: https://barbeiro.antonio-code.duckdns.org }
+            - { name: API_PUBLIC_URL, value: https://barbeiro.antonio-code.duckdns.org/api }
+          envFrom:
+            # DATABASE_URL, SESSION_SECRET, TOKEN_ENCRYPTION_KEY, ADMIN_PASSWORD, ADMIN_USERNAME (opcional), MERCADO_PAGO_*
+            - secretRef: { name: meu-barbeiro-api }
+          readinessProbe:
+            httpGet: { path: /health, port: 3333 }
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 3333 }
+            initialDelaySeconds: 30
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: meu-barbeiro-api
+spec:
+  selector: { app: meu-barbeiro-api }
+  ports:
+    - { port: 3333, targetPort: 3333 }
