@@ -1,0 +1,8 @@
+# Falsos positivos do gitleaks (regra generic-api-key): linhas de código que apenas citam a variável
+# `password`/`ADMIN_PASSWORD`, o valor de demonstração do seed local ou uma classe CSS `.auth-*`.
+# Nenhuma é credencial real; em produção a senha do administrador vem do Secret `ADMIN_PASSWORD`.
+de61418ccd4efa51476bfb1615eb90a94d66b871:api/src/lib/bootstrap-admin.ts:generic-api-key:12
+de61418ccd4efa51476bfb1615eb90a94d66b871:api/src/routes/auth.routes.ts:generic-api-key:4
+de61418ccd4efa51476bfb1615eb90a94d66b871:api/src/seed.ts:generic-api-key:27
+de61418ccd4efa51476bfb1615eb90a94d66b871:api/src/seed.ts:generic-api-key:95
+de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/index.css:generic-api-key:496
