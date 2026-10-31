@@ -1,0 +1,10 @@
+# Falsos positivos da regra juninmd-hardcoded-password: contas de DEMONSTRAÇÃO do modo mock
+# (senha pública `demo1234`, documentada no README e exibida na tela de login) e textos de
+# placeholder ("Sua senha"). Nenhuma é credencial real; em produção a senha do administrador
+# vem do Secret `ADMIN_PASSWORD`.
+136b26ff7df981a84c73a90a9bc1e12e3074a136:web/src/components/Login.tsx:juninmd-hardcoded-password:140
+de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/components/Login.tsx:juninmd-hardcoded-password:14
+de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/components/Login.tsx:juninmd-hardcoded-password:15
+de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/components/Login.tsx:juninmd-hardcoded-password:130
+de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/lib/repository.ts:juninmd-hardcoded-password:502
+de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/lib/repository.ts:juninmd-hardcoded-password:503

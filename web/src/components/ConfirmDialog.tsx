@@ -1,5 +1,7 @@
-import { useEffect, useId, useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { Button } from './ui/Button'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/Dialog'
 
 interface ConfirmDialogProps {
   eyebrow: string
@@ -15,8 +17,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void
 }
 
-const focusableSelector = 'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
-
+/** Diálogo de confirmação sobre Radix: foco preso, Esc, retorno do foco e rolagem travada vêm da biblioteca. */
 export function ConfirmDialog({
   eyebrow,
   title,
@@ -30,73 +31,28 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
-  const dialog = useRef<HTMLElement>(null)
   const safeButton = useRef<HTMLButtonElement>(null)
-  const busyRef = useRef(busy)
-  const onCancelRef = useRef(onCancel)
-  const titleId = useId()
-  const descriptionId = useId()
-  busyRef.current = busy
-  onCancelRef.current = onCancel
-
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    safeButton.current?.focus()
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busyRef.current) {
-        onCancelRef.current()
-        return
-      }
-      if (event.key !== 'Tab') return
-
-      const focusable = [...(dialog.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])]
-      if (focusable.length === 0) {
-        event.preventDefault()
-        return
-      }
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && (document.activeElement === first || !dialog.current?.contains(document.activeElement))) {
-        event.preventDefault()
-        last?.focus()
-      } else if (!event.shiftKey && (document.activeElement === last || !dialog.current?.contains(document.activeElement))) {
-        event.preventDefault()
-        first?.focus()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      if (opener?.isConnected) opener.focus()
-    }
-  }, [])
+  // Sem <Trigger> do Radix, quem devolve o foco para quem abriu o diálogo somos nós.
+  const [opener] = useState(() => document.activeElement instanceof HTMLElement ? document.activeElement : null)
 
   return (
-    <div className="dialog-backdrop">
-      <section
-        ref={dialog}
-        aria-describedby={descriptionId}
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="confirmation-dialog"
-        role="dialog"
+    <Dialog open onOpenChange={(open) => { if (!open && !busy) onCancel() }}>
+      <DialogContent
+        onOpenAutoFocus={(event) => { event.preventDefault(); safeButton.current?.focus() }}
+        onCloseAutoFocus={(event) => { event.preventDefault(); if (opener?.isConnected) opener.focus() }}
+        onEscapeKeyDown={(event) => { if (busy) event.preventDefault() }}
+        onInteractOutside={(event) => { if (busy) event.preventDefault() }}
       >
-        <p className="eyebrow">{eyebrow}</p>
-        <h2 id={titleId}>{title}</h2>
-        <p id={descriptionId}>{description}</p>
-        {children}
-        {error && <p className="form-message" role="alert">{error}</p>}
-        <div className="dialog-actions">
-          <button ref={safeButton} className="button button-ghost" disabled={busy} onClick={onCancel} type="button">
-            {cancelLabel}
-          </button>
-          <button className="button button-danger" disabled={busy || confirmDisabled} onClick={onConfirm} type="button">
-            {confirmLabel}
-          </button>
+        <p className="mb-2 text-[.72rem] font-extrabold tracking-[.16em] text-brand-deep uppercase">{eyebrow}</p>
+        <DialogTitle className="mb-3 font-serif text-3xl leading-tight font-medium tracking-tight">{title}</DialogTitle>
+        <DialogDescription className="leading-relaxed text-muted">{description}</DialogDescription>
+        {children && <div className="mt-4 grid gap-3 [&_label]:grid [&_label]:gap-1.5 [&_label]:text-sm [&_label]:font-bold [&_textarea]:min-h-24 [&_textarea]:rounded-xl [&_textarea]:border [&_textarea]:border-bone-400 [&_textarea]:bg-surface [&_textarea]:p-3 [&_textarea]:text-base [&_textarea]:font-normal">{children}</div>}
+        {error && <p className="mt-4 rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-ink" role="alert">{error}</p>}
+        <div className="mt-6 flex justify-end gap-2.5 max-sm:flex-col-reverse [&>button]:max-sm:w-full">
+          <Button ref={safeButton} variant="ghost" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>
+          <Button variant="danger" disabled={busy || confirmDisabled} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

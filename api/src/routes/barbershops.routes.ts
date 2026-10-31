@@ -7,6 +7,7 @@ import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { calculateCommissionCents } from '../domain/billing.js'
 import { staffNotificationTypes } from '../lib/staff-notifications.js'
 import { logoUrlField, timezoneField } from '../lib/settings-fields.js'
+import { summarizeReviews } from '../lib/review-summary.js'
 
 const router = Router()
 const hourSchema = z.object({
@@ -89,20 +90,30 @@ const settingsSchema = z.object({
 
 router.post('/', requireUser, async (req, res) => {
   const user = req.user as SessionUser
+  if (!user.platformAdmin && user.establishmentRequest !== 'APPROVED') {
+    res.status(403).json({ message: 'O cadastro de estabelecimento precisa ser autorizado pelo administrador' })
+    return
+  }
   const input = z.object({
     name: z.string().trim().min(3).max(80),
     slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(60),
+    address: z.string().trim().max(160).optional(),
   }).parse(req.body)
   const barbershop = await prisma.$transaction(async (tx) => {
     const created = await tx.barbershop.create({
       data: {
         ...input,
+        address: input.address || null,
         businessHours: { create: defaultHours },
         memberships: { create: { userId: user.id, role: 'OWNER' } },
       },
       include: { businessHours: { orderBy: { weekday: 'asc' } } },
     })
-    await tx.user.update({ where: { id: user.id }, data: { role: 'ADMIN' } })
+    // A autorização vale por um cadastro: novos estabelecimentos pedem nova aprovação.
+    await tx.user.update({
+      where: { id: user.id },
+      data: { role: 'ADMIN', ...(user.platformAdmin ? {} : { establishmentRequest: 'NONE' as const }) },
+    })
     return created
   })
   res.status(201).json(publicBarbershop(barbershop, true))
@@ -117,6 +128,53 @@ router.get('/current', resolveBarbershop, async (req, res) => {
     ...publicBarbershop(req.barbershop!, Boolean(membership)),
     membershipRole: membership?.role ?? null,
   })
+})
+
+// Página pública da barbearia (sem login): serviços, equipe, horários e avaliações.
+router.get('/current/profile', resolveBarbershop, async (req, res, next) => {
+  try {
+    const barbershopId = req.barbershop!.id
+    const [services, team, ratings, latest, packages] = await Promise.all([
+      prisma.service.findMany({ where: { barbershopId, active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, duration: true, priceCents: true } }),
+      prisma.user.findMany({
+        where: { memberships: { some: { barbershopId, role: { in: ['OWNER', 'ADMIN', 'BARBER'] } } } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.review.findMany({ where: { barbershopId }, select: { rating: true } }),
+      prisma.review.findMany({
+        where: { barbershopId, comment: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+        select: { id: true, rating: true, comment: true, createdAt: true, user: { select: { name: true } } },
+      }),
+      prisma.servicePackage.findMany({ where: { barbershopId, active: true }, orderBy: { priceCents: 'asc' }, select: { id: true, name: true, sessions: true, priceCents: true, validityDays: true } }),
+    ])
+    res.json({
+      barbershop: {
+        slug: req.barbershop!.slug,
+        name: req.barbershop!.name,
+        logoUrl: req.barbershop!.logoUrl,
+        primaryColor: req.barbershop!.primaryColor,
+        address: req.barbershop!.address,
+        timezone: req.barbershop!.timezone,
+        businessHours: req.barbershop!.businessHours.map((hour) => ({
+          weekday: hour.weekday, opensAt: hour.opensAt, closesAt: hour.closesAt,
+          breakStartsAt: hour.breakStartsAt, breakEndsAt: hour.breakEndsAt, enabled: hour.enabled,
+        })),
+      },
+      services: services.map((service) => ({ id: service.id, name: service.name, duration: service.duration, price: service.priceCents / 100 })),
+      team: team.map((member) => ({ id: member.id, name: member.name, specialty: 'Cortes e barba' })),
+      packages: packages.map((item) => ({ id: item.id, name: item.name, sessions: item.sessions, price: item.priceCents / 100, validityDays: item.validityDays })),
+      rating: summarizeReviews(ratings.map((item) => item.rating)),
+      reviews: latest.map((item) => ({
+        id: item.id, rating: item.rating, comment: item.comment, createdAt: item.createdAt.toISOString(),
+        customerName: item.user.name.split(' ')[0] ?? 'Cliente',
+      })),
+    })
+  } catch (error) {
+    next(error)
+  }
 })
 
 router.patch(

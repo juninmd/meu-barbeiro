@@ -15,17 +15,17 @@ if (googleClientId && googleClientSecret) {
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails?.[0]?.value ?? null
-        const user = await prisma.user.upsert({
-          where: { googleId: profile.id },
-          update: { name: profile.displayName, email },
-          create: {
-            googleId: profile.id,
-            name: profile.displayName,
-            email,
-            role: 'CUSTOMER'
-          }
-        })
+        const email = profile.emails?.[0]?.value?.toLowerCase() ?? null
+        const verified = profile.emails?.[0]?.verified !== false
+        const byGoogle = await prisma.user.findUnique({ where: { googleId: profile.id } })
+        const byEmail = !byGoogle && email && verified
+          ? await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } })
+          : null
+        const user = byGoogle
+          ? await prisma.user.update({ where: { id: byGoogle.id }, data: { name: profile.displayName } })
+          : byEmail
+            ? await prisma.user.update({ where: { id: byEmail.id }, data: { googleId: profile.id } })
+            : await prisma.user.create({ data: { googleId: profile.id, name: profile.displayName, email, role: 'CUSTOMER' } })
         return done(null, user)
       } catch (error) {
         return done(error as Error, undefined)

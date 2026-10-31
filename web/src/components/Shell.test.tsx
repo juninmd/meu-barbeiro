@@ -31,7 +31,6 @@ describe('Shell staff navigation', () => {
             membershipRole: 'BARBER', businessHours: [],
           }}
           onLogout={() => undefined}
-          onSwitchRole={() => undefined}
         >
           <p>Conteúdo</p>
         </Shell>

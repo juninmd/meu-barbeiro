@@ -2,6 +2,12 @@ import { BellRing, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { errorMessage, repository } from '../../lib/repository'
 import type { NotificationPreferences, StaffNotificationType } from '../../types'
+import { Button } from '../../components/ui/Button'
+import { Field, Input } from '../../components/ui/Field'
+import { Group, Hint, Toggle } from '../../components/ui/FormParts'
+import { Eyebrow, Notice } from '../../components/ui/Notice'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 const notificationOptions: Array<{ type: StaffNotificationType; label: string }> = [
   { type: 'NEW_APPOINTMENT', label: 'Novos agendamentos' },
@@ -24,7 +30,7 @@ export function NotificationSettings() {
     return () => { active = false }
   }, [])
 
-  if (!preferences) return message ? <p className="form-message" role="alert">{message}</p> : null
+  if (!preferences) return message ? <Notice tone="danger" role="alert">{message}</Notice> : null
 
   const toggle = (type: StaffNotificationType, checked: boolean) => {
     setPreferences({
@@ -54,25 +60,23 @@ export function NotificationSettings() {
   }
 
   return (
-    <form className="panel settings-form" onSubmit={save}>
-      <div className="section-heading compact">
-        <div><p className="eyebrow">Seu canal</p><h2><BellRing aria-hidden="true" /> Avisos da agenda</h2></div>
+    <form className={cn(cardStyles, 'grid gap-4')} onSubmit={save}>
+      <div>
+        <Eyebrow>Seu canal</Eyebrow>
+        <h2 className="flex items-center gap-2 font-serif text-xl font-medium [&_svg]:size-5 [&_svg]:text-brand-deep"><BellRing aria-hidden="true" /> Avisos da agenda</h2>
       </div>
       {!preferences.telegramLinked && (
-        <div className="payment-warning" role="alert"><strong>Telegram não vinculado.</strong><p>Suas preferências ficam salvas, mas nenhum aviso chegará até você vincular o canal.</p></div>
+        <Notice tone="danger" role="alert"><strong>Telegram não vinculado.</strong> Suas preferências ficam salvas, mas nenhum aviso chegará até você vincular o canal.</Notice>
       )}
-      <fieldset>
-        <legend>O que você quer receber</legend>
+      <Group legend="O que você quer receber">
         {notificationOptions.map((option) => (
-          <label className="hour-toggle" key={option.type}>
-            <input type="checkbox" checked={preferences.notificationTypes.includes(option.type)} onChange={(event) => toggle(option.type, event.target.checked)} /> {option.label}
-          </label>
+          <Toggle key={option.type} checked={preferences.notificationTypes.includes(option.type)} onChange={(checked) => toggle(option.type, checked)}>{option.label}</Toggle>
         ))}
-      </fieldset>
-      <label>Horário do resumo diário<input type="time" required value={preferences.dailySummaryTime} onChange={(event) => setPreferences({ ...preferences, dailySummaryTime: event.target.value })} /></label>
-      <p className="settings-hint">O horário segue o fuso configurado para a barbearia.</p>
-      {message && <p className="form-message" role="status">{message}</p>}
-      <button className="button button-dark" disabled={busy}><Save aria-hidden="true" /> {busy ? 'Salvando…' : 'Salvar meus avisos'}</button>
+      </Group>
+      <Field label="Horário do resumo diário"><Input type="time" required value={preferences.dailySummaryTime} onChange={(event) => setPreferences({ ...preferences, dailySummaryTime: event.target.value })} /></Field>
+      <Hint>O horário segue o fuso configurado para a barbearia.</Hint>
+      {message && <Notice role="status">{message}</Notice>}
+      <Button type="submit" variant="dark" loading={busy} className="justify-self-start max-sm:w-full"><Save aria-hidden="true" /> {busy ? 'Salvando…' : 'Salvar meus avisos'}</Button>
     </form>
   )
 }

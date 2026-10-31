@@ -1,8 +1,14 @@
-import { CalendarOff, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Barber, BarberAbsence, BarberSchedule, Barbershop, User } from '../../types'
+import { Button } from '../../components/ui/Button'
+import { Input, inputStyles } from '../../components/ui/Field'
+import { Notice, SectionHeading } from '../../components/ui/Notice'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
+import { IconButton } from '../../components/ui/IconButton'
 
 const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
@@ -121,44 +127,64 @@ export function BarberAvailability({ barbers, barbershop, currentUser, onChanged
     timeZone: barbershop.timezone, dateStyle: 'short', timeStyle: 'short',
   }).format(new Date(value))
 
+  const miniLabel = 'grid min-w-0 gap-1 text-[.68rem] font-extrabold tracking-wide text-muted uppercase'
+
   return (
     <>
-      <section className="panel availability-panel" aria-labelledby="availability-title">
-        <div className="section-heading">
-          <div><p className="eyebrow"><CalendarOff aria-hidden="true" /> Agenda individual</p><h2 id="availability-title">Disponibilidade</h2></div>
-          {canChoose && <label>Barbeiro<select value={barberId} onChange={(event) => setBarberId(event.target.value)}>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</select></label>}
-        </div>
+      <section className={cn(cardStyles, 'grid gap-6')} aria-labelledby="availability-title">
+        <SectionHeading
+          eyebrow="Agenda individual" title="Disponibilidade" id="availability-title"
+          aside={canChoose && (
+            <label className={cn(miniLabel, 'w-full sm:w-64')}>Barbeiro
+              <select className={inputStyles('text-base font-normal tracking-normal normal-case')} value={barberId} onChange={(event) => setBarberId(event.target.value)}>
+                {barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}
+              </select>
+            </label>
+          )}
+        />
 
-        <div className="availability-block">
-          <div className="section-heading compact"><div><h3>Escala semanal</h3><p>{usingFallback ? 'Usando o expediente da barbearia.' : 'Escala própria ativa; a loja continua sendo o limite.'}</p></div></div>
-          <div className="schedule-list">
+        <div className="grid gap-4 border-t border-line pt-5">
+          <div>
+            <h3 className="font-serif text-lg font-medium">Escala semanal</h3>
+            <p className="text-sm text-muted">{usingFallback ? 'Usando o expediente da barbearia.' : 'Escala própria ativa; a loja continua sendo o limite.'}</p>
+          </div>
+          <div className="grid gap-2.5 lg:grid-cols-2">
             {schedule.map((day) => (
-              <div className="schedule-row" key={day.weekday}>
-                <label className="schedule-enabled"><input type="checkbox" checked={day.enabled} onChange={(event) => updateDay(day.weekday, { enabled: event.target.checked })} /> {weekdays[day.weekday]}</label>
-                <label>Início<input type="time" required value={day.startsAt} disabled={!day.enabled} onChange={(event) => updateDay(day.weekday, { startsAt: event.target.value })} /></label>
-                <label>Fim<input type="time" required value={day.endsAt} disabled={!day.enabled} onChange={(event) => updateDay(day.weekday, { endsAt: event.target.value })} /></label>
+              <div className={cn('grid grid-cols-2 items-end gap-3 rounded-xl bg-surface-2 p-3.5 sm:grid-cols-[minmax(7rem,1fr)_1fr_1fr]', !day.enabled && 'opacity-80')} key={day.weekday}>
+                <label className="col-span-2 flex min-h-11 cursor-pointer items-center gap-2.5 font-bold sm:col-span-1 sm:self-center">
+                  <input className="size-5 accent-brand" type="checkbox" checked={day.enabled} onChange={(event) => updateDay(day.weekday, { enabled: event.target.checked })} /> {weekdays[day.weekday]}
+                </label>
+                <label className={miniLabel}>Início<Input type="time" required value={day.startsAt} disabled={!day.enabled} onChange={(event) => updateDay(day.weekday, { startsAt: event.target.value })} /></label>
+                <label className={miniLabel}>Fim<Input type="time" required value={day.endsAt} disabled={!day.enabled} onChange={(event) => updateDay(day.weekday, { endsAt: event.target.value })} /></label>
               </div>
             ))}
           </div>
-          <div className="action-row">
-            <button className="button button-dark" type="button" disabled={busy} onClick={saveSchedule}>Salvar escala</button>
-            {!usingFallback && <button className="button button-ghost" type="button" disabled={busy} onClick={restoreFallback}>Usar expediente da barbearia</button>}
+          <div className="flex flex-wrap gap-2.5">
+            <Button variant="dark" loading={busy} onClick={saveSchedule}>Salvar escala</Button>
+            {!usingFallback && <Button variant="ghost" disabled={busy} onClick={restoreFallback}>Usar expediente da barbearia</Button>}
           </div>
         </div>
 
-        <div className="availability-block">
-          <h3>Ausências</h3>
-          <form className="absence-form" onSubmit={createAbsence}>
-            <label>Início<input type="datetime-local" required value={absenceForm.startsAt} onChange={(event) => setAbsenceForm({ ...absenceForm, startsAt: event.target.value })} /></label>
-            <label>Fim<input type="datetime-local" required value={absenceForm.endsAt} onChange={(event) => setAbsenceForm({ ...absenceForm, endsAt: event.target.value })} /></label>
-            <label>Motivo<input required maxLength={200} value={absenceForm.reason} onChange={(event) => setAbsenceForm({ ...absenceForm, reason: event.target.value })} placeholder="Ex.: consulta médica" /></label>
-            <button className="button button-dark" disabled={busy}>Cadastrar ausência</button>
+        <div className="grid gap-4 border-t border-line pt-5">
+          <h3 className="font-serif text-lg font-medium">Ausências</h3>
+          <form className="grid items-end gap-3 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]" onSubmit={createAbsence}>
+            <label className={miniLabel}>Início<Input type="datetime-local" required value={absenceForm.startsAt} onChange={(event) => setAbsenceForm({ ...absenceForm, startsAt: event.target.value })} /></label>
+            <label className={miniLabel}>Fim<Input type="datetime-local" required value={absenceForm.endsAt} onChange={(event) => setAbsenceForm({ ...absenceForm, endsAt: event.target.value })} /></label>
+            <label className={miniLabel}>Motivo<Input required maxLength={200} value={absenceForm.reason} onChange={(event) => setAbsenceForm({ ...absenceForm, reason: event.target.value })} placeholder="Ex.: consulta médica" /></label>
+            <Button type="submit" variant="dark" disabled={busy}>Cadastrar ausência</Button>
           </form>
-          {absences.length === 0 ? <p className="empty-copy">Nenhuma ausência futura.</p> : <div className="absence-list">{absences.map((absence) => (
-            <div className="absence-item" key={absence.id}><div><strong>{absence.reason}</strong><span>{formatDateTime(absence.startsAt)} até {formatDateTime(absence.endsAt)}</span></div><button className="icon-button danger" type="button" aria-label={`Remover ausência: ${absence.reason}`} onClick={() => setTarget(absence)}><Trash2 aria-hidden="true" /></button></div>
-          ))}</div>}
+          {absences.length === 0 ? <p className="text-sm text-muted">Nenhuma ausência futura.</p> : (
+            <ul className="grid gap-2.5">
+              {absences.map((absence) => (
+                <li className="flex items-center justify-between gap-4 rounded-xl border border-line p-3" key={absence.id}>
+                  <div className="grid gap-0.5"><strong>{absence.reason}</strong><span className="text-sm text-muted">{formatDateTime(absence.startsAt)} até {formatDateTime(absence.endsAt)}</span></div>
+                  <IconButton tone="danger" type="button" aria-label={`Remover ausência: ${absence.reason}`} onClick={() => setTarget(absence)}><Trash2 className="size-[1.1rem]" aria-hidden="true" /></IconButton>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {message && <p className="form-message" role="status">{message}</p>}
+        {message && <Notice tone="info" role="status">{message}</Notice>}
       </section>
       {target && <ConfirmDialog eyebrow="Remover ausência" title={`Remover ${target.reason}?`} description="O período voltará a aceitar agendamentos conforme a escala." cancelLabel="Manter ausência" confirmLabel={busy ? 'Removendo…' : 'Sim, remover'} busy={busy} error={deleteError} onCancel={() => { setDeleteError(null); setTarget(null) }} onConfirm={deleteAbsence} />}
     </>

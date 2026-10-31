@@ -12,5 +12,8 @@ RUN pnpm install --filter api --frozen-lockfile
 COPY api/tsconfig.json ./api/
 COPY api/src ./api/src
 WORKDIR /app/api
+RUN pnpm build
 EXPOSE 3333
-CMD ["pnpm", "dev"]
+# Aplica as migrations pendentes antes de subir, para o deploy não depender de passo manual.
+# O compose local sobrescreve este comando (seed + tsx watch).
+CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/server.js"]

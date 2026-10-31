@@ -4,6 +4,12 @@ import { CustomerProfileCard } from '../../components/CustomerProfileCard'
 import { formatCurrency } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
 import type { Barber, Barbershop, CustomerSummary, FitNowResponse, Service, User } from '../../types'
+import { Button } from '../../components/ui/Button'
+import { ChoiceCard, StepFieldset } from '../../components/ui/Choice'
+import { Field, Input, Select } from '../../components/ui/Field'
+import { Notice, SectionHeading } from '../../components/ui/Notice'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
 
 interface WalkInFormProps {
   barbers: Barber[]
@@ -83,67 +89,58 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
   }
 
   if (!open) {
-    return <button className="button button-primary" type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" /> Quem chegou agora?</button>
+    return <Button onClick={() => setOpen(true)}><Plus aria-hidden="true" /> Quem chegou agora?</Button>
   }
 
   return (
-    <section className="panel walk-in-panel" aria-labelledby="walk-in-title">
-      <div className="section-heading compact">
-        <div><p className="eyebrow">Atendimento pelo balcão</p><h2 id="walk-in-title">Entrada sem horário</h2></div>
-        <button className="button button-ghost button-small" type="button" onClick={() => setOpen(false)}>Fechar</button>
-      </div>
-      {message && <p className="form-message" role="alert">{message}</p>}
-      <form className="booking-form" onSubmit={submit}>
-        <fieldset>
-          <legend><span>01</span> Cliente</legend>
-          <div className="action-row">
-            <button className={`button button-small ${existing ? 'button-dark' : 'button-ghost'}`} type="button" onClick={() => setExisting(true)}>Cliente existente</button>
-            <button className={`button button-small ${existing ? 'button-ghost' : 'button-dark'}`} type="button" onClick={() => setExisting(false)}>Visitante</button>
+    <section className={cn(cardStyles, 'grid gap-5')} aria-labelledby="walk-in-title">
+      <SectionHeading eyebrow="Atendimento pelo balcão" title="Entrada sem horário" id="walk-in-title" aside={<Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Fechar</Button>} />
+      {message && <Notice tone="danger" role="alert">{message}</Notice>}
+      <form className="grid gap-8" onSubmit={submit}>
+        <StepFieldset step="01" title="Cliente">
+          <div className="flex flex-wrap gap-2">
+            <Button variant={existing ? 'dark' : 'ghost'} size="sm" onClick={() => setExisting(true)}>Cliente existente</Button>
+            <Button variant={existing ? 'ghost' : 'dark'} size="sm" onClick={() => setExisting(false)}>Visitante</Button>
           </div>
           {existing ? (
             <>
-              <label>Buscar por nome ou telefone<input value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-              <div className="customer-results">
+              <Field label="Buscar por nome ou telefone"><Input value={query} onChange={(event) => setQuery(event.target.value)} /></Field>
+              <div className="grid gap-2">
                 {customers.map((customer) => (
-                  <label className={`customer-option ${customerId === customer.id ? 'selected' : ''}`} key={customer.id}>
-                    <input type="radio" name="customer" value={customer.id} checked={customerId === customer.id} onChange={() => setCustomerId(customer.id)} required />
-                    <UserRound aria-hidden="true" />
-                    <span><strong>{customer.name}</strong><small>{customer.phone || 'Sem telefone'}{customer.noShowCount > 0 ? ` · ${customer.noShowCount} falta(s)` : ''}</small></span>
+                  <label className={cn('flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-brand/35', customerId === customer.id ? 'border-brand bg-tint ring-2 ring-brand' : 'border-line bg-surface-2 hover:border-brand-deep/60')} key={customer.id}>
+                    <input className="sr-only" type="radio" name="customer" value={customer.id} checked={customerId === customer.id} onChange={() => setCustomerId(customer.id)} required />
+                    <UserRound className="size-5 shrink-0 text-brand-deep" aria-hidden="true" />
+                    <span className="grid gap-0.5"><strong>{customer.name}</strong><small className="text-xs text-muted">{customer.phone || 'Sem telefone'}{customer.noShowCount > 0 ? ` · ${customer.noShowCount} falta(s)` : ''}</small></span>
                   </label>
                 ))}
               </div>
               {selectedCustomer && <CustomerProfileCard userId={selectedCustomer.id} />}
             </>
-          ) : <label>Nome do visitante<input value={name} onChange={(event) => setName(event.target.value)} required minLength={2} /></label>}
-        </fieldset>
-        <fieldset>
-          <legend><span>02</span> O que será feito?</legend>
-          <div className="choice-grid choice-grid-small">
+          ) : <Field label="Nome do visitante"><Input value={name} onChange={(event) => setName(event.target.value)} required minLength={2} /></Field>}
+        </StepFieldset>
+        <StepFieldset step="02" title="O que será feito?">
+          <div className="grid gap-3 sm:grid-cols-2">
             {services.map((service) => (
-              <label className={`choice-card ${serviceIds.includes(service.id) ? 'selected' : ''}`} key={service.id}>
-                <input type="checkbox" checked={serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} />
-                <span><strong>{service.name}</strong><small>{service.duration} min · {formatCurrency(service.price)}</small></span>
-              </label>
+              <ChoiceCard key={service.id} type="checkbox" checked={serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} title={service.name} hint={`${service.duration} min · ${formatCurrency(service.price)}`} />
             ))}
           </div>
-          <label>Preferência de barbeiro<select value={barberId} onChange={(event) => setBarberId(event.target.value)} disabled={barberLocked}><option value="">Primeira cadeira livre</option>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</select></label>
-        </fieldset>
-        <fieldset>
-          <legend><span>03</span> Cabe agora?</legend>
-          {checkingFit && <p className="availability-status" role="status">Conferindo agenda, almoço e ausências…</p>}
-          {!checkingFit && serviceIds.length === 0 && <p className="empty-copy">Selecione ao menos um serviço.</p>}
-          <div className="fit-now-grid">
+          <Field label="Preferência de barbeiro"><Select value={barberId} onChange={(event) => setBarberId(event.target.value)} disabled={barberLocked}><option value="">Primeira cadeira livre</option>{barbers.map((barber) => <option value={barber.id} key={barber.id}>{barber.name}</option>)}</Select></Field>
+        </StepFieldset>
+        <StepFieldset step="03" title="Cabe agora?">
+          {checkingFit && <p className="text-xs text-muted" role="status">Conferindo agenda, almoço e ausências…</p>}
+          {!checkingFit && serviceIds.length === 0 && <p className="text-sm text-muted">Selecione ao menos um serviço.</p>}
+          <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]">
             {fit?.barbers.map((item) => (
-              <article className={`fit-now-card ${item.fitsNow ? 'available' : ''}`} key={item.barber.id}>
-                <strong>{item.barber.name}</strong>
+              <article className={cn('grid gap-1 rounded-xl border p-4 text-sm text-muted', item.fitsNow ? 'border-ok bg-success-soft text-success-ink' : 'border-line bg-surface-2')} key={item.barber.id}>
+                <strong className="text-base text-ink">{item.barber.name}</strong>
                 <span>{item.fitsNow ? 'Cabe agora' : item.nextAvailableAt ? `Próximo: ${timeLabel(item.nextAvailableAt, fit.timezone)}` : 'Sem encaixe hoje'}</span>
-                {item.currentServiceMinutesLeft > 0 && <small><Clock3 aria-hidden="true" /> libera em {item.currentServiceMinutesLeft} min</small>}
+                {item.currentServiceMinutesLeft > 0 && <small className="flex items-center gap-1.5 text-xs"><Clock3 className="size-3.5" aria-hidden="true" /> libera em {item.currentServiceMinutesLeft} min</small>}
               </article>
             ))}
           </div>
-          <p className="priority-note">Horários marcados têm prioridade. A estimativa será recalculada conforme a agenda e a fila avançam.</p>
-        </fieldset>
-        <button className="button button-primary button-wide" disabled={busy || serviceIds.length === 0 || (existing ? !customerId : name.trim().length < 2)}>{busy ? 'Registrando…' : 'Adicionar à fila'} <Clock3 aria-hidden="true" /></button>
+          <p className="text-xs font-bold text-muted">Horários marcados têm prioridade. A estimativa será recalculada conforme a agenda e a fila avançam.</p>
+        </StepFieldset>
+        <Button type="submit" block loading={busy} disabled={serviceIds.length === 0 || (existing ? !customerId : name.trim().length < 2)}>{busy ? 'Registrando…' : 'Adicionar à fila'} <Clock3 aria-hidden="true" /></Button>
       </form>
     </section>
   )

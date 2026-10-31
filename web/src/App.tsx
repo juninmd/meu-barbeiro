@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { MotionConfig, motion } from 'motion/react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Login } from './components/Login'
+import { PublicShop } from './features/public/PublicShop'
 import { Shell } from './components/Shell'
+import { AccountPage } from './features/account/AccountPage'
+import { EstablishmentOnboarding } from './features/account/EstablishmentOnboarding'
+import { AdminDashboard } from './features/admin/AdminDashboard'
+import { DesignSystemPage } from './features/design-system/DesignSystemPage'
 import { BarberDashboard } from './features/barber/BarberDashboard'
 import { ClientDashboard } from './features/client/ClientDashboard'
-import { errorMessage, repository } from './lib/repository'
-import type { Appointment, Barber, Barbershop, Product, Role, Service, User } from './types'
+import { errorMessage, mockEnabled, repository, tenantSlug } from './lib/repository'
+import type { Appointment, Barber, Barbershop, Product, Service, User } from './types'
 
 interface AppData {
   appointments: Appointment[]
@@ -18,13 +24,22 @@ interface AppData {
 const emptyData: AppData = { appointments: [], barbers: [], barbershop: null, products: [], services: [] }
 
 export default function App() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [user, setUser] = useState<User | null>(null)
   const [data, setData] = useState<AppData>(emptyData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Em /b/{slug} o visitante vê a página pública da barbearia antes de entrar.
+  const [entering, setEntering] = useState(false)
+  const isTenantUrl = /^\/b\/[a-z0-9-]+/.test(window.location.pathname)
 
   const loadData = useCallback(async (currentUser: User) => {
     setError(null)
+    if (currentUser.platformAdmin) {
+      setData(emptyData)
+      return
+    }
     try {
       const [appointments, barbers, barbershop, products, services] = await Promise.all([
         repository.appointments(currentUser),
@@ -43,57 +58,96 @@ export default function App() {
     if (user) await loadData(user)
   }, [loadData, user])
 
+  // Quem atua em um estabelecimento é levado ao link dele; o servidor só libera o painel no tenant correto.
+  const redirectToOwnEstablishment = useCallback((currentUser: User) => {
+    const own = currentUser.establishments ?? []
+    if (mockEnabled || currentUser.platformAdmin || currentUser.role === 'CUSTOMER' || own.length === 0) return false
+    if (own.some((item) => item.slug === tenantSlug)) return false
+    window.location.replace(`/b/${own[0]!.slug}/barbeiro/hoje`)
+    return true
+  }, [])
+
+  const enter = useCallback(async (currentUser: User) => {
+    setUser(currentUser)
+    if (redirectToOwnEstablishment(currentUser)) return
+    setLoading(true)
+    await loadData(currentUser)
+    setLoading(false)
+  }, [loadData, redirectToOwnEstablishment])
+
   useEffect(() => {
     repository.currentUser()
-      .then((currentUser) => {
+      .then(async (currentUser) => {
         setUser(currentUser)
-        if (currentUser) return loadData(currentUser)
+        if (currentUser && !redirectToOwnEstablishment(currentUser)) await loadData(currentUser)
       })
       .catch(() => setError('A API está indisponível. Tente novamente em instantes.'))
       .finally(() => setLoading(false))
-  }, [loadData])
-
-  const enterMock = async (role: Role) => {
-    const mockUser = repository.mockUser(role)
-    setUser(mockUser)
-    setLoading(true)
-    await loadData(mockUser)
-    setLoading(false)
-  }
+  }, [loadData, redirectToOwnEstablishment])
 
   const logout = async () => {
     await repository.logout()
     setUser(null)
     setData(emptyData)
+    navigate('/', { replace: true })
+  }
+
+  const establishmentCreated = async (slug: string) => {
+    if (!mockEnabled) {
+      window.location.assign(`/b/${slug}/barbeiro/hoje`)
+      return
+    }
+    const updated = await repository.currentUser()
+    if (updated) await enter(updated)
+    navigate('/barbeiro/hoje', { replace: true })
   }
 
   if (loading) {
-    return <div className="loading-screen"><span className="loader" /><p>Preparando a cadeira…</p></div>
+    return <div className="grid min-h-screen place-content-center justify-items-center gap-4 bg-[radial-gradient(circle_at_50%_30%,#2b271b,var(--chrome))] text-chrome-ink" role="status"><span className="size-[46px] animate-spin rounded-full border-2 border-white/10 border-t-brand" /><p>Preparando a cadeira…</p></div>
   }
 
-  if (!user) return <Login onMockLogin={enterMock} />
+  if (!user && isTenantUrl && !entering) {
+    return <PublicShop onBook={() => setEntering(true)} onSignIn={() => setEntering(true)} />
+  }
 
-  const isBarber = user.role === 'BARBER' || user.role === 'ADMIN'
+  if (!user) return <Login onAuthenticated={(authenticated) => { setEntering(false); void enter(authenticated) }} {...(isTenantUrl ? { onBack: () => setEntering(false) } : {})} />
+
+  const isAdmin = Boolean(user.platformAdmin)
+  const isBarber = !isAdmin && (user.role === 'BARBER' || user.role === 'ADMIN')
   const hasUpcomingAppointment = data.appointments.some((appointment) => (
     appointment.status !== 'CANCELLED'
     && appointment.status !== 'DONE'
     && new Date(appointment.scheduledAt) >= new Date()
   ))
-  const defaultPath = isBarber
-    ? '/barbeiro/hoje'
-    : hasUpcomingAppointment ? '/cliente/horarios' : '/cliente/agendar'
+  const defaultPath = isAdmin
+    ? '/admin/visao'
+    : isBarber
+      ? '/barbeiro/hoje'
+      : hasUpcomingAppointment ? '/cliente/horarios' : '/cliente/agendar'
 
   return (
-    <Shell user={user} barbershop={data.barbershop} onLogout={logout} onSwitchRole={enterMock}>
-      {error && <div className="error-banner" role="alert">{error}<button onClick={() => refresh()}>Tentar novamente</button></div>}
+    <Shell user={user} barbershop={data.barbershop} onLogout={logout}>
+      {error && <div className="flex items-center justify-center gap-4 bg-linear-to-r from-[#a44635] to-[#b4503c] p-3 text-sm text-white" role="alert">{error}<button className="min-h-11 cursor-pointer border-0 border-b border-current bg-transparent px-1 font-bold" onClick={() => refresh()}>Tentar novamente</button></div>}
+      {/* Só opacidade: um transform aqui viraria bloco de contenção e deslocaria elementos position:fixed (barra de ação mobile). A chave é só a área (cliente/barbeiro/admin): trocar de seção não remonta nem perde o estado da tela. */}
+      <MotionConfig reducedMotion="user">
+      <motion.div data-testid="route-transition" key={location.pathname.split('/')[1] ?? ''} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
       <Routes>
-        {isBarber ? (
+        <Route path="/conta" element={<AccountPage user={user} />} />
+        {(mockEnabled || isAdmin) && <Route path="/design-system" element={<DesignSystemPage />} />}
+        {isAdmin ? (
+          <Route path="/admin/:section" element={<AdminDashboard />} />
+        ) : isBarber ? (
           <Route path="/barbeiro/:section" element={<BarberDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} products={data.products} services={data.services} onRefresh={refresh} />} />
         ) : (
-          <Route path="/cliente/:section" element={<ClientDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} services={data.services} onRefresh={refresh} />} />
+          <>
+            <Route path="/cliente/negocio" element={<EstablishmentOnboarding user={user} onUserChange={setUser} onCreated={(slug) => void establishmentCreated(slug)} />} />
+            <Route path="/cliente/:section" element={<ClientDashboard appointments={data.appointments} barbers={data.barbers} barbershop={data.barbershop} currentUser={user} services={data.services} onRefresh={refresh} />} />
+          </>
         )}
         <Route path="*" element={<Navigate replace to={defaultPath} />} />
       </Routes>
+      </motion.div>
+      </MotionConfig>
     </Shell>
   )
 }

@@ -1,6 +1,12 @@
-import { BellRing, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, UserRound, X } from 'lucide-react'
+import { BellRing, CalendarDays, ChevronLeft, ChevronRight, Clock3, MapPin, RotateCcw, Scissors, Star, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Calendar } from '../../components/ui/Calendar'
+import { MyPackages } from '../../components/CustomerPackages'
+import { ReviewDialog } from '../../components/ReviewDialog'
+import { Stars } from '../../components/ui/Stars'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { AppointmentSlots } from '../../components/AppointmentSlots'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -9,7 +15,17 @@ import { WalkInQueuePanel } from '../../components/WalkInQueuePanel'
 import { MembershipPanel } from '../../components/MembershipPanel'
 import { formatBusinessHours, formatCurrency, formatDate, paymentLabel } from '../../lib/format'
 import { errorMessage, repository } from '../../lib/repository'
-import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, NewAppointment, Service, User } from '../../types'
+import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, MyReview, NewAppointment, Service, User } from '../../types'
+import { Badge } from '../../components/ui/Badge'
+import { buttonStyles, Button } from '../../components/ui/Button'
+import { ActionBar, ChoiceCard, StepFieldset, Stepper } from '../../components/ui/Choice'
+import { Notice, SectionHeading } from '../../components/ui/Notice'
+import { cardStyles } from '../../components/ui/Card'
+import { cn } from '../../lib/cn'
+import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
+import { PageHeading, PageWrap } from '../../components/ui/Page'
+import { TextButton } from '../../components/ui/IconButton'
+import { celebrate } from '../../lib/celebrate'
 
 interface ClientDashboardProps {
   appointments: Appointment[]
@@ -29,6 +45,8 @@ const dateInTimezone = (timezone: string) => {
   }).formatToParts(new Date()).map((part) => [part.type, part.value]))
   return `${parts.year}-${parts.month}-${parts.day}`
 }
+
+const formatPickedDate = (date: string) => format(new Date(`${date}T12:00:00`), "EEEE, d 'de' MMMM", { locale: ptBR })
 
 const formatShortDate = (date: string) => new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit', month: '2-digit', timeZone: 'UTC',
@@ -52,6 +70,8 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
+  const [myReviews, setMyReviews] = useState<MyReview[]>([])
+  const [reviewTarget, setReviewTarget] = useState<Appointment | null>(null)
   const [cancelQuote, setCancelQuote] = useState<CancellationQuote | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -75,6 +95,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
   const selectedService = services.find((item) => item.id === form.serviceId)
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const timezone = barbershop?.timezone || browserTimezone
+  const closedWeekdays = (barbershop?.businessHours ?? []).filter((hour) => !hour.enabled).map((hour) => hour.weekday)
   const availableBarbers = datedBarbers.filter((barber) => barber.available)
   const nextAvailableDate = datedBarbers
     .map((barber) => barber.nextAvailableDate)
@@ -176,6 +197,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       setMessage(result.appointment.paymentStatus === 'APPROVED'
         ? 'Pagamento aprovado. O barbeiro já recebeu seu horário.'
         : 'Pedido enviado. O barbeiro já recebeu seu horário.')
+      void celebrate()
       await onRefresh()
       navigate('/cliente/horarios')
     } catch (error) {
@@ -257,18 +279,25 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
     }
   }
 
+  useEffect(() => {
+    if (section !== 'horarios') return
+    let active = true
+    repository.myReviews().then((value) => active && setMyReviews(value)).catch(() => undefined)
+    return () => { active = false }
+  }, [section])
+
   if (!section || !['agendar', 'horarios', 'perfil'].includes(section)) {
     return <Navigate replace to={upcoming.length > 0 ? '/cliente/horarios' : '/cliente/agendar'} />
   }
 
   const appointmentCard = (appointment: Appointment, spotlight = false) => (
-    <article className={`appointment-card ${spotlight ? 'appointment-spotlight' : ''}`} data-testid={spotlight ? 'client-next-appointment' : undefined} key={appointment.id}>
-      <div className="appointment-top"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
-      <h3>{appointment.service.name}</h3>
+    <article className={cn('border-t border-line py-4 first:border-t-0 first:pt-0 [&_p]:mb-1.5 [&_p]:flex [&_p]:items-center [&_p]:gap-1.5 [&_p]:text-xs [&_p]:text-muted', spotlight && 'border-0 p-0')} data-testid={spotlight ? 'client-next-appointment' : undefined} key={appointment.id}>
+      <div className="flex items-center justify-between gap-2 [&_time]:text-xs [&_time]:text-muted"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
+      <h3 className="mt-3 mb-1.5 font-serif text-[1.15rem] font-medium">{appointment.service.name}</h3>
       <p><UserRound aria-hidden="true" /> {appointment.barber.name}</p>
       <p><Clock3 aria-hidden="true" /> {appointment.service.duration} min · {formatCurrency(appointment.service.price)}</p>
       {appointment.paymentStatus === 'PENDING' ? (
-        <div className="payment-warning">
+        <div className="my-2.5 rounded-r-lg border-l-[3px] border-brand bg-tint p-2.5 text-tint-ink [&_p]:text-tint-ink [&_p:last-child]:mb-0">
           {appointment.paymentExpiresAt && new Date(appointment.paymentExpiresAt).getTime() <= now ? (
             <p><span aria-hidden="true">$</span> Reserva expirada. O horário não está mais reservado.</p>
           ) : (
@@ -281,164 +310,143 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       ) : appointment.paymentStatus !== 'NOT_REQUIRED' && (
         <p><span aria-hidden="true">$</span> {paymentLabel(appointment.paymentAmount, appointment.service.price)} {formatCurrency(appointment.paymentAmount)} · {appointment.paymentStatus === 'APPROVED' ? 'pago' : appointment.paymentStatus === 'REFUNDED' ? 'estornado' : 'não aprovado'}</p>
       )}
-      <div className="appointment-actions">
-        <button className="text-button" disabled={busy} onClick={() => startReschedule(appointment)}>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <TextButton disabled={busy} onClick={() => startReschedule(appointment)}>
           <CalendarDays aria-hidden="true" /> Remarcar
-        </button>
-        <button className="text-button danger" disabled={busy} onClick={() => void openCancellation(appointment)}>
+        </TextButton>
+        <TextButton tone="danger" disabled={busy} onClick={() => void openCancellation(appointment)}>
           <X aria-hidden="true" /> Cancelar horário
-        </button>
+        </TextButton>
       </div>
     </article>
   )
 
   return (
     <>
-    <main id="top" className="page-wrap section-page" data-section={section} inert={cancelTarget ? true : undefined} aria-hidden={cancelTarget ? true : undefined}>
-      {message && <p className="form-message global-message" role="status">{message}</p>}
+    <PageWrap id="top" data-section={section} inert={cancelTarget ? true : undefined} aria-hidden={cancelTarget ? true : undefined}>
+      {message && <Notice role="status">{message}</Notice>}
       <WalkInQueuePanel hideWhenEmpty />
 
       {section === 'agendar' && (
         <>
-        <header className="page-heading">
-          <p className="eyebrow">Novo horário</p>
-          <h1>Reserve sua cadeira.</h1>
-          <p>Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</p>
-        </header>
+        <PageHeading eyebrow="Novo horário" title="Reserve sua cadeira.">Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</PageHeading>
         {upcoming[0] && (
-          <section className="panel next-appointment-summary" aria-labelledby="next-before-booking">
-            <div className="section-heading compact">
-              <div><p className="eyebrow">Antes de agendar outro</p><h2 id="next-before-booking">Seu próximo horário</h2></div>
-              <Link className="button button-ghost button-small" to="/cliente/horarios">Ver agenda</Link>
-            </div>
+          <section className={cardStyles} aria-labelledby="next-before-booking">
+            <SectionHeading eyebrow="Antes de agendar outro" title="Seu próximo horário" id="next-before-booking" aside={<Link className={buttonStyles({ variant: 'ghost', size: 'sm' })} to="/cliente/horarios">Ver agenda</Link>} className="mb-5" />
             {appointmentCard(upcoming[0], true)}
           </section>
         )}
-        <section ref={bookingPanel} className="panel booking-panel" data-testid="booking-form" aria-labelledby="booking-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{rescheduleTarget ? 'Remarcar agendamento' : 'Novo agendamento'}</p>
-              <h2 id="booking-title">{rescheduleTarget ? 'Escolha o novo horário' : 'Monte seu horário'}</h2>
-            </div>
-            <span className="step-count">Passo {bookingStep} de 3</span>
-          </div>
-          <ol className="booking-progress" aria-label="Progresso do agendamento">
-            {['Serviço', 'Data', 'Barbeiro e horário'].map((label, index) => (
-              <li className={bookingStep === index + 1 ? 'current' : bookingStep > index + 1 ? 'complete' : ''} aria-current={bookingStep === index + 1 ? 'step' : undefined} key={label}>
-                <span>{index + 1}</span>{label}
-              </li>
-            ))}
-          </ol>
+        <section ref={bookingPanel} className={cn(cardStyles, 'grid gap-5 max-sm:pb-24')} data-testid="booking-form" aria-labelledby="booking-title">
+          <SectionHeading
+            eyebrow={rescheduleTarget ? 'Remarcar agendamento' : 'Novo agendamento'}
+            title={rescheduleTarget ? 'Escolha o novo horário' : 'Monte seu horário'}
+            id="booking-title"
+            aside={<Badge tone="warning">Passo {bookingStep} de 3</Badge>}
+          />
+          <Stepper label="Progresso do agendamento" steps={['Serviço', 'Data', 'Barbeiro e horário']} current={bookingStep} />
           {rescheduleTarget && (
-            <p className="form-message" role="status">
+            <Notice role="status">
               Serviço e barbeiro serão mantidos. O pagamento já feito continua valendo.
-            </p>
+            </Notice>
           )}
           {!rescheduleTarget && lastAppointment && (
-            <div className="repeat-booking">
-              <div><strong>{lastAppointment.service.name}</strong><span>com {lastAppointment.barber.name}</span></div>
-              <button className="button button-small button-dark" type="button" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</button>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-4">
+              <div className="grid gap-0.5"><strong>{lastAppointment.service.name}</strong><span className="text-sm text-muted">com {lastAppointment.barber.name}</span></div>
+              <Button variant="dark" size="sm" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</Button>
             </div>
           )}
-          <form onSubmit={submit} className="booking-form">
-            {bookingStep === 1 && <fieldset>
-              <legend><span>01</span> O que vamos fazer?</legend>
-              <div className="choice-grid">
+          <form onSubmit={submit} className="grid gap-8">
+            {bookingStep === 1 && <StepFieldset step="01" title="O que vamos fazer?">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {services.length === 0 && (
-                  <div className="empty-state"><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className="button button-ghost" type="button" onClick={() => void onRefresh()}>Tentar novamente</button></div>
+                  <EmptyState><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => void onRefresh()}>Tentar novamente</button></EmptyState>
                 )}
                 {services.map((service) => (
-                  <label className={`choice-card ${form.serviceId === service.id ? 'selected' : ''}`} key={service.id}>
-                    <input
-                      type="radio"
-                      name="service"
-                      value={service.id}
-                      checked={form.serviceId === service.id}
-                      onChange={(event) => setForm({ ...form, serviceId: event.target.value })}
-                      required
-                    />
-                    <Scissors aria-hidden="true" />
-                    <span><strong>{service.name}</strong><small>{service.duration} min · {formatCurrency(service.price)}</small></span>
-                    {form.serviceId === service.id && <Check className="choice-check" aria-hidden="true" />}
-                  </label>
+                  <ChoiceCard
+                    key={service.id}
+                    name="service"
+                    value={service.id}
+                    checked={form.serviceId === service.id}
+                    onChange={(event) => setForm({ ...form, serviceId: event.target.value })}
+                    required
+                    icon={<Scissors />}
+                    title={service.name}
+                    hint={`${service.duration} min · ${formatCurrency(service.price)}`}
+                  />
                 ))}
               </div>
-              {membershipVisit && <p className="form-message" role="status">{membershipVisit.covered ? `Esta visita está incluída na sua assinatura: nenhum sinal será cobrado. Depois dela, restará(ão) ${Math.max(0, membershipVisit.remainingVisits - 1)} visita(s).` : 'Esta visita não está incluída ou o limite do período acabou. A política normal de sinal será aplicada.'}</p>}
-            </fieldset>}
+              {membershipVisit && <Notice role="status">{membershipVisit.covered ? `Esta visita está incluída na sua assinatura: nenhum sinal será cobrado. Depois dela, restará(ão) ${Math.max(0, membershipVisit.remainingVisits - 1)} visita(s).` : 'Esta visita não está incluída ou o limite do período acabou. A política normal de sinal será aplicada.'}</Notice>}
+            </StepFieldset>}
 
-            {bookingStep === 2 && <fieldset>
-              <legend><span>02</span> Quando?</legend>
-              <label className="date-field">
-                <CalendarDays aria-hidden="true" />
-                <span><strong>Data</strong><small>Duração estimada: {selectedService?.duration ?? '—'} min</small></span>
-                <input
-                  aria-label="Data"
-                  type="date"
-                  value={date}
-                  min={dateInTimezone(timezone)}
-                  onChange={(event) => {
-                    setDate(event.target.value)
+            {bookingStep === 2 && <StepFieldset step="02" title="Quando?">
+              <div className="grid gap-3.5 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5" data-testid="date-picker">
+                <p className="flex items-center gap-3.5 rounded-xl bg-gradient-to-br from-tint to-brand-light/40 px-4 py-3.5">
+                  <CalendarDays className="size-6 shrink-0 text-brand-deep" aria-hidden="true" />
+                  <span className="grid"><strong className="font-serif text-lg font-medium first-letter:uppercase">{date ? formatPickedDate(date) : 'Escolha um dia'}</strong><small className="text-xs text-tint-ink/80">Duração estimada: {selectedService?.duration ?? '—'} min</small></span>
+                </p>
+                <Calendar
+                  mode="single"
+                  selected={date ? new Date(`${date}T12:00:00`) : undefined}
+                  defaultMonth={date ? new Date(`${date}T12:00:00`) : new Date(`${dateInTimezone(timezone)}T12:00:00`)}
+                  disabled={{ before: new Date(`${dateInTimezone(timezone)}T12:00:00`) }}
+                  modifiers={{ closed: { dayOfWeek: closedWeekdays } }}
+                  modifiersClassNames={{ closed: '[&>button]:text-muted [&>button]:line-through' }}
+                  onSelect={(picked) => {
+                    if (!picked) return
+                    setDate(format(picked, 'yyyy-MM-dd'))
                     setForm((current) => ({ ...current, barberId: rescheduleTarget ? current.barberId : '', scheduledAt: '' }))
                   }}
-                  required
                 />
-              </label>
-              {loadingBarbers && <p className="availability-status" role="status">Consultando quem atende nesta data…</p>}
-              {barbersError && <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className="button button-ghost" type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>}
-            </fieldset>}
+                {closedWeekdays.length > 0 && <small className="text-center text-xs text-muted">Dias riscados: a barbearia não abre.</small>}
+              </div>
+              {loadingBarbers && <p className="text-xs text-muted" role="status">Consultando quem atende nesta data…</p>}
+              {barbersError && <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>}
+            </StepFieldset>}
 
-            {bookingStep === 3 && <fieldset>
-              <legend><span>03</span> Com quem?</legend>
+            {bookingStep === 3 && <StepFieldset step="03" title="Com quem?">
               {rescheduleTarget ? (
-                <p className="form-message">Barbeiro mantido na remarcação. Escolha um novo horário disponível.</p>
+                <Notice>Barbeiro mantido na remarcação. Escolha um novo horário disponível.</Notice>
               ) : loadingBarbers ? (
-                <p className="availability-status" role="status">Consultando quem atende nesta data…</p>
+                <p className="text-xs text-muted" role="status">Consultando quem atende nesta data…</p>
               ) : barbersError ? (
-                <div className="empty-state"><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className="button button-ghost" type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></div>
+                <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>
               ) : availableBarbers.length === 0 ? (
-                <div className="empty-state barber-empty-state">
+                <EmptyState className="col-span-full">
                   <UserRound aria-hidden="true" />
                   <strong>Ninguém disponível nesta data</strong>
                   <p>{nextAvailableDate ? `O próximo dia com atendimento é ${formatShortDate(nextAvailableDate)}.` : 'Não encontramos atendimento nos próximos 60 dias.'}</p>
-                  {nextAvailableDate && <button className="button button-primary" type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
-                  <button className="button button-ghost" type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
-                  {waitlistRequested && <p className="form-message" role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</p>}
-                </div>
+                  {nextAvailableDate && <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
+                  <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
+                  {waitlistRequested && <Notice role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</Notice>}
+                </EmptyState>
               ) : (
-              <div className="choice-grid choice-grid-small">
-                <label className={`choice-card any-barber-card ${availableBarbers.length > 1 ? 'recommended' : ''} ${form.barberId === 'any' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="barber"
-                    value="any"
-                    checked={form.barberId === 'any'}
-                    onChange={(event) => setForm({ ...form, barberId: event.target.value })}
-                    required
-                  />
-                  <UserRound aria-hidden="true" />
-                  <span><strong>Qualquer barbeiro disponível</strong><small>{availableBarbers.length > 1 ? 'Mais opções de horário para você' : 'Primeiro horário disponível'}</small></span>
-                  {form.barberId === 'any' && <Check className="choice-check" aria-hidden="true" />}
-                </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ChoiceCard
+                  name="barber"
+                  value="any"
+                  checked={form.barberId === 'any'}
+                  onChange={(event) => setForm({ ...form, barberId: event.target.value })}
+                  required
+                  recommended={availableBarbers.length > 1}
+                  icon={<UserRound />}
+                  title="Qualquer barbeiro disponível"
+                  hint={availableBarbers.length > 1 ? 'Mais opções de horário para você' : 'Primeiro horário disponível'}
+                />
                 {datedBarbers.map((barber) => (
-                  <label className={`choice-card ${barber.available ? '' : 'unavailable'} ${form.barberId === barber.id ? 'selected' : ''}`} key={barber.id}>
-                    <input
-                      type="radio"
-                      name="barber"
-                      value={barber.id}
-                      checked={form.barberId === barber.id}
-                      onChange={(event) => setForm({ ...form, barberId: event.target.value })}
-                      disabled={!barber.available}
-                      required
-                    />
-                    <UserRound aria-hidden="true" />
-                    <span>
-                      <strong>{barber.name}</strong>
-                      <small>{barber.available
-                        ? `${barber.slotCount} horário${barber.slotCount === 1 ? '' : 's'} · primeiro às ${barber.firstAvailableTime}`
-                        : `${barber.unavailableReason}${barber.nextAvailableDate ? ` · atende em ${formatShortDate(barber.nextAvailableDate)}` : ''}`}</small>
-                    </span>
-                    {form.barberId === barber.id && <Check className="choice-check" aria-hidden="true" />}
-                  </label>
+                  <ChoiceCard
+                    key={barber.id}
+                    name="barber"
+                    value={barber.id}
+                    checked={form.barberId === barber.id}
+                    onChange={(event) => setForm({ ...form, barberId: event.target.value })}
+                    disabled={!barber.available}
+                    required
+                    icon={<UserRound />}
+                    title={barber.name}
+                    hint={barber.available
+                      ? `${barber.slotCount} horário${barber.slotCount === 1 ? '' : 's'} · primeiro às ${barber.firstAvailableTime}`
+                      : `${barber.unavailableReason}${barber.nextAvailableDate ? ` · atende em ${formatShortDate(barber.nextAvailableDate)}` : ''}`}
+                  />
                 ))}
               </div>
               )}
@@ -451,19 +459,19 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                 onSelect={(scheduledAt) => setForm({ ...form, scheduledAt })}
                 onRetry={() => setAvailabilityRevision((revision) => revision + 1)}
               />
-            </fieldset>}
+            </StepFieldset>}
 
-            <div className="form-action-bar">
-              {bookingStep > 1 && !rescheduleTarget && <button className="button button-ghost" type="button" onClick={() => setBookingStep((step) => step - 1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
+            <ActionBar>
+              {bookingStep > 1 && !rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBookingStep((step) => step - 1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
               {bookingStep < 3 ? (
-                <button className="button button-primary" type="button" disabled={bookingStep === 1 ? !form.serviceId : !date || loadingBarbers || Boolean(barbersError)} onClick={() => setBookingStep((step) => step + 1)}>Continuar <ChevronRight aria-hidden="true" /></button>
+                <button className={buttonStyles({ variant: 'primary' })} type="button" disabled={bookingStep === 1 ? !form.serviceId : !date || loadingBarbers || Boolean(barbersError)} onClick={() => setBookingStep((step) => step + 1)}>Continuar <ChevronRight aria-hidden="true" /></button>
               ) : (
-                <button className="button button-primary" disabled={busy || !form.scheduledAt}>
+                <button className={buttonStyles({ variant: 'primary' })} disabled={busy || !form.scheduledAt}>
                   {busy ? (rescheduleTarget ? 'Remarcando…' : 'Reservando…') : (rescheduleTarget ? 'Confirmar novo horário' : 'Solicitar agendamento')} <CalendarDays aria-hidden="true" />
                 </button>
               )}
-              {rescheduleTarget && <button className="button button-ghost" disabled={busy} onClick={stopReschedule} type="button">Manter horário atual</button>}
-            </div>
+              {rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} disabled={busy} onClick={stopReschedule} type="button">Manter horário atual</button>}
+            </ActionBar>
           </form>
         </section>
         </>
@@ -471,46 +479,46 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
 
       {section === 'horarios' && (
         <>
-          <header className="page-heading">
-            <p className="eyebrow">Sua agenda</p>
-            <h1>{upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}</h1>
-            <p>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</p>
-          </header>
-          <section className="panel appointments-section" aria-labelledby="upcoming-title">
-            <div className="section-heading compact">
-              <div><p className="eyebrow">Confirmados e pendentes</p><h2 id="upcoming-title">Próximos horários</h2></div>
-              <span className="count-badge">{upcoming.length}</span>
-            </div>
-            <div className="appointment-list">
+          <PageHeading eyebrow="Sua agenda" title={upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</PageHeading>
+          <section className={cn(cardStyles, 'max-w-[820px]')} aria-labelledby="upcoming-title">
+            <SectionHeading eyebrow="Confirmados e pendentes" title="Próximos horários" id="upcoming-title" aside={<CountBadge>{upcoming.length}</CountBadge>} className="mb-5" />
+            <div className="grid gap-3.5">
               {upcoming.length === 0 && <EmptyAppointments />}
               {upcoming.map((appointment, index) => appointmentCard(appointment, index === 0))}
             </div>
-            <Link className="button button-primary section-primary-action" to="/cliente/agendar"><CalendarDays aria-hidden="true" /> {upcoming.length > 0 ? 'Agendar outro horário' : 'Agendar agora'}</Link>
+            <Link className={cn(buttonStyles({ variant: 'primary' }), 'mt-5 w-fit no-underline')} to="/cliente/agendar"><CalendarDays aria-hidden="true" /> {upcoming.length > 0 ? 'Agendar outro horário' : 'Agendar agora'}</Link>
           </section>
           {history.length > 0 && (
-            <details className="history panel">
+            <details className={cn(cardStyles, 'rounded-xl border-dashed text-xs text-muted [&_summary]:cursor-pointer [&_summary]:text-sm [&_summary]:font-bold [&_summary]:text-ink')}>
               <summary>Ver histórico ({history.length})</summary>
               {history.map((item) => (
-                <div className="history-item" key={item.id}>
+                <div className="mt-3 grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1 [&_p]:m-0 [&>strong]:col-start-2 [&>strong]:text-[.68rem] [&>strong]:text-danger" data-testid="history-item" key={item.id}>
                   <StatusBadge status={item.status} />
                   <p>{formatDate(item.scheduledAt)} · {item.service.name}</p>
                   {item.paymentStatus === 'REFUNDED' && <strong>Pagamento estornado</strong>}
                   {item.depositRetained && <strong>Falta registrada · sinal pago retido</strong>}
+                  {item.status === 'DONE' && (() => {
+                    const review = myReviews.find((entry) => entry.appointmentId === item.id)
+                    return review
+                      ? <span className="review-line"><Stars value={review.rating} label={`Sua nota: ${review.rating} de 5`} /> Sua avaliação</span>
+                      : <button className={buttonStyles({ variant: 'primary', size: 'sm' })} type="button" onClick={() => setReviewTarget(item)}><Star aria-hidden="true" /> Avaliar atendimento</button>
+                  })()}
                 </div>
               ))}
             </details>
           )}
-          {history.length === 0 && <p className="empty-copy">Seu histórico aparecerá aqui depois do primeiro atendimento concluído ou cancelado.</p>}
+          {history.length === 0 && <p className="mt-4 text-sm text-muted">Seu histórico aparecerá aqui depois do primeiro atendimento concluído ou cancelado.</p>}
         </>
       )}
 
       {section === 'perfil' && (
         <>
-          <header className="page-heading"><p className="eyebrow">Seu perfil</p><h1>Preferências e benefícios.</h1><p>Fidelidade, endereço e lembretes em um só lugar.</p></header>
-          <div className="profile-grid">
+          <PageHeading eyebrow="Seu perfil" title="Preferências e benefícios.">Fidelidade, endereço e lembretes em um só lugar.</PageHeading>
+          <div className="grid max-w-[900px] gap-4 md:grid-cols-[1.2fr_1fr]">
+            <MyPackages />
             <MembershipPanel mode="customer" services={services} barbers={barbers} />
             <LoyaltyCardPanel />
-            <div className="location-card">
+            <div className="flex items-center gap-3 rounded-2xl bg-chrome p-4 text-chrome-ink [&>svg]:size-5 [&>svg]:text-brand-light [&>div]:grid [&>div]:gap-0.5 [&_span]:text-xs [&_span]:text-chrome-ink/70" data-testid="location-card">
             <MapPin aria-hidden="true" />
             <div>
               <strong>{barbershop?.name || 'Barbearia'}</strong>
@@ -518,7 +526,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
               {barbershop && <span>Expediente: {formatBusinessHours(barbershop.businessHours)}</span>}
             </div>
           </div>
-            <div className="location-card">
+            <div className="flex items-center gap-3 rounded-2xl bg-chrome p-4 text-chrome-ink [&>svg]:size-5 [&>svg]:text-brand-light [&>div]:grid [&>div]:gap-0.5 [&_span]:text-xs [&_span]:text-chrome-ink/70">
             <BellRing aria-hidden="true" />
             <div>
               <strong>Avisos do seu horário</strong>
@@ -534,7 +542,10 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
           </div>
         </>
       )}
-    </main>
+    </PageWrap>
+    {reviewTarget && (
+      <ReviewDialog appointment={reviewTarget} onClose={() => setReviewTarget(null)} onSubmitted={(review) => { setMyReviews((current) => [...current, review]); setReviewTarget(null) }} />
+    )}
     {cancelTarget && (
       <ConfirmDialog
         eyebrow="Confirmar cancelamento"
@@ -576,10 +587,10 @@ function cancelDescription(appointment: Appointment, quote: CancellationQuote | 
 
 function EmptyAppointments() {
   return (
-    <div className="empty-state">
+    <EmptyState>
       <CalendarDays aria-hidden="true" />
       <strong>Nenhum horário marcado</strong>
       <p>Seu próximo agendamento aparecerá aqui.</p>
-    </div>
+    </EmptyState>
   )
 }

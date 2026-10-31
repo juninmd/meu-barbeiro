@@ -14,6 +14,9 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+// Radix usa portal e agenda foco/retorno em timers: esperamos o ciclo terminar.
+const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+
 const mountDialog = (onCancel = () => undefined) => {
   const container = document.createElement('div')
   document.body.append(container)
@@ -34,20 +37,22 @@ const mountDialog = (onCancel = () => undefined) => {
 }
 
 describe('ConfirmDialog', () => {
-  it('starts on the safe button and traps focus in both Tab directions', () => {
-    const container = mountDialog()
-    const [safeButton, confirmButton] = [...container.querySelectorAll('button')]
+  it('starts on the safe button and traps focus in both Tab directions', async () => {
+    mountDialog()
+    await settle()
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    const [safeButton, confirmButton] = [...dialog.querySelectorAll('button')]
 
     expect(document.activeElement).toBe(safeButton)
     confirmButton?.focus()
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+    act(() => { dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })) })
     expect(document.activeElement).toBe(safeButton)
     safeButton?.focus()
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }))
+    act(() => { dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })) })
     expect(document.activeElement).toBe(confirmButton)
   })
 
-  it('closes with Escape and restores focus to the opener', () => {
+  it('closes with Escape and restores focus to the opener', async () => {
     const opener = document.createElement('button')
     document.body.append(opener)
     opener.focus()
@@ -72,13 +77,15 @@ describe('ConfirmDialog', () => {
     }
 
     act(() => root.render(<Harness />))
-    act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    await settle()
+    act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    await settle()
 
-    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
     expect(document.activeElement).toBe(opener)
   })
 
-  it('renders an operation error inside the dialog', () => {
+  it('renders an operation error inside the dialog', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -96,6 +103,7 @@ describe('ConfirmDialog', () => {
       />,
     ))
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Não foi possível concluir')
+    await settle()
+    expect(document.querySelector('[role="dialog"] [role="alert"]')?.textContent).toBe('Não foi possível concluir')
   })
 })

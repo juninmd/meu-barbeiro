@@ -1,13 +1,67 @@
 export type Role = 'ADMIN' | 'BARBER' | 'CUSTOMER'
 
+export type EstablishmentRequestStatus = 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface Establishment {
+  slug: string
+  name: string
+  role: 'OWNER' | 'ADMIN' | 'BARBER'
+}
+
 export interface User {
   id: string
   name: string
-  email?: string
+  email?: string | null
+  username?: string | null
   phone?: string | null
   telegramId?: string | null
   noShowCount?: number
   role: Role
+  /** Administrador da plataforma: aprova quem pode cadastrar um estabelecimento. */
+  platformAdmin?: boolean
+  establishmentRequest?: EstablishmentRequestStatus
+  establishmentRequestNote?: string | null
+  establishments?: Establishment[]
+}
+
+export interface AdminOverview {
+  users: number
+  barbershops: number
+  pendingRequests: number
+  activeSubscriptions: number
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  email: string | null
+  username: string | null
+  role: Role
+  platformAdmin: boolean
+  establishmentRequest: EstablishmentRequestStatus
+  establishmentRequestNote: string | null
+  establishmentRequestedAt: string | null
+  establishmentDecidedAt: string | null
+  createdAt: string
+  memberships: Array<{ role: Establishment['role']; barbershop: { slug: string; name: string } }>
+}
+
+export interface AdminBarbershop {
+  id: string
+  slug: string
+  name: string
+  address: string | null
+  subscriptionStatus: string
+  createdAt: string
+  owner: { name: string; email: string | null } | null
+  appointments: number
+  services: number
+}
+
+export interface NewEstablishment {
+  name: string
+  slug: string
+  address?: string
 }
 
 export interface Barber extends User {
@@ -452,4 +506,76 @@ export interface LoyaltyProgramInput {
   enabled: boolean
   requiredVisits: number
   rewardDescription: string
+}
+
+export interface ReviewSummary {
+  average: number
+  count: number
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>
+}
+
+export interface MyReview {
+  appointmentId: string
+  rating: number
+  comment: string | null
+}
+
+export interface StaffReview {
+  id: string
+  rating: number
+  comment: string | null
+  createdAt: string
+  customerName: string
+  barberName: string
+  serviceName: string
+}
+
+export interface ReviewsOverview {
+  summary: ReviewSummary
+  reviews: StaffReview[]
+}
+
+/** Página pública da barbearia (sem login). */
+export interface ShopProfile {
+  barbershop: Pick<Barbershop, 'slug' | 'name' | 'logoUrl' | 'primaryColor' | 'address' | 'timezone' | 'businessHours'>
+  services: Array<{ id: string; name: string; duration: number; price: number }>
+  team: Array<{ id: string; name: string; specialty: string }>
+  packages: Array<{ id: string; name: string; sessions: number; price: number; validityDays: number }>
+  rating: ReviewSummary
+  reviews: Array<{ id: string; rating: number; comment: string | null; createdAt: string; customerName: string }>
+}
+
+export interface ServicePackage {
+  id: string
+  name: string
+  serviceId: string | null
+  serviceName: string | null
+  sessions: number
+  price: number
+  validityDays: number
+  active: boolean
+}
+
+export type CustomerPackageStatus = 'ACTIVE' | 'EXHAUSTED' | 'EXPIRED'
+
+export interface CustomerPackage {
+  id: string
+  name: string
+  serviceId: string | null
+  serviceName: string | null
+  sessionsTotal: number
+  sessionsUsed: number
+  remaining: number
+  price: number
+  purchasedAt: string
+  expiresAt: string
+  status: CustomerPackageStatus
+}
+
+export interface NewServicePackage {
+  name: string
+  serviceId: string | null
+  sessions: number
+  price: number
+  validityDays: number
 }

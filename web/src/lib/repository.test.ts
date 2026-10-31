@@ -45,7 +45,8 @@ describe('development mock repository', () => {
 
   const nextOpenDate = (hour = 11) => {
     const closedWeekdays = ['Sun', 'Mon']
-    let date = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    // +2 dias: os agendamentos de exemplo ficam em hoje/amanhã no fuso do executor, que pode diferir do da barbearia.
+    let date = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
     while (closedWeekdays.includes(String(shopParts(date).weekday))) {
       date = new Date(date.getTime() + 24 * 60 * 60 * 1000)
     }
@@ -577,19 +578,26 @@ describe('development mock repository', () => {
   })
 
   it('builds mock closing from DONE services and recorded product sale prices', async () => {
-    await repository.updateAppointment('appointment-1', 'DONE')
-    await repository.sellProduct('product-pomade', { quantity: 2 })
-    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
-      timeZone: shopTimezone, year: 'numeric', month: '2-digit', day: '2-digit',
-    }).formatToParts(new Date()).map((part) => [part.type, part.value]))
-    const today = `${parts.year}-${parts.month}-${parts.day}`
+    // Relógio fixo ao meio-dia no fuso da barbearia: o exemplo e a venda caem no mesmo dia em qualquer executor.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-05T15:00:00.000Z'))
+    try {
+      await repository.updateAppointment('appointment-1', 'DONE')
+      await repository.sellProduct('product-pomade', { quantity: 2 })
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+        timeZone: shopTimezone, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(new Date()).map((part) => [part.type, part.value]))
+      const today = `${parts.year}-${parts.month}-${parts.day}`
 
-    const report = await repository.report(today, today)
+      const report = await repository.report(today, today)
 
-    expect(report.cashBasis).toBe('DONE_ONLY')
-    expect(report.totals.serviceRevenueCents).toBe(8_500)
-    expect(report.totals.productRevenueCents).toBe(6_400)
-    expect(report.totals.netRevenueCents).toBe(14_815)
+      expect(report.cashBasis).toBe('DONE_ONLY')
+      expect(report.totals.serviceRevenueCents).toBe(8_500)
+      expect(report.totals.productRevenueCents).toBe(6_400)
+      expect(report.totals.netRevenueCents).toBe(14_815)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('waives the deposit only for the included customer membership visits', async () => {
@@ -622,5 +630,51 @@ describe('development mock repository', () => {
     expect((await repository.customerSubscription())?.status).toBe('CANCELLED')
     expect((await repository.recurringBookings()).find((item) => item.id === booking.id)?.active).toBe(false)
     expect(await repository.membershipBenefit('service-cut')).toEqual({ covered: false, remainingVisits: 0 })
+  })
+
+  it('lets a customer review a completed appointment once and feeds the public profile', async () => {
+    repository.mockUser('BARBER')
+    await repository.updateAppointment('appointment-1', 'DONE')
+    const before = await repository.shopProfile()
+    repository.mockUser('CUSTOMER')
+    await expect(repository.submitReview({ appointmentId: 'appointment-2', rating: 5 })).rejects.toThrow('Atendimento não encontrado')
+    await expect(repository.submitReview({ appointmentId: 'appointment-1', rating: 7 })).rejects.toThrow('Escolha de 1 a 5 estrelas')
+    const review = await repository.submitReview({ appointmentId: 'appointment-1', rating: 5, comment: '  Nota 10  ' })
+    expect(review).toEqual({ appointmentId: 'appointment-1', rating: 5, comment: 'Nota 10' })
+    await expect(repository.submitReview({ appointmentId: 'appointment-1', rating: 4 })).rejects.toThrow('já foi avaliado')
+    expect(await repository.myReviews()).toHaveLength(1)
+    const after = await repository.shopProfile()
+    expect(after.rating.count).toBe(before.rating.count + 1)
+    expect(after.reviews[0]).toMatchObject({ comment: 'Nota 10', customerName: 'Marina Costa' })
+  })
+
+  it('only completed appointments can be reviewed', async () => {
+    repository.mockUser('CUSTOMER')
+    await expect(repository.submitReview({ appointmentId: 'appointment-1', rating: 5 })).rejects.toThrow('concluídos')
+  })
+
+  it('sells a package, redeems sessions and blocks exhausted ones', async () => {
+    repository.mockUser('BARBER')
+    const created = await repository.createPackage({ name: 'Mini 2 cortes', serviceId: null, sessions: 2, price: 90, validityDays: 30 })
+    expect(created).toMatchObject({ sessions: 2, price: 90, active: true })
+    await expect(repository.createPackage({ name: 'Ruim', serviceId: null, sessions: 1, price: 10, validityDays: 30 })).rejects.toThrow('2 a 50')
+    const sold = await repository.sellPackage(created.id, 'customer-demo')
+    expect(sold).toMatchObject({ sessionsTotal: 2, remaining: 2, status: 'ACTIVE' })
+    expect((await repository.redeemPackage(sold.id)).remaining).toBe(1)
+    const last = await repository.redeemPackage(sold.id)
+    expect(last).toMatchObject({ remaining: 0, status: 'EXHAUSTED' })
+    await expect(repository.redeemPackage(sold.id)).rejects.toThrow('não tem mais sessões')
+    repository.mockUser('CUSTOMER')
+    expect((await repository.myPackages())[0]).toMatchObject({ name: 'Mini 2 cortes', status: 'EXHAUSTED' })
+  })
+
+  it('deactivated packages leave the public catalog but stay sold', async () => {
+    repository.mockUser('BARBER')
+    const created = await repository.createPackage({ name: 'Temporário', serviceId: null, sessions: 3, price: 60, validityDays: 30 })
+    const sold = await repository.sellPackage(created.id, 'customer-demo')
+    await repository.deactivatePackage(created.id)
+    expect((await repository.shopProfile()).packages.map((item) => item.name)).not.toContain('Temporário')
+    await expect(repository.sellPackage(created.id, 'customer-demo')).rejects.toThrow('desativado')
+    expect((await repository.customerPackages('customer-demo')).some((item) => item.id === sold.id)).toBe(true)
   })
 })

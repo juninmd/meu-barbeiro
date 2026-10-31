@@ -6,6 +6,8 @@ import { servicesRoutes } from './routes/services.routes.js'
 import { appointmentsRoutes } from './routes/appointments.routes.js'
 import { appointmentsFitNowRoutes, walkInQueueRoutes } from './routes/walk-in-queue.routes.js'
 import { authRoutes } from './routes/auth.routes.js'
+import { accountRoutes } from './routes/account.routes.js'
+import { adminRoutes } from './routes/admin.routes.js'
 import { barbersRoutes } from './routes/barbers.routes.js'
 import { barbershopsRoutes } from './routes/barbershops.routes.js'
 import { billingRoutes } from './routes/billing.routes.js'
@@ -16,6 +18,8 @@ import { loyaltyRoutes } from './routes/loyalty.routes.js'
 import { reportsRoutes } from './routes/reports.routes.js'
 import { plansRoutes } from './routes/plans.routes.js'
 import { subscriptionsRoutes } from './routes/subscriptions.routes.js'
+import { packagesRoutes } from './routes/packages.routes.js'
+import { reviewsRoutes } from './routes/reviews.routes.js'
 import { recurringBookingsRoutes } from './routes/recurring-bookings.routes.js'
 import { errorHandler } from './middleware/errors.js'
 import { PrismaSessionStore } from './lib/session-store.js'
@@ -33,7 +37,15 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }))
-app.use(express.json())
+app.disable('x-powered-by')
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains')
+  next()
+})
+app.use(express.json({ limit: '100kb' }))
 
 app.use(session({
   store: new PrismaSessionStore(),
@@ -61,6 +73,8 @@ if (process.env.ENABLE_DEV_LOGIN === 'true' && process.env.NODE_ENV !== 'product
 }
 
 app.use('/auth', authRoutes)
+app.use('/account', accountRoutes)
+app.use('/admin', adminRoutes)
 app.use('/barbershops', barbershopsRoutes)
 app.use('/billing/mercado-pago', billingRoutes)
 app.use('/services', servicesRoutes)
@@ -75,6 +89,8 @@ app.use('/loyalty', loyaltyRoutes)
 app.use('/plans', plansRoutes)
 app.use('/subscriptions', subscriptionsRoutes)
 app.use('/recurring-bookings', recurringBookingsRoutes)
+app.use('/reviews', reviewsRoutes)
+app.use('/packages', packagesRoutes)
 app.use(errorHandler)
 
 export { app }
