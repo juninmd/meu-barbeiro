@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { MotionConfig, motion } from 'motion/react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Login } from './components/Login'
+import { TrialBanner } from './components/TrialBanner'
 import { PublicShop } from './features/public/PublicShop'
+import { PricingPage } from './features/marketing/PricingPage'
+import { LegalPage } from './features/marketing/LegalPage'
+import { InvitationPage } from './features/onboarding/InvitationPage'
 import { Shell } from './components/Shell'
 import { AccountPage } from './features/account/AccountPage'
 import { EstablishmentOnboarding } from './features/account/EstablishmentOnboarding'
@@ -110,7 +114,21 @@ export default function App() {
     return <PublicShop onBook={() => setEntering(true)} onSignIn={() => setEntering(true)} />
   }
 
-  if (!user) return <Login onAuthenticated={(authenticated) => { setEntering(false); void enter(authenticated) }} {...(isTenantUrl ? { onBack: () => setEntering(false) } : {})} />
+  if (!user) {
+    const publicPage = ['/planos', '/termos', '/privacidade'].includes(location.pathname)
+    if (publicPage || location.pathname.startsWith('/convite/')) {
+      return (
+        <Routes>
+          <Route path="/planos" element={<PricingPage onStart={() => navigate('/')} onBack={() => navigate('/')} />} />
+          <Route path="/termos" element={<LegalPage kind="terms" />} />
+          <Route path="/privacidade" element={<LegalPage kind="privacy" />} />
+          <Route path="/convite/:token" element={<InvitationPage user={null} onLogin={() => navigate('/')} onLogout={async () => undefined} />} />
+          <Route path="*" element={<Navigate replace to="/" />} />
+        </Routes>
+      )
+    }
+    return <Login onAuthenticated={(authenticated) => { setEntering(false); void enter(authenticated) }} {...(isTenantUrl ? { onBack: () => setEntering(false) } : {})} />
+  }
 
   const isAdmin = Boolean(user.platformAdmin)
   const isBarber = !isAdmin && (user.role === 'BARBER' || user.role === 'ADMIN')
@@ -127,12 +145,17 @@ export default function App() {
 
   return (
     <Shell user={user} barbershop={data.barbershop} onLogout={logout}>
+      <TrialBanner barbershop={data.barbershop} />
       {error && <div className="flex items-center justify-center gap-4 bg-linear-to-r from-[#a44635] to-[#b4503c] p-3 text-sm text-white" role="alert">{error}<button className="min-h-11 cursor-pointer border-0 border-b border-current bg-transparent px-1 font-bold" onClick={() => refresh()}>Tentar novamente</button></div>}
       {/* Só opacidade: um transform aqui viraria bloco de contenção e deslocaria elementos position:fixed (barra de ação mobile). A chave é só a área (cliente/barbeiro/admin): trocar de seção não remonta nem perde o estado da tela. */}
       <MotionConfig reducedMotion="user">
       <motion.div data-testid="route-transition" key={location.pathname.split('/')[1] ?? ''} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
       <Routes>
         <Route path="/conta" element={<AccountPage user={user} />} />
+        <Route path="/planos" element={<PricingPage onStart={() => navigate('/conta')} onBack={() => navigate(defaultPath)} />} />
+        <Route path="/termos" element={<LegalPage kind="terms" />} />
+        <Route path="/privacidade" element={<LegalPage kind="privacy" />} />
+        <Route path="/convite/:token" element={<InvitationPage user={user} onLogin={() => navigate('/')} onLogout={logout} />} />
         {(mockEnabled || isAdmin) && <Route path="/design-system" element={<DesignSystemPage />} />}
         {isAdmin ? (
           <Route path="/admin/:section" element={<AdminDashboard />} />

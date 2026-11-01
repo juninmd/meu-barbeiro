@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, CalendarCheck, Eye, EyeOff, Lock, Mail, Scissors, ShieldCheck, Store, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm, type FieldErrors } from 'react-hook-form'
-import { errorMessage, mockEnabled, repository } from '../lib/repository'
+import { errorMessage, mockEnabled, repository, tenantSlug } from '../lib/repository'
 import { loginSchema, registerSchema } from '../lib/schemas'
 import type { User } from '../types'
 import { Button } from './ui/Button'
@@ -35,6 +35,10 @@ export function Login({ onAuthenticated, onBack }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [google, setGoogle] = useState(false)
+  const [guestName, setGuestName] = useState('')
+  const [guestPhone, setGuestPhone] = useState('')
+  const [guestBusy, setGuestBusy] = useState(false)
+  const [guestError, setGuestError] = useState<string | null>(null)
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<AuthValues>({
     // No login só exige preenchimento; no cadastro valem as regras de nome, e-mail e senha forte (mesmas da API).
     resolver: async (values) => {
@@ -83,6 +87,19 @@ export function Login({ onAuthenticated, onBack }: LoginProps) {
     setError(null)
     setValue('identifier', account.identifier)
     setValue('password', account.password)
+  }
+
+  const guestSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setGuestBusy(true)
+    setGuestError(null)
+    try {
+      onAuthenticated(await repository.guestSession(guestName.trim(), guestPhone.trim()))
+    } catch (caught) {
+      setGuestError(errorMessage(caught, 'Não foi possível continuar. Confira o número.'))
+    } finally {
+      setGuestBusy(false)
+    }
   }
 
   return (
@@ -175,6 +192,20 @@ export function Login({ onAuthenticated, onBack }: LoginProps) {
             </>
           )}
 
+          {tenantSlug && (
+            <form className="mt-5 grid gap-3 rounded-xl border border-dashed border-control bg-surface-2 p-4" onSubmit={guestSubmit}>
+              <div>
+                <strong className="text-sm">Agendar sem criar conta</strong>
+                <p className="text-xs text-muted">Informe nome e WhatsApp para escolher serviço, barbeiro e horário.</p>
+              </div>
+              <Field label="Seu nome"><Input value={guestName} onChange={(event) => setGuestName(event.target.value)} minLength={2} maxLength={80} required autoComplete="name" /></Field>
+              <Field label="WhatsApp"><Input value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} inputMode="tel" placeholder="(11) 99999-9999" minLength={8} maxLength={30} required autoComplete="tel" /></Field>
+              {guestError && <p className="text-xs font-semibold text-danger-ink" role="alert">{guestError}</p>}
+              <Button type="submit" variant="dark" block loading={guestBusy}>Continuar com meu WhatsApp</Button>
+              <small className="text-[.68rem] text-muted">O número identifica seus horários. Sem senha.</small>
+            </form>
+          )}
+
           {mockEnabled && (
             <div className="mt-2">
               <Divider>ambiente de demonstração</Divider>
@@ -192,6 +223,10 @@ export function Login({ onAuthenticated, onBack }: LoginProps) {
               </div>
             </div>
           )}
+
+          <p className="mt-5 text-center text-xs text-muted">
+            Ainda não tem conta? <a className="font-bold text-brand-deep underline-offset-2 hover:underline" href="/planos">Veja planos e preços</a>.
+          </p>
         </div>
       </section>
     </main>

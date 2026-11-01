@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, build e testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar client do Prisma
+        run: pnpm --filter api prisma:generate
+
+      - name: Typecheck e build da API
+        run: pnpm --filter api build
+
+      - name: Testes da API e do web
+        run: pnpm test
+
+      - name: Lint do web
+        run: pnpm lint
+
+      - name: Build de produção do web
+        run: pnpm --filter web build
+
+  migrations:
+    name: Migrations em banco limpo
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: meubarbeiro
+          POSTGRES_PASSWORD: meubarbeiro
+          POSTGRES_DB: meubarbeiro
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U meubarbeiro"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://meubarbeiro:meubarbeiro@localhost:5432/meubarbeiro?schema=public
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Sortear segredos de teste
+        run: |
+          echo "SESSION_SECRET=$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')" >> "$GITHUB_ENV"
+          echo "TOKEN_ENCRYPTION_KEY=$(node -e 'console.log(require("crypto").randomBytes(32).toString("base64"))')" >> "$GITHUB_ENV"
+
+      - name: Aplicar todas as migrations do zero
+        run: pnpm --filter api prisma:migrate:deploy
+
+      - name: Conferir status das migrations
+        run: pnpm --filter api exec prisma migrate status
+
+      - name: Rodar o seed (idempotente)
+        run: pnpm --filter api exec tsx src/seed.ts
+
+      - name: Validar dados criados
+        working-directory: api
+        run: |
+          node --input-type=module -e '
+            import { PrismaClient } from "@prisma/client";
+            const prisma = new PrismaClient();
+            const [shops, users, services] = await Promise.all([
+              prisma.barbershop.count(),
+              prisma.user.count(),
+              prisma.service.count(),
+            ]);
+            const admin = await prisma.user.findUnique({ where: { email: "admin@demo.local" } });
+            console.log({ shops, users, services, platformAdmin: admin?.role });
+            if (shops < 1 || services < 1 || admin?.role !== "PLATFORM_ADMIN") {
+              throw new Error("Seed não produziu o estado esperado");
+            }
+            await prisma.$disconnect();
+          '

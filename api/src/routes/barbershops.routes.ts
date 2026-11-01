@@ -8,6 +8,15 @@ import { calculateCommissionCents } from '../domain/billing.js'
 import { staffNotificationTypes } from '../lib/staff-notifications.js'
 import { logoUrlField, timezoneField } from '../lib/settings-fields.js'
 import { summarizeReviews } from '../lib/review-summary.js'
+import { professionalLimit, subscriptionSnapshot, trialEndsAt } from '../domain/plans.js'
+import {
+  createInvitationToken,
+  invitationAcceptUrl,
+  invitationExpiresAt,
+  invitationState,
+} from '../lib/invitations.js'
+import { mailer } from '../lib/mailer.js'
+import { audit } from '../lib/audit.js'
 
 const router = Router()
 const hourSchema = z.object({
@@ -65,6 +74,9 @@ const defaultHours = Array.from({ length: 7 }, (_, weekday) => ({
   enabled: weekday >= 2 && weekday <= 6,
 }))
 
+const slugSchema = z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(60)
+const planSchema = z.enum(['STARTER', 'PRO', 'SCALE'])
+
 const settingsSchema = z.object({
   name: z.string().trim().min(3).max(80),
   logoUrl: logoUrlField.optional(),
@@ -88,35 +100,103 @@ const settingsSchema = z.object({
   }
 })
 
-router.post('/', requireUser, async (req, res) => {
-  const user = req.user as SessionUser
-  if (!user.platformAdmin && user.establishmentRequest !== 'APPROVED') {
-    res.status(403).json({ message: 'O cadastro de estabelecimento precisa ser autorizado pelo administrador' })
-    return
+/** Slug livre para o cadastro, com sugestão quando já está em uso. */
+router.get('/slug-available', async (req, res, next) => {
+  try {
+    const slug = slugSchema.parse(req.query.slug)
+    const taken = await prisma.barbershop.findUnique({ where: { slug }, select: { id: true } })
+    res.json({
+      slug,
+      available: !taken,
+      suggestion: taken ? `${slug.slice(0, 50)}-${Math.floor(Math.random() * 900 + 100)}` : null,
+    })
+  } catch (error) {
+    next(error)
   }
-  const input = z.object({
-    name: z.string().trim().min(3).max(80),
-    slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(60),
-    address: z.string().trim().max(160).optional(),
-  }).parse(req.body)
-  const barbershop = await prisma.$transaction(async (tx) => {
-    const created = await tx.barbershop.create({
-      data: {
-        ...input,
-        address: input.address || null,
-        businessHours: { create: defaultHours },
-        memberships: { create: { userId: user.id, role: 'OWNER' } },
-      },
-      include: { businessHours: { orderBy: { weekday: 'asc' } } },
+})
+
+router.post('/', requireUser, async (req, res, next) => {
+  try {
+    const user = req.user as SessionUser
+    if (!user.platformAdmin && user.establishmentRequest !== 'APPROVED') {
+      res.status(403).json({
+        message: 'O cadastro de estabelecimento precisa ser autorizado pelo administrador',
+        code: 'ESTABLISHMENT_NOT_APPROVED',
+      })
+      return
+    }
+    const input = z.object({
+      name: z.string().trim().min(3).max(80),
+      slug: slugSchema,
+      address: z.string().trim().max(160).optional(),
+      plan: planSchema.optional(),
+    }).parse(req.body)
+
+    const existing = await prisma.barbershop.findUnique({ where: { slug: input.slug }, select: { id: true } })
+    if (existing) {
+      res.status(409).json({ message: 'Este link já está em uso. Escolha outro identificador.', code: 'SLUG_TAKEN' })
+      return
+    }
+
+    const owned = await prisma.membership.findMany({
+      where: { userId: user.id, role: 'OWNER' },
+      select: { barbershop: { select: { plan: true } } },
     })
-    // A autorização vale por um cadastro: novos estabelecimentos pedem nova aprovação.
-    await tx.user.update({
-      where: { id: user.id },
-      data: { role: 'ADMIN', ...(user.platformAdmin ? {} : { establishmentRequest: 'NONE' as const }) },
+    if (!user.platformAdmin && owned.length > 0) {
+      const scaleUnits = owned.filter((item) => item.barbershop.plan === 'SCALE').length
+      const allowedUnits = scaleUnits > 0 ? 5 : 1
+      if (owned.length >= allowedUnits) {
+        res.status(409).json({
+          message: 'Sua conta já administra uma barbearia. O plano Escala permite até 5 unidades.',
+          code: 'SHOP_LIMIT',
+          upgradeTo: 'SCALE',
+        })
+        return
+      }
+    }
+
+    const plan = input.plan === 'SCALE' ? 'SCALE' : input.plan === 'PRO' ? 'PRO' : 'STARTER'
+    const trial = trialEndsAt()
+    const barbershop = await prisma.$transaction(async (tx) => {
+      const created = await tx.barbershop.create({
+        data: {
+          name: input.name,
+          slug: input.slug,
+          address: input.address || null,
+          plan,
+          monthlyFeeCents: plan === 'SCALE' ? 14_990 : plan === 'PRO' ? 8_990 : 4_990,
+          subscriptionStatus: 'TRIALING',
+          trialEndsAt: trial,
+          billingEmail: user.email ?? null,
+          businessHours: { create: defaultHours },
+          memberships: { create: { userId: user.id, role: 'OWNER' } },
+        },
+        include: { businessHours: { orderBy: { weekday: 'asc' } } },
+      })
+      // A autorização vale por um cadastro: novos estabelecimentos pedem nova aprovação.
+      await tx.user.update({
+        where: { id: user.id },
+        data: { role: 'ADMIN', ...(user.platformAdmin ? {} : { establishmentRequest: 'NONE' as const }) },
+      })
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          barbershopId: created.id,
+          action: 'barbershop.created',
+          target: created.id,
+          metadata: { plan, trialEndsAt: trial.toISOString() },
+        },
+      })
+      return created
     })
-    return created
-  })
-  res.status(201).json(publicBarbershop(barbershop, true))
+    res.status(201).json({
+      ...publicBarbershop(barbershop, true),
+      membershipRole: 'OWNER',
+      subscription: subscriptionSnapshot(barbershop),
+    })
+  } catch (error) {
+    next(error)
+  }
 })
 
 router.get('/current', resolveBarbershop, async (req, res) => {
@@ -124,9 +204,21 @@ router.get('/current', resolveBarbershop, async (req, res) => {
   const membership = user ? await prisma.membership.findUnique({
     where: { barbershopId_userId: { barbershopId: req.barbershop!.id, userId: user.id } },
   }) : null
+  const staff = Boolean(membership)
   res.json({
-    ...publicBarbershop(req.barbershop!, Boolean(membership)),
+    ...publicBarbershop(req.barbershop!, staff),
     membershipRole: membership?.role ?? null,
+    ...(staff ? {
+      subscription: subscriptionSnapshot(req.barbershop!),
+      limits: {
+        professionals: Number.isFinite(professionalLimit(req.barbershop!.plan))
+          ? professionalLimit(req.barbershop!.plan)
+          : null,
+        units: 5,
+      },
+      shareUrl: `${(process.env.APP_PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')}/b/${req.barbershop!.slug}`,
+      onboardingCompletedAt: req.barbershop!.onboardingCompletedAt?.toISOString() ?? null,
+    } : {}),
   })
 })
 
@@ -320,6 +412,408 @@ router.delete(
   },
 )
 
+const invitationInputSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email()).transform((value) => value.toLowerCase()),
+  role: z.enum(['ADMIN', 'BARBER']).default('BARBER'),
+})
+const teamRoleSchema = z.object({ role: z.enum(['ADMIN', 'BARBER']) })
+const memberIdSchema = z.string().uuid()
+
+/** Visão da equipe para a tela de gestão de pessoas. */
+router.get(
+  '/current/team',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'),
+  async (req, res, next) => {
+    try {
+      const now = new Date()
+      const [memberships, invitations] = await Promise.all([
+        prisma.membership.findMany({
+          where: { barbershopId: req.barbershop!.id },
+          include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+        }),
+        prisma.invitation.findMany({
+          where: { barbershopId: req.barbershop!.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: now } },
+          orderBy: { createdAt: 'desc' },
+        }),
+      ])
+      const rawLimit = professionalLimit(req.barbershop!.plan)
+      const limit = Number.isFinite(rawLimit) ? rawLimit : null
+      const used = memberships.length + invitations.length
+      res.json({
+        members: memberships
+          .map((membership) => ({
+            userId: membership.user.id,
+            name: membership.user.name,
+            email: membership.user.email,
+            phone: membership.user.phone,
+            role: membership.role,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+        invitations: invitations.map((invitation) => ({
+          id: invitation.id,
+          email: invitation.email,
+          role: invitation.role,
+          expiresAt: invitation.expiresAt.toISOString(),
+          createdAt: invitation.createdAt.toISOString(),
+          state: invitationState(invitation, now),
+        })),
+        limits: { professionals: limit, used, remaining: limit === null ? null : Math.max(0, limit - used) },
+      })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+router.post(
+  '/current/invitations',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN'),
+  async (req, res, next) => {
+    try {
+      const input = invitationInputSchema.parse(req.body)
+      const barbershop = req.barbershop!
+      const user = req.user as SessionUser
+
+      const alreadyMember = await prisma.user.findFirst({
+        where: { email: input.email, memberships: { some: { barbershopId: barbershop.id } } },
+        select: { id: true },
+      })
+      if (alreadyMember) {
+        res.status(409).json({ message: 'Essa pessoa já faz parte da equipe', code: 'ALREADY_MEMBER' })
+        return
+      }
+      const pending = await prisma.invitation.findFirst({
+        where: {
+          barbershopId: barbershop.id, email: input.email,
+          acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() },
+        },
+      })
+      if (pending) {
+        res.status(409).json({
+          message: 'Já existe um convite pendente para este e-mail. Reenvie ou cancele o anterior.',
+          code: 'INVITATION_PENDING',
+          invitationId: pending.id,
+        })
+        return
+      }
+
+      const [staffCount, pendingCount] = await Promise.all([
+        prisma.membership.count({ where: { barbershopId: barbershop.id } }),
+        prisma.invitation.count({
+          where: { barbershopId: barbershop.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+        }),
+      ])
+      const limit = professionalLimit(barbershop.plan)
+      if (staffCount + pendingCount >= limit) {
+        res.status(402).json({
+          message: `Seu plano permite ${limit} profissional${limit === 1 ? '' : 'is'}. Faça upgrade para convidar mais gente.`,
+          code: 'PLAN_LIMIT',
+          limit,
+          plan: barbershop.plan,
+          upgradeTo: barbershop.plan === 'STARTER' ? 'PRO' : 'SCALE',
+        })
+        return
+      }
+
+      const { token, hash } = createInvitationToken()
+      const expiresAt = invitationExpiresAt()
+      const invitation = await prisma.invitation.create({
+        data: {
+          barbershopId: barbershop.id,
+          email: input.email,
+          role: input.role,
+          tokenHash: hash,
+          invitedById: user.id,
+          expiresAt,
+        },
+      })
+      const frontendUrl = process.env.APP_PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:5173'
+      const acceptUrl = invitationAcceptUrl(token, frontendUrl)
+      const delivery = await mailer.send({
+        to: input.email,
+        subject: `${user.name} convidou você para ${barbershop.name}`,
+        text: [
+          `${user.name} convidou você para fazer parte da equipe de ${barbershop.name} no Meu Barbeiro.`,
+          '',
+          `Aceite pelo link: ${acceptUrl}`,
+          '',
+          `O convite expira em ${expiresAt.toLocaleDateString('pt-BR')}.`,
+        ].join('\n'),
+      })
+      await audit({
+        actorId: user.id,
+        barbershopId: barbershop.id,
+        action: 'invitation.created',
+        target: invitation.id,
+        metadata: { email: input.email, role: input.role, delivered: delivery.delivered },
+      })
+      res.status(201).json({
+        id: invitation.id,
+        email: invitation.email,
+        role: invitation.role,
+        expiresAt: invitation.expiresAt.toISOString(),
+        acceptUrl,
+        emailDelivered: delivery.delivered,
+        emailProvider: delivery.provider,
+      })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+router.post(
+  '/current/invitations/:id/resend',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN'),
+  async (req, res, next) => {
+    try {
+      const id = memberIdSchema.parse(req.params.id)
+      const barbershop = req.barbershop!
+      const user = req.user as SessionUser
+      const previous = await prisma.invitation.findFirst({
+        where: { id, barbershopId: barbershop.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+      })
+      if (!previous) {
+        res.status(404).json({ message: 'Convite pendente não encontrado', code: 'INVITATION_NOT_FOUND' })
+        return
+      }
+      const { token, hash } = createInvitationToken()
+      const expiresAt = invitationExpiresAt()
+      await prisma.invitation.update({
+        where: { id: previous.id },
+        data: { tokenHash: hash, expiresAt, lastSentAt: new Date() },
+      })
+      const frontendUrl = process.env.APP_PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:5173'
+      const acceptUrl = invitationAcceptUrl(token, frontendUrl)
+      const delivery = await mailer.send({
+        to: previous.email,
+        subject: `Convite para ${barbershop.name}`,
+        text: `Seu convite para ${barbershop.name} foi reenviado.\n\nAceite pelo link: ${acceptUrl}`,
+      })
+      await audit({ actorId: user.id, barbershopId: barbershop.id, action: 'invitation.resent', target: previous.id })
+      res.json({
+        id: previous.id,
+        email: previous.email,
+        role: previous.role,
+        expiresAt: expiresAt.toISOString(),
+        acceptUrl,
+        emailDelivered: delivery.delivered,
+        emailProvider: delivery.provider,
+      })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+router.delete(
+  '/current/invitations/:id',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN'),
+  async (req, res, next) => {
+    try {
+      const id = memberIdSchema.parse(req.params.id)
+      const revoked = await prisma.invitation.updateMany({
+        where: { id, barbershopId: req.barbershop!.id, acceptedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      })
+      if (revoked.count === 0) {
+        res.status(404).json({ message: 'Convite pendente não encontrado', code: 'INVITATION_NOT_FOUND' })
+        return
+      }
+      res.status(204).end()
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+router.patch(
+  '/current/team/:userId',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const userId = memberIdSchema.parse(req.params.userId)
+      const input = teamRoleSchema.parse(req.body)
+      const membership = await prisma.membership.findUnique({
+        where: { barbershopId_userId: { barbershopId: req.barbershop!.id, userId } },
+      })
+      if (!membership) {
+        res.status(404).json({ message: 'Pessoa não encontrada na equipe', code: 'MEMBER_NOT_FOUND' })
+        return
+      }
+      if (membership.role === 'OWNER') {
+        res.status(409).json({ message: 'O papel de dono não pode ser alterado por aqui', code: 'OWNER_IMMUTABLE' })
+        return
+      }
+      const updated = await prisma.membership.update({ where: { id: membership.id }, data: { role: input.role } })
+      await audit({
+        actorId: (req.user as SessionUser).id,
+        barbershopId: req.barbershop!.id,
+        action: 'membership.role-changed',
+        target: userId,
+        metadata: { from: membership.role, to: input.role },
+      })
+      res.json({ userId, role: updated.role })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+router.delete(
+  '/current/team/:userId',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN'),
+  async (req, res, next) => {
+    try {
+      const userId = memberIdSchema.parse(req.params.userId)
+      const actor = req.user as SessionUser
+      const barbershop = req.barbershop!
+      if (userId === actor.id) {
+        res.status(409).json({ message: 'Você não pode remover a própria conta', code: 'CANNOT_REMOVE_SELF' })
+        return
+      }
+      const membership = await prisma.membership.findUnique({
+        where: { barbershopId_userId: { barbershopId: barbershop.id, userId } },
+      })
+      if (!membership) {
+        res.status(404).json({ message: 'Pessoa não encontrada na equipe', code: 'MEMBER_NOT_FOUND' })
+        return
+      }
+      if (membership.role === 'OWNER') {
+        res.status(403).json({
+          message: 'Só o dono pode sair da própria barbearia. Transfira a titularidade antes.',
+          code: 'CANNOT_REMOVE_OWNER',
+        })
+        return
+      }
+      if (req.membership!.role === 'ADMIN' && membership.role !== 'BARBER') {
+        res.status(403).json({ message: 'Administradores só podem remover barbeiros', code: 'INSUFFICIENT_ROLE' })
+        return
+      }
+      const upcoming = await prisma.appointment.count({
+        where: {
+          barbershopId: barbershop.id,
+          barberId: userId,
+          scheduledAt: { gte: new Date() },
+          status: { in: ['PENDING', 'CONFIRMED'] },
+        },
+      })
+      if (upcoming > 0) {
+        res.status(409).json({
+          message: `Remarque ou cancele ${upcoming} atendimento${upcoming === 1 ? '' : 's'} futuro${upcoming === 1 ? '' : 's'} antes de remover esta pessoa.`,
+          code: 'BARBER_HAS_APPOINTMENTS',
+          count: upcoming,
+        })
+        return
+      }
+      await prisma.membership.delete({ where: { id: membership.id } })
+      await audit({
+        actorId: actor.id,
+        barbershopId: barbershop.id,
+        action: 'membership.removed',
+        target: userId,
+        metadata: { role: membership.role },
+      })
+      res.status(204).end()
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+/** Checklist de primeiros passos: o que falta para a barbearia começar a vender. */
+router.get(
+  '/current/onboarding',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN', 'BARBER'),
+  async (req, res, next) => {
+    try {
+      const barbershop = req.barbershop!
+      const now = new Date()
+      const [services, staffCount, pendingInvites] = await Promise.all([
+        prisma.service.count({ where: { barbershopId: barbershop.id, active: true } }),
+        prisma.membership.count({ where: { barbershopId: barbershop.id } }),
+        prisma.invitation.count({
+          where: { barbershopId: barbershop.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: now } },
+        }),
+      ])
+      const openHours = barbershop.businessHours.filter((hour) => hour.enabled).length
+      const snapshot = subscriptionSnapshot(barbershop, now)
+      const steps = [
+        {
+          id: 'profile', title: 'Complete o perfil da barbearia',
+          description: 'Endereço, WhatsApp e horário de funcionamento são o que o cliente vê antes de marcar.',
+          done: Boolean(barbershop.address) && openHours > 0, action: 'ajustes',
+        },
+        {
+          id: 'services', title: 'Cadastre pelo menos um serviço',
+          description: 'Preço e duração definem os horários disponíveis na página pública.',
+          done: services > 0, action: 'ajustes',
+        },
+        {
+          id: 'team', title: 'Convide sua equipe',
+          description: 'Cada barbeiro tem a própria agenda e escala.',
+          done: staffCount + pendingInvites >= 2, action: 'equipe',
+        },
+        {
+          id: 'payments', title: 'Conecte o Mercado Pago',
+          description: 'Receber sinal online reduz falta sem precisar cobrar na conversa.',
+          done: Boolean(barbershop.mercadoPagoSellerId), action: 'assinatura',
+        },
+        {
+          id: 'plan', title: 'Escolha um plano antes do teste acabar',
+          description: `Seu teste vai até ${barbershop.trialEndsAt?.toLocaleDateString('pt-BR') ?? '—'}.`,
+          done: snapshot.state === 'ACTIVE', action: 'assinatura',
+        },
+      ]
+      const shareUrl = `${(process.env.APP_PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')}/b/${barbershop.slug}`
+      res.json({
+        completed: barbershop.onboardingCompletedAt !== null || steps.every((step) => step.done),
+        completedAt: barbershop.onboardingCompletedAt?.toISOString() ?? null,
+        steps,
+        completedCount: steps.filter((step) => step.done).length,
+        totalSteps: steps.length,
+        shareUrl,
+        subscription: snapshot,
+      })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+router.patch(
+  '/current/onboarding/complete',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN'),
+  async (req, res, next) => {
+    try {
+      const updated = await prisma.barbershop.update({
+        where: { id: req.barbershop!.id },
+        data: { onboardingCompletedAt: new Date() },
+        select: { onboardingCompletedAt: true },
+      })
+      res.json({ completedAt: updated.onboardingCompletedAt?.toISOString() ?? null })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
 function publicBarbershop(
   barbershop: NonNullable<Express.Request['barbershop']>,
   staff: boolean,
@@ -350,6 +844,8 @@ function publicBarbershop(
     })),
     ...(staff ? {
       subscriptionStatus: barbershop.subscriptionStatus,
+      plan: barbershop.plan,
+      trialEndsAt: barbershop.trialEndsAt?.toISOString() ?? null,
       mercadoPagoConnected: Boolean(barbershop.mercadoPagoSellerId),
     } : {}),
   }

@@ -13,6 +13,7 @@ import { cn } from '../../lib/cn'
 import { errorMessage, repository } from '../../lib/repository'
 import type { AdminUser, EstablishmentRequestStatus } from '../../types'
 import { PageWrap } from '../../components/ui/Page'
+import { RevenuePanel } from './RevenuePanel'
 
 const statusLabel: Record<EstablishmentRequestStatus, string> = {
   NONE: 'Sem solicitação', PENDING: 'Em análise', APPROVED: 'Liberado', REJECTED: 'Recusado',
@@ -116,6 +117,7 @@ export function AdminDashboard() {
             {pending.length === 0 ? <p className="text-muted">Nenhuma solicitação aguardando. Tudo em dia.</p> : <RequestList users={pending} busyId={busyId} onDecide={onDecide} />}
             <Link className={cn(buttonStyles({ variant: 'ghost' }), 'mt-5')} to="/admin/solicitacoes">Ver todas as liberações</Link>
           </Card>
+          <RevenuePanel />
         </>
       )}
 

@@ -56,7 +56,11 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
 - **Pacotes pré-pagos**: N sessões por preço fechado com validade; venda no balcão, saldo do cliente e baixa por atendimento.
 - **Pesquisa de satisfação**: o cliente avalia o atendimento concluído (1–5 + comentário); a equipe acompanha média e comentários. Comparativo em [docs/COMPETITIVE_ANALYSIS.md](docs/COMPETITIVE_ANALYSIS.md).
 - **SaaS multi-barbearia**: identidade, endereço, horários e política de sinal por estabelecimento.
-- **Mercado Pago**: assinatura mensal de R$ 20,00, conexão OAuth do vendedor, sinal online e comissão fixa de 1% por serviço.
+- **Planos e teste grátis**: Essencial R$ 49,90, Profissional R$ 89,90 e Escala R$ 149,90, com 14 dias de teste, limites de equipe e modo leitura ao vencer. Detalhes em [docs/saas-readiness.md](docs/saas-readiness.md).
+- **Equipe por convite**: convite por e-mail com token hasheado, expiração, reenvio, revogação e papéis (dono, administrador, barbeiro).
+- **Assinatura e backoffice**: troca de plano, checkout e cancelamento no Mercado Pago; MRR, ARR e trials no painel do administrador.
+- **Cliente sem senha**: no link público, o cliente entra com nome e WhatsApp e agenda sem criar conta.
+- **Mercado Pago**: mensalidade por plano, conexão OAuth do vendedor, sinal online e comissão fixa de 1% por serviço.
 
 ## 🛠️ Tech Stack
 
@@ -146,9 +150,29 @@ Na aplicação do Mercado Pago, configure:
 Passo a passo de produção em [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Use credenciais de teste em homologação e credenciais de produção somente nos
-Secrets do ambiente. A plataforma cobra R$ 20,00/mês da barbearia. Em cada
-checkout do cliente, `marketplace_fee` recebe 1% do valor total do serviço; o
-sinal configurado precisa ser suficiente para essa comissão.
+Secrets do ambiente. A plataforma cobra por plano (Essencial R$ 49,90,
+Profissional R$ 89,90, Escala R$ 149,90), com 14 dias de teste. O valor efetivo
+de cada barbearia fica em `monthlyFeeCents`, o que permite manter assinaturas
+antigas no preço original. Em cada checkout do cliente, `marketplace_fee` recebe
+1% do valor total do serviço; o sinal configurado precisa ser suficiente para
+essa comissão.
+
+### Planos, assinatura e equipe
+
+| Rota | Para quem | O que faz |
+|---|---|---|
+| `/planos` | visitante | preços, comparativo de mercado e FAQ |
+| `/barbeiro/equipe` | dono/admin | convites, papéis e limite de profissionais do plano |
+| `/barbeiro/assinatura` | dono/admin | plano atual, teste, checkout e cancelamento |
+| `/barbeiro/hoje` | dono/admin | checklist de ativação nos primeiros dias |
+| `/admin/visao` | operador | contas, liberações e receita (MRR, ARR, trials) |
+| `/termos`, `/privacidade` | todos | termos de uso e política de privacidade (LGPD) |
+
+O bloqueio comercial é aplicado no servidor (`api/src/middleware/subscription.ts`):
+quando o teste ou a assinatura vence, a equipe continua lendo os dados e o cliente
+continua agendando, mas a edição de serviços, produtos, equipe e configurações
+responde `402 SUBSCRIPTION_REQUIRED`. Cobrança, login, convites e remoção de
+equipe nunca são bloqueados. O aceite de convite exige o e-mail convidado.
 
 ### Variáveis de ambiente
 
@@ -160,9 +184,16 @@ sinal configurado precisa ser suficiente para essa comissão.
 | `SESSION_SECRET` | segredo da sessão | obrigatória em `production` | 32+ caracteres aleatórios |
 | `TOKEN_ENCRYPTION_KEY` | chave de 32 bytes em base64 para tokens OAuth | obrigatória para Mercado Pago | `openssl rand -base64 32` |
 | `FRONTEND_URL` | origem do web (CORS e redirecionamentos) | padrão `http://localhost:5173` | `https://barbeiro.example.com` |
+| `APP_PUBLIC_URL` | URL usada nos links de agendamento e convites | padrão `FRONTEND_URL` | `https://barbeiro.example.com` |
 | `API_PUBLIC_URL` | URL pública da API (OAuth e webhook) | padrão `http://localhost:3333` | `https://api.example.com` |
+| `CORS_ORIGINS` | origens permitidas, separadas por vírgula | padrão `FRONTEND_URL` | `https://app.example.com,https://admin.example.com` |
+| `TRUST_PROXY` | confia no `X-Forwarded-For` do proxy | padrão `1`; `false` desliga | `1` |
+| `LOG_LEVEL` | verbosidade dos logs JSON | padrão `info` | `warn` |
+| `APP_VERSION`, `GIT_COMMIT` | versão exposta em `/health/version` | opcionais | `1.2.0`, SHA curto |
 | `PORT` | porta HTTP da API | padrão `3333` | `3333` |
 | `DEFAULT_BARBERSHOP_SLUG` | barbearia usada quando a requisição não envia slug | padrão `barbearia-central` | `barbearia-central` |
+| `RESEND_API_KEY`, `EMAIL_FROM` | envio de convites por e-mail | opcionais | chave do Resend |
+| `EMAIL_WEBHOOK_URL` | provedor de e-mail genérico via webhook | opcional | `https://hooks.example.com/mail` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | login com Google | opcionais; sem eles o login Google fica desativado | credenciais OAuth do Google |
 | `TELEGRAM_BOT_TOKEN` | liga o bot do Telegram | opcional | token fornecido pelo BotFather |
 | `REMINDERS_ENABLED` | lembretes automáticos (exige `TELEGRAM_BOT_TOKEN`) | padrão `false`; só `true` liga | `false` |

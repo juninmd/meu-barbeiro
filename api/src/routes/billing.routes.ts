@@ -7,10 +7,62 @@ import { encryptSellerToken, mercadoPagoClient, sellerAccessToken } from '../lib
 import { resolveBarbershop, requireBarbershopRole } from '../middleware/barbershop.js'
 import { requireUser, type SessionUser } from '../middleware/auth.js'
 import { parseSubscriptionReference, verifyMercadoPagoSignature } from '../integrations/mercado-pago.js'
+import { SAAS_PLAN_LIST, planById, planOrDefault, subscriptionSnapshot } from '../domain/plans.js'
+import { audit } from '../lib/audit.js'
 
 const router = Router()
 const frontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173'
 const apiUrl = () => process.env.API_PUBLIC_URL || 'http://localhost:3333'
+const planInput = z.object({ plan: z.enum(['STARTER', 'PRO', 'SCALE']) })
+
+/** Estado comercial da barbearia, com o catálogo para a tela de assinatura. */
+router.get(
+  '/subscription',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN'),
+  async (req, res) => {
+    const barbershop = req.barbershop!
+    res.json({
+      subscription: subscriptionSnapshot(barbershop),
+      plans: SAAS_PLAN_LIST,
+      billingEmail: (req.user as SessionUser).email ?? null,
+      mercadoPagoConnected: Boolean(barbershop.mercadoPagoSellerId),
+      hasMercadoPagoSubscription: Boolean(barbershop.mercadoPagoSubscriptionId),
+    })
+  },
+)
+
+/** Troca de plano antes de assinar: não cobra, só ajusta o preço do próximo checkout. */
+router.patch(
+  '/plan',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER', 'ADMIN'),
+  async (req, res) => {
+    const barbershop = req.barbershop!
+    if (barbershop.subscriptionStatus === 'ACTIVE') {
+      res.status(409).json({
+        message: 'Sua assinatura está ativa. Cancele antes de trocar de plano para não cobrar duas vezes.',
+        code: 'ACTIVE_SUBSCRIPTION',
+      })
+      return
+    }
+    const { plan } = planInput.parse(req.body)
+    const selected = planById(plan)!
+    const updated = await prisma.barbershop.update({
+      where: { id: barbershop.id },
+      data: { plan: selected.id, monthlyFeeCents: selected.monthlyFeeCents },
+    })
+    await audit({
+      actorId: (req.user as SessionUser).id,
+      barbershopId: barbershop.id,
+      action: 'subscription.plan-changed',
+      metadata: { plan: selected.id, monthlyFeeCents: selected.monthlyFeeCents },
+    })
+    res.json({ subscription: subscriptionSnapshot(updated), plans: SAAS_PLAN_LIST })
+  },
+)
 
 router.post(
   '/subscription',
@@ -19,24 +71,67 @@ router.post(
   requireBarbershopRole('OWNER', 'ADMIN'),
   async (req, res) => {
     const user = req.user as SessionUser
+    const barbershop = req.barbershop!
     if (!user.email) {
       res.status(400).json({ message: 'Sua conta precisa de e-mail para assinar' })
       return
     }
-    if (req.barbershop!.subscriptionStatus === 'ACTIVE') {
-      res.status(409).json({ message: 'Assinatura já está ativa' })
+    if (barbershop.subscriptionStatus === 'ACTIVE') {
+      res.status(409).json({ message: 'Assinatura já está ativa', code: 'ACTIVE_SUBSCRIPTION' })
       return
     }
+    const requested = planInput.partial().parse(req.body ?? {})
+    const selected = requested.plan ? planById(requested.plan) : planOrDefault(barbershop.plan)
+    const amountCents = requested.plan ? selected!.monthlyFeeCents : barbershop.monthlyFeeCents
     const subscription = await mercadoPagoClient().createSaasSubscription({
-      barbershopId: req.barbershop!.id,
+      barbershopId: barbershop.id,
       payerEmail: user.email,
       backUrl: `${frontendUrl()}/?subscription=return`,
+      reason: `Meu Barbeiro - plano ${selected!.name}`,
+      amountCents,
     })
     await prisma.barbershop.update({
-      where: { id: req.barbershop!.id },
-      data: { mercadoPagoSubscriptionId: subscription.id, subscriptionStatus: 'PENDING' },
+      where: { id: barbershop.id },
+      data: {
+        mercadoPagoSubscriptionId: subscription.id,
+        subscriptionStatus: 'PENDING',
+        plan: selected!.id,
+        monthlyFeeCents: amountCents,
+      },
     })
-    res.status(201).json({ checkoutUrl: subscription.initPoint, monthlyFeeCents: 2_000 })
+    res.status(201).json({
+      checkoutUrl: subscription.initPoint,
+      monthlyFeeCents: amountCents,
+      plan: selected!.id,
+    })
+  },
+)
+
+router.post(
+  '/subscription/cancel',
+  requireUser,
+  resolveBarbershop,
+  requireBarbershopRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const barbershop = req.barbershop!
+      if (barbershop.mercadoPagoSubscriptionId) {
+        await mercadoPagoClient().updateSubscriptionStatus(barbershop.mercadoPagoSubscriptionId, 'cancelled')
+      }
+      const updated = await prisma.barbershop.update({
+        where: { id: barbershop.id },
+        data: { subscriptionStatus: 'CANCELED', canceledAt: new Date() },
+      })
+      await audit({
+        actorId: (req.user as SessionUser).id,
+        barbershopId: barbershop.id,
+        action: 'subscription.canceled',
+        metadata: { mercadoPagoSubscriptionId: barbershop.mercadoPagoSubscriptionId },
+      })
+      res.json({ subscription: subscriptionSnapshot(updated) })
+    } catch (error) {
+      next(error)
+    }
   },
 )
 
@@ -202,7 +297,11 @@ async function processSubscription(subscriptionId: string): Promise<void> {
   } as const)[subscription.status] ?? 'PENDING'
   await prisma.barbershop.update({
     where: { id: reference.id },
-    data: { subscriptionStatus: status, mercadoPagoSubscriptionId: subscription.id },
+    data: {
+      subscriptionStatus: status,
+      mercadoPagoSubscriptionId: subscription.id,
+      ...(status === 'CANCELED' ? { canceledAt: new Date() } : { canceledAt: null }),
+    },
   })
 }
 

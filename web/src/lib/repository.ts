@@ -55,7 +55,17 @@ import type {
   UpdateProduct,
   User,
   WalkInQueueEntry,
+  CreatedInvitation,
+  InvitationPreview,
+  OnboardingResponse,
+  PlatformOverview,
+  PlatformShop,
+  SaasPlanId,
+  SubscriptionResponse,
+  SubscriptionSnapshot,
+  TeamResponse,
 } from '../types'
+import { PLAN_CATALOG, mockSubscriptionSnapshot } from './plans'
 
 export const tenantSlug = window.location.pathname.match(/^\/b\/([a-z0-9-]+)/)?.[1]
   || import.meta.env.VITE_BARBERSHOP_SLUG
@@ -685,6 +695,17 @@ export const repository = {
     window.location.href = `${api.defaults.baseURL}/auth/google`
   },
 
+  /** Cliente agenda pelo link público sem senha, identificado pelo WhatsApp. */
+  async guestSession(name: string, phone: string): Promise<User> {
+    if (mockEnabled) {
+      const account = readAccounts().find((item) => item.kind === 'CUSTOMER')
+      if (!account) throw new Error('Conta de demonstração inexistente')
+      return startMockSession(account)
+    }
+    const { data } = await api.post<{ user: User }>(`/public/${encodeURIComponent(tenantSlug ?? 'barbearia-central')}/session`, { name, phone })
+    return data.user
+  },
+
   async logout(): Promise<void> {
     if (mockEnabled) {
       sessionStorage.removeItem(mockSessionKey)
@@ -995,12 +1016,40 @@ export const repository = {
     writeState(state)
   },
 
-  async subscribe(): Promise<{ checkoutUrl: string | null }> {
-    if (!mockEnabled) return (await api.post<{ checkoutUrl: string }>('/billing/mercado-pago/subscription')).data
+  async subscribe(plan?: SaasPlanId): Promise<{ checkoutUrl: string | null }> {
+    if (!mockEnabled) {
+      return (await api.post<{ checkoutUrl: string }>('/billing/mercado-pago/subscription', plan ? { plan } : {})).data
+    }
     const state = readState()
     state.barbershop.subscriptionStatus = 'ACTIVE'
     writeState(state)
     return { checkoutUrl: null }
+  },
+
+  async subscription(): Promise<SubscriptionResponse> {
+    if (mockEnabled) {
+      return {
+        subscription: mockSubscriptionSnapshot(),
+        plans: PLAN_CATALOG,
+        billingEmail: 'rafael@demo.local',
+        mercadoPagoConnected: Boolean(readState().barbershop.mercadoPagoConnected),
+        hasMercadoPagoSubscription: false,
+      }
+    }
+    return (await api.get<SubscriptionResponse>('/billing/mercado-pago/subscription')).data
+  },
+
+  async choosePlan(plan: SaasPlanId): Promise<{ subscription: SubscriptionSnapshot }> {
+    if (mockEnabled) return { subscription: { ...mockSubscriptionSnapshot(), plan } }
+    return (await api.patch<{ subscription: SubscriptionSnapshot }>('/billing/mercado-pago/plan', { plan })).data
+  },
+
+  async cancelSubscription(): Promise<{ subscription: SubscriptionSnapshot }> {
+    if (!mockEnabled) return (await api.post<{ subscription: SubscriptionSnapshot }>('/billing/mercado-pago/subscription/cancel', {})).data
+    const state = readState()
+    state.barbershop.subscriptionStatus = 'CANCELED'
+    writeState(state)
+    return { subscription: { ...mockSubscriptionSnapshot(), state: 'CANCELED', isActive: false, isBlocked: true } }
   },
 
   async connectMercadoPago(): Promise<{ authorizationUrl: string | null }> {
@@ -1941,6 +1990,130 @@ export const repository = {
     for (const stamp of available.slice(0, state.loyaltyProgram.requiredVisits)) stamp.redeemedAt = redeemedAt
     writeState(state)
     return mockLoyaltyCard(state, userId)
+  },
+
+  // ---------------------------------------------------------------- SaaS ---
+
+  async slugAvailable(slug: string): Promise<{ slug: string; available: boolean; suggestion: string | null }> {
+    if (mockEnabled) return { slug, available: true, suggestion: null }
+    return (await api.get<{ slug: string; available: boolean; suggestion: string | null }>(
+      '/barbershops/slug-available',
+      { params: { slug } },
+    )).data
+  },
+
+  async onboarding(): Promise<OnboardingResponse> {
+    if (mockEnabled) {
+      const state = readState()
+      const steps = [
+        { id: 'profile' as const, title: 'Complete o perfil da barbearia', description: 'Endereço e horários que o cliente vê.', done: Boolean(state.barbershop.address), action: 'ajustes' },
+        { id: 'services' as const, title: 'Cadastre pelo menos um serviço', description: 'Preço e duração definem os horários.', done: state.services.length > 0, action: 'ajustes' },
+        { id: 'team' as const, title: 'Convide sua equipe', description: 'Cada barbeiro tem a própria agenda.', done: barbers.length > 1, action: 'equipe' },
+        { id: 'payments' as const, title: 'Conecte o Mercado Pago', description: 'Receba sinal online.', done: true, action: 'assinatura' },
+        { id: 'plan' as const, title: 'Escolha um plano', description: 'Demonstração já está ativa.', done: true, action: 'assinatura' },
+      ]
+      return {
+        completed: false,
+        completedAt: null,
+        steps,
+        completedCount: steps.filter((step) => step.done).length,
+        totalSteps: steps.length,
+        shareUrl: `${window.location.origin}/b/${state.barbershop.slug}`,
+        subscription: mockSubscriptionSnapshot(),
+      }
+    }
+    return (await api.get<OnboardingResponse>('/barbershops/current/onboarding')).data
+  },
+
+  async completeOnboarding(): Promise<{ completedAt: string }> {
+    if (mockEnabled) return { completedAt: new Date().toISOString() }
+    return (await api.patch<{ completedAt: string }>('/barbershops/current/onboarding/complete', {})).data
+  },
+
+  async team(): Promise<TeamResponse> {
+    if (mockEnabled) {
+      return {
+        members: barbers.map((barber, index) => ({
+          userId: barber.id,
+          name: barber.name,
+          email: barber.email ?? null,
+          phone: barber.phone ?? null,
+          role: index === 0 ? 'OWNER' : 'BARBER',
+        })),
+        invitations: [],
+        limits: { professionals: 5, used: barbers.length, remaining: Math.max(0, 5 - barbers.length) },
+      }
+    }
+    return (await api.get<TeamResponse>('/barbershops/current/team')).data
+  },
+
+  async inviteMember(email: string, role: 'ADMIN' | 'BARBER'): Promise<CreatedInvitation> {
+    if (mockEnabled) {
+      return {
+        id: crypto.randomUUID(),
+        email,
+        role,
+        expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+        acceptUrl: `${window.location.origin}/convite/demo`,
+        emailDelivered: false,
+        emailProvider: 'console',
+      }
+    }
+    return (await api.post<CreatedInvitation>('/barbershops/current/invitations', { email, role })).data
+  },
+
+  async resendInvitation(id: string): Promise<CreatedInvitation> {
+    if (mockEnabled) throw new Error('Reenvio de convite precisa da API real.')
+    return (await api.post<CreatedInvitation>(`/barbershops/current/invitations/${id}/resend`, {})).data
+  },
+
+  async revokeInvitation(id: string): Promise<void> {
+    if (mockEnabled) return
+    await api.delete(`/barbershops/current/invitations/${id}`)
+  },
+
+  async updateMemberRole(userId: string, role: 'ADMIN' | 'BARBER'): Promise<void> {
+    if (mockEnabled) return
+    await api.patch(`/barbershops/current/team/${userId}`, { role })
+  },
+
+  async removeMember(userId: string): Promise<void> {
+    if (mockEnabled) return
+    await api.delete(`/barbershops/current/team/${userId}`)
+  },
+
+  async invitationPreview(token: string): Promise<InvitationPreview> {
+    return (await api.get<InvitationPreview>(`/invitations/${token}`)).data
+  },
+
+  async acceptInvitation(token: string): Promise<{ membership: { role: string }; barbershop: { id: string; name: string; slug: string } }> {
+    return (await api.post<{ membership: { role: string }; barbershop: { id: string; name: string; slug: string } }>(
+      `/invitations/${token}/accept`, {},
+    )).data
+  },
+
+  async platformOverview(): Promise<PlatformOverview> {
+    if (mockEnabled) {
+      return {
+        generatedAt: new Date().toISOString(),
+        shops: { total: 1, newLast30Days: 1, byStatus: { ACTIVE: 1 }, trialing: 0, trialsExpiringIn30Days: 0 },
+        revenue: { mrrCents: 8_990, arrCents: 107_880, payingShops: 1 },
+        usage: { appointmentsLast30Days: 0, cancellationsLast30Days: 0 },
+      }
+    }
+    return (await api.get<PlatformOverview>('/platform/overview')).data
+  },
+
+  async platformShops(search?: string): Promise<{ items: PlatformShop[]; nextCursor: string | null }> {
+    if (mockEnabled) return { items: [], nextCursor: null }
+    return (await api.get<{ items: PlatformShop[]; nextCursor: string | null }>('/platform/barbershops', {
+      params: { search: search || undefined },
+    })).data
+  },
+
+  async platformUpdateShop(id: string, input: { plan?: SaasPlanId; extendTrialDays?: number }): Promise<void> {
+    if (mockEnabled) return
+    await api.patch(`/platform/barbershops/${id}`, input)
   },
 }
 

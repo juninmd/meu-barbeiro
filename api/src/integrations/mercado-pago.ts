@@ -144,14 +144,16 @@ export class MercadoPagoClient {
     barbershopId: string
     payerEmail: string
     backUrl: string
+    reason?: string
+    amountCents?: number
   }): Promise<{ id: string; initPoint: string }> {
     return this.createSubscription({
-      reason: 'Meu Barbeiro - assinatura mensal',
+      reason: input.reason ?? 'Meu Barbeiro - assinatura mensal',
       externalReference: `saas:${input.barbershopId}`,
       payerEmail: input.payerEmail,
       frequency: 1,
       frequencyType: 'months',
-      amountCents: DEFAULT_MONTHLY_FEE_CENTS,
+      amountCents: input.amountCents ?? DEFAULT_MONTHLY_FEE_CENTS,
       backUrl: input.backUrl,
     })
   }

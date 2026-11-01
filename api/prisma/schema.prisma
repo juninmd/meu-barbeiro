@@ -36,9 +36,16 @@ enum DepositType {
 enum SubscriptionStatus {
   INACTIVE
   PENDING
+  TRIALING
   ACTIVE
   PAST_DUE
   CANCELED
+}
+
+enum SaasPlan {
+  STARTER
+  PRO
+  SCALE
 }
 
 enum PaymentStatus {
@@ -85,6 +92,7 @@ model User {
   customerSubscriptions CustomerSubscription[]
   recurringBookings    RecurringBooking[]       @relation("RecurringBookingCustomer")
   barberRecurringBookings RecurringBooking[]    @relation("RecurringBookingBarber")
+  sentInvitations      Invitation[]             @relation("InvitationSender")
   createdAt          DateTime          @default(now())
 }
 
@@ -98,9 +106,14 @@ model Barbershop {
   timezone                         String             @default("America/Sao_Paulo")
   depositType                      DepositType        @default(FULL)
   depositValue                     Int                @default(0)
-  monthlyFeeCents                  Int                @default(2000)
+  plan                             SaasPlan           @default(STARTER)
+  trialEndsAt                      DateTime?
+  billingEmail                     String?
+  onboardingCompletedAt            DateTime?
+  canceledAt                       DateTime?
+  monthlyFeeCents                  Int                @default(4990)
   commissionBps                    Int                @default(100)
-  subscriptionStatus               SubscriptionStatus @default(INACTIVE)
+  subscriptionStatus               SubscriptionStatus @default(TRIALING)
   mercadoPagoSubscriptionId        String?            @unique
   mercadoPagoSellerId              String?            @unique
   mercadoPagoAccessTokenEncrypted  String?
@@ -128,6 +141,7 @@ model Barbershop {
   customerSubscriptions           CustomerSubscription[]
   recurringBookings               RecurringBooking[]
   recurringBookingOccurrences     RecurringBookingOccurrence[]
+  invitations                     Invitation[]
   cancellationWindowHours          Int                @default(0)
   lateCancellationFeeBps           Int                @default(0)
   remindersEnabled                 Boolean            @default(true)
@@ -575,4 +589,37 @@ model PackageRedemption {
   redeemedBy        User            @relation(fields: [redeemedById], references: [id])
 
   @@index([customerPackageId])
+}
+
+model Invitation {
+  id           String         @id @default(uuid())
+  barbershopId String
+  email        String
+  role         MembershipRole @default(BARBER)
+  tokenHash    String         @unique
+  invitedById  String
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  revokedAt    DateTime?
+  lastSentAt   DateTime       @default(now())
+  createdAt    DateTime       @default(now())
+  barbershop   Barbershop     @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  invitedBy    User           @relation("InvitationSender", fields: [invitedById], references: [id])
+
+  @@index([barbershopId, acceptedAt, revokedAt])
+  @@index([email])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?
+  barbershopId String?
+  action       String
+  target       String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([barbershopId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
 }
