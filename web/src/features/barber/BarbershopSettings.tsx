@@ -356,7 +356,7 @@ export function BarbershopSettings({ barbershop, onRefresh }: BarbershopSettings
 }
 
 const subscriptionLabel = (status: Barbershop['subscriptionStatus']) => ({
-  ACTIVE: 'Ativa', PENDING: 'Aguardando pagamento', PAST_DUE: 'Pagamento atrasado', CANCELED: 'Cancelada', INACTIVE: 'Inativa',
+  ACTIVE: 'Ativa', TRIALING: 'Em teste grátis', PENDING: 'Aguardando pagamento', PAST_DUE: 'Pagamento atrasado', CANCELED: 'Cancelada', INACTIVE: 'Inativa',
 })[status || 'INACTIVE']
 
 const formatHolidayDate = (date: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' })

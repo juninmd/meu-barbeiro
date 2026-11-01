@@ -102,6 +102,29 @@ a maior parte dos atritos corrigidos abaixo.
   **todo** repositório que o chamasse. Substituído por binário fixado, com cache,
   verificação de checksum e auto-teste que prova a detecção.
 
+### Monetização SaaS
+- **Planos Essencial / Profissional / Escala** com limite de profissionais e
+  unidades; preço efetivo por barbearia preserva assinaturas antigas.
+- **Teste grátis e modo leitura**: `TRIALING`, `ACTIVE`, `PAST_DUE`, `CANCELED`,
+  `EXPIRED`. Ao vencer, escrita da equipe responde `402 SUBSCRIPTION_REQUIRED`;
+  página pública e dados continuam no ar.
+- **Equipe por convite**: token de 32 bytes (só o hash SHA-256 vai ao banco),
+  validade de 7 dias, reenvio que rotaciona o token, revogação, limite por plano,
+  bloqueio de remoção com atendimento futuro e auditoria.
+- **Assinatura pelo produto**: troca de plano, checkout Mercado Pago, cancelamento
+  com confirmação e sincronização por webhook.
+- **Backoffice de receita**: MRR, ARR, trials a vencer, carteira de barbearias,
+  troca de plano e extensão de teste no painel do administrador.
+- **Ativação**: checklist de 5 passos no topo do dia, com link compartilhável.
+- **Cliente sem senha**: sessão por telefone no link público, com rate limit e
+  bloqueio de contas da equipe.
+- **Página de planos** com comparativo de mercado; **termos de uso** e
+  **política de privacidade** (LGPD) publicados no app.
+- **Operação**: `/health/live`, `/health/ready` e `/health/version`; logs JSON com
+  request id; rate limit; headers de segurança; encerramento gracioso;
+  `api/Dockerfile.prod` multi-stage e non-root.
+- **Pesquisa de mercado** em [`docs/market-research.md`](docs/market-research.md).
+
 ---
 
 ## Planejado

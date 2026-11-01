@@ -21,6 +21,9 @@ import { CancellationReportPanel } from './CancellationReportPanel'
 import { ProductsPanel } from './ProductsPanel'
 import { NotificationSettings } from './NotificationSettings'
 import { WalkInForm } from './WalkInForm'
+import { TeamPanel } from './TeamPanel'
+import { SubscriptionPanel } from './SubscriptionPanel'
+import { OnboardingChecklist } from './OnboardingChecklist'
 import { buttonStyles, Button } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/Field'
 import { FormRow, InsetForm } from '../../components/ui/FormParts'
@@ -166,7 +169,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
   ]
 
   const allowedSections = canManageBarbershop
-    ? ['hoje', 'agenda', 'clientes', 'produtos', 'financeiro', 'ajustes']
+    ? ['hoje', 'agenda', 'clientes', 'produtos', 'financeiro', 'equipe', 'assinatura', 'ajustes']
     : ['hoje', 'agenda', 'clientes', 'produtos']
 
   if (!section || !allowedSections.includes(section)) return <Navigate replace to="/barbeiro/hoje" />
@@ -216,6 +219,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
               </time>
             )}
           />
+          {canManageBarbershop && <OnboardingChecklist />}
           <section className="grid grid-cols-3 gap-1.5 sm:gap-4" aria-label="Resumo da agenda">
             <Metric icon={<Clock3 />} label="Faltam" value={String(remainingToday.length)} note="clientes hoje" />
             <Metric icon={<CalendarCheck />} label="Aguardando" value={String(pending.length)} note="para confirmar" alert={pending.length > 0} />
@@ -281,6 +285,20 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
 
       {section === 'financeiro' && barbershop && (
         <><PageHeading eyebrow="Resultados" title="Financeiro.">Feche o período e acompanhe o que entrou.</PageHeading><DailyClosing barbershop={barbershop} /><CancellationReportPanel /></>
+      )}
+
+      {section === 'equipe' && barbershop && (
+        <>
+          <PageHeading eyebrow="Pessoas" title="Equipe.">Convites, papéis e limites do plano em um só lugar.</PageHeading>
+          <TeamPanel barbershop={barbershop} currentUserId={currentUser.id} />
+        </>
+      )}
+
+      {section === 'assinatura' && barbershop && (
+        <>
+          <PageHeading eyebrow="Conta e cobrança" title="Assinatura.">Plano, teste grátis e forma de pagamento do Meu Barbeiro.</PageHeading>
+          <SubscriptionPanel barbershop={barbershop} onRefresh={onRefresh} />
+        </>
       )}
 
       {section === 'ajustes' && (

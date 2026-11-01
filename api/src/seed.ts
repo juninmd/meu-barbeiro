@@ -34,6 +34,8 @@ async function main() {
     where: { slug: 'barbearia-central' },
     update: {
       subscriptionStatus: 'ACTIVE',
+      plan: 'PRO',
+      monthlyFeeCents: 8_990,
       mercadoPagoSellerId: process.env.MOCK_SELLER_ID || '123456789',
       mercadoPagoAccessTokenEncrypted: box.encrypt('mock-seller-access-token'),
       mercadoPagoRefreshTokenEncrypted: box.encrypt('mock-seller-refresh-token'),
@@ -47,6 +49,8 @@ async function main() {
       depositType: 'FULL',
       depositValue: 0,
       subscriptionStatus: 'ACTIVE',
+      plan: 'PRO',
+      monthlyFeeCents: 8_990,
       mercadoPagoSellerId: process.env.MOCK_SELLER_ID || '123456789',
       mercadoPagoAccessTokenEncrypted: box.encrypt('mock-seller-access-token'),
       mercadoPagoRefreshTokenEncrypted: box.encrypt('mock-seller-refresh-token'),

@@ -261,9 +261,137 @@ export interface Barbershop {
   remindersEnabled?: boolean
   reminderHoursBefore?: number[]
   businessHours: BusinessHour[]
-  subscriptionStatus?: 'INACTIVE' | 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
+  subscriptionStatus?: 'INACTIVE' | 'PENDING' | 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED'
+  plan?: SaasPlanId
+  trialEndsAt?: string | null
   mercadoPagoConnected?: boolean
   membershipRole: 'OWNER' | 'ADMIN' | 'BARBER' | null
+  subscription?: SubscriptionSnapshot
+  limits?: { professionals: number | null; units: number }
+  shareUrl?: string
+  onboardingCompletedAt?: string | null
+}
+
+export type SaasPlanId = 'STARTER' | 'PRO' | 'SCALE'
+
+export type SubscriptionState = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'EXPIRED' | 'INACTIVE'
+
+export interface SubscriptionSnapshot {
+  state: SubscriptionState
+  plan: SaasPlanId
+  planName: string
+  monthlyFeeCents: number
+  trialEndsAt: string | null
+  trialDaysLeft: number
+  isActive: boolean
+  isBlocked: boolean
+}
+
+export interface SaasPlan {
+  id: SaasPlanId
+  name: string
+  tagline: string
+  monthlyFeeCents: number
+  annualFeeCents: number
+  recommended: boolean
+  limits: { professionals: number; units: number; monthlyReminders: number }
+  features: string[]
+}
+
+export interface SubscriptionResponse {
+  subscription: SubscriptionSnapshot
+  plans: SaasPlan[]
+  billingEmail: string | null
+  mercadoPagoConnected: boolean
+  hasMercadoPagoSubscription: boolean
+}
+
+export interface TeamMember {
+  userId: string
+  name: string
+  email: string | null
+  phone: string | null
+  role: 'OWNER' | 'ADMIN' | 'BARBER'
+}
+
+export interface TeamInvitation {
+  id: string
+  email: string
+  role: 'ADMIN' | 'BARBER'
+  expiresAt: string
+  createdAt: string
+  state: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED'
+}
+
+export interface TeamResponse {
+  members: TeamMember[]
+  invitations: TeamInvitation[]
+  limits: { professionals: number | null; used: number; remaining: number | null }
+}
+
+export interface CreatedInvitation {
+  id: string
+  email: string
+  role: 'ADMIN' | 'BARBER'
+  expiresAt: string
+  acceptUrl: string
+  emailDelivered: boolean
+  emailProvider: string
+}
+
+export interface InvitationPreview {
+  id: string
+  email: string
+  role: 'OWNER' | 'ADMIN' | 'BARBER'
+  expiresAt: string
+  state: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED'
+  barbershop: { name: string; slug: string; logoUrl: string | null }
+  invitedByName: string
+}
+
+export interface OnboardingStep {
+  id: 'profile' | 'services' | 'team' | 'payments' | 'plan'
+  title: string
+  description: string
+  done: boolean
+  action: string
+}
+
+export interface OnboardingResponse {
+  completed: boolean
+  completedAt: string | null
+  steps: OnboardingStep[]
+  completedCount: number
+  totalSteps: number
+  shareUrl: string
+  subscription: SubscriptionSnapshot
+}
+
+export interface PlatformOverview {
+  generatedAt: string
+  shops: {
+    total: number
+    newLast30Days: number
+    byStatus: Record<string, number>
+    trialing: number
+    trialsExpiringIn30Days: number
+  }
+  revenue: { mrrCents: number; arrCents: number; payingShops: number }
+  usage: { appointmentsLast30Days: number; cancellationsLast30Days: number }
+}
+
+export interface PlatformShop {
+  id: string
+  name: string
+  slug: string
+  plan: SaasPlanId
+  subscriptionStatus: string
+  subscription: SubscriptionSnapshot
+  monthlyFeeCents: number
+  billingEmail: string | null
+  professionals: number
+  appointments: number
+  createdAt: string
 }
 
 export interface AppointmentCheckout {

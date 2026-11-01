@@ -3,6 +3,7 @@ import {
   CalendarDays,
   CircleDollarSign,
   Clock3,
+  CreditCard,
   Inbox,
   LayoutDashboard,
   ChevronDown,
@@ -61,8 +62,12 @@ const barberNavigation: NavigationItem[] = [
   { label: 'Clientes', path: '/barbeiro/clientes', icon: <UsersRound /> },
   { label: 'Produtos', path: '/barbeiro/produtos', icon: <Package /> },
   { label: 'Financeiro', path: '/barbeiro/financeiro', icon: <CircleDollarSign /> },
+  { label: 'Equipe', path: '/barbeiro/equipe', icon: <UsersRound /> },
+  { label: 'Assinatura', path: '/barbeiro/assinatura', icon: <CreditCard /> },
   { label: 'Ajustes', path: '/barbeiro/ajustes', icon: <Settings /> },
 ]
+
+const managerOnlyPaths = new Set(['/barbeiro/financeiro', '/barbeiro/equipe', '/barbeiro/assinatura'])
 
 export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
   const location = useLocation()
@@ -75,7 +80,7 @@ export function Shell({ user, barbershop, children, onLogout }: ShellProps) {
   const navigation = isAdmin
     ? adminNavigation
     : isBarber
-      ? barberNavigation.filter((item) => canManage || item.label !== 'Financeiro')
+      ? barberNavigation.filter((item) => canManage || !managerOnlyPaths.has(item.path))
       : clientNavigation
   const visibleMobile = isBarber ? navigation.slice(0, 4) : navigation
   const overflowMobile = isBarber ? navigation.slice(4) : []

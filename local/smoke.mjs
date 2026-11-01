@@ -89,7 +89,7 @@ step('membershipRole exposto', shopAsBarber.body?.membershipRole === 'BARBER', S
 
 // --- dono ---
 await login('rafael@demo.local')
-const owned = await call('/services', { method: 'POST', body: JSON.stringify({ name: 'Serviço temporário do smoke', duration: 15, price: 20 }) })
+const owned = await call('/services', { method: 'POST', body: JSON.stringify({ name: `Serviço temporário do smoke ${Date.now().toString(36)}`, duration: 15, price: 20 }) })
 step('dono cria serviço', owned.status === 201, owned.body?.name)
 // o smoke não pode deixar lixo no catálogo da barbearia
 const removed = await call(`/services/${owned.body?.id}`, { method: 'DELETE' })
@@ -98,6 +98,65 @@ const shopAsOwner = await call('/barbershops/current')
 step('dono vê papel e assinatura', shopAsOwner.body?.membershipRole === 'OWNER' && shopAsOwner.body?.subscriptionStatus === 'ACTIVE')
 const confirmed = await call(`/appointments/${appointmentId}`, { method: 'PATCH', body: JSON.stringify({ status: 'CONFIRMED' }) })
 step('barbeiro confirma o agendamento', confirmed.status === 200 && confirmed.body?.status === 'CONFIRMED')
+
+// --- SaaS: assinatura, equipe, onboarding, backoffice e paywall ---
+const suffix = Date.now().toString(36)
+await login('rafael@demo.local')
+step('health ready responde com banco', (await call('/health/ready')).status === 200)
+step('health version exposto', Boolean((await call('/health/version')).body?.version))
+const subscription = await call('/billing/mercado-pago/subscription')
+step('assinatura e catalogo de planos', subscription.status === 200 && subscription.body?.plans?.length === 3,
+  `${subscription.body?.subscription?.state} ${subscription.body?.subscription?.planName}`)
+const team = await call('/barbershops/current/team')
+step('equipe carregada', team.status === 200 && team.body?.members?.length >= 2, `${team.body?.members?.length} membros`)
+
+const invitedEmail = `convidado-${suffix}@demo.local`
+const invite = await call('/barbershops/current/invitations', { method: 'POST', body: JSON.stringify({ email: invitedEmail, role: 'BARBER' }) })
+step('convite de equipe criado', invite.status === 201 && Boolean(invite.body?.acceptUrl), `entrega=${invite.body?.emailProvider}`)
+const inviteToken = String(invite.body?.acceptUrl || '').split('/convite/')[1]
+cookie = ''
+const preview = await call(`/invitations/${inviteToken}`)
+step('previa publica do convite', preview.status === 200 && preview.body?.state === 'PENDING', preview.body?.barbershop?.name)
+await login('rafael@demo.local')
+step('convite revogado', (await call(`/barbershops/current/invitations/${invite.body?.id}`, { method: 'DELETE' })).status === 204)
+
+const onboarding = await call('/barbershops/current/onboarding')
+step('onboarding com 5 passos', onboarding.status === 200 && onboarding.body?.totalSteps === 5, `${onboarding.body?.completedCount}/${onboarding.body?.totalSteps}`)
+
+cookie = ''
+const guest = await call('/public/barbearia-central/session', { method: 'POST', body: JSON.stringify({ name: 'Visitante Smoke', phone: `(11) 9${String(Date.now()).slice(-8)}` }) })
+step('cliente agenda sem senha pelo link', guest.status === 201 && guest.body?.user?.role === 'CUSTOMER', guest.body?.user?.phone)
+const guestServices = await call('/services')
+step('sessao de convidado acessa a barbearia certa', guestServices.status === 200 && Array.isArray(guestServices.body), `${guestServices.body?.length} servicos`)
+
+cookie = ''
+const adminLogin = await call('/auth/login', { method: 'POST', body: JSON.stringify({ identifier: 'admin', password: 'admin' }) })
+step('login do administrador da plataforma', adminLogin.status === 200 && adminLogin.body?.platformAdmin === true)
+const overview = await call('/platform/overview')
+step('backoffice: MRR calculado', overview.status === 200 && overview.body?.revenue?.mrrCents > 0, `MRR=${overview.body?.revenue?.mrrCents}`)
+const platformShops = await call('/platform/barbershops')
+const central = platformShops.body?.items?.find((shop) => shop.slug === 'barbearia-central')
+step('backoffice: carteira listada', Boolean(central), `${platformShops.body?.items?.length} barbearias`)
+const blocked = await call(`/platform/barbershops/${central?.id}`, { method: 'PATCH', body: JSON.stringify({ subscriptionStatus: 'PAST_DUE' }) })
+step('operador coloca assinatura em atraso', blocked.status === 200 && blocked.body?.subscription?.state === 'PAST_DUE')
+
+await login('rafael@demo.local')
+const paywall = await call('/services', { method: 'POST', body: JSON.stringify({ name: `Bloqueado ${suffix}`, duration: 30, price: 40 }) })
+step('paywall bloqueia escrita da equipe', paywall.status === 402 && paywall.body?.code === 'SUBSCRIPTION_REQUIRED', `${paywall.status} ${paywall.body?.code}`)
+const stillReads = await call('/services')
+step('modo leitura mantem dados visiveis', stillReads.status === 200 && stillReads.body.length > 0)
+
+cookie = ''
+await call('/auth/login', { method: 'POST', body: JSON.stringify({ identifier: 'admin', password: 'admin' }) })
+const restored = await call(`/platform/barbershops/${central?.id}`, { method: 'PATCH', body: JSON.stringify({ subscriptionStatus: 'ACTIVE' }) })
+step('operador reativa a assinatura', restored.status === 200 && restored.body?.subscription?.state === 'ACTIVE')
+await login('rafael@demo.local')
+const unblocked = await call('/services', { method: 'POST', body: JSON.stringify({ name: `Servico pos-paywall ${suffix}`, duration: 15, price: 20 }) })
+step('escrita volta apos regularizar', unblocked.status === 201, String(unblocked.status))
+await call(`/services/${unblocked.body?.id}`, { method: 'DELETE' })
+
+// o smoke não pode deixar lixo no catálogo
+await call(`/services/${owned.body?.id}`, { method: 'DELETE' })
 
 console.log(failures === 0 ? '\nTODOS OS CHECKS PASSARAM' : `\n${failures} CHECK(S) FALHARAM`)
 process.exit(failures === 0 ? 0 : 1)

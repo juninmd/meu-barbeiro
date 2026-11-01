@@ -17,6 +17,8 @@ declare module 'express-session' {
       codeVerifier: string
       createdAt: number
     }
+    /** Caminho local para onde voltar depois do login. */
+    returnTo?: string
   }
 }
 
