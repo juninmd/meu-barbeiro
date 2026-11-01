@@ -107,9 +107,10 @@ jobs:
               prisma.user.count(),
               prisma.service.count(),
             ]);
-            const admin = await prisma.user.findUnique({ where: { email: "admin@demo.local" } });
-            console.log({ shops, users, services, platformAdmin: admin?.role });
-            if (shops < 1 || services < 1 || admin?.role !== "PLATFORM_ADMIN") {
+            const admin = await prisma.user.findUnique({ where: { username: "admin" } });
+            const shop = await prisma.barbershop.findUnique({ where: { slug: "barbearia-central" } });
+            console.log({ shops, users, services, platformAdmin: admin?.platformAdmin, plan: shop?.plan, fee: shop?.monthlyFeeCents });
+            if (shops < 1 || services < 1 || admin?.platformAdmin !== true || shop?.plan !== "PRO") {
               throw new Error("Seed não produziu o estado esperado");
             }
             await prisma.$disconnect();
