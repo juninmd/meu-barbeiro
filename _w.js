@@ -1,0 +1,1 @@
+var fs=require("fs");var c=process.argv[1];fs.writeFileSync(process.argv[2],c)
