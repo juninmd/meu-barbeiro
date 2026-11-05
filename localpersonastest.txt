@@ -1,0 +1,4 @@
+Microsoft Windows [versÆo 10.0.26200.8875]
+(c) Microsoft Corporation. Todos os direitos reservados.
+
+D:\Solutions\pessoal\meu-barbeiro>
