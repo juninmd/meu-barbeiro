@@ -8,3 +8,8 @@ de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/components/Login.tsx:juninmd-ha
 de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/components/Login.tsx:juninmd-hardcoded-password:130
 de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/lib/repository.ts:juninmd-hardcoded-password:502
 de61418ccd4efa51476bfb1615eb90a94d66b871:web/src/lib/repository.ts:juninmd-hardcoded-password:503
+# Falso positivo generic-api-key: nomes de tons de cor ('porcelain-50', 'cobalt-500') no campo 'token' da vitrine
+# /design-system. O campo foi renomeado no commit seguinte; estas entradas cobrem só o histórico do PR.
+99fca3517000097ef4dbe5889833319956447393:web/src/features/design-system/DesignSystemPage.tsx:generic-api-key:20
+99fca3517000097ef4dbe5889833319956447393:web/src/features/design-system/DesignSystemPage.tsx:generic-api-key:21
+99fca3517000097ef4dbe5889833319956447393:web/src/features/design-system/DesignSystemPage.tsx:generic-api-key:22
