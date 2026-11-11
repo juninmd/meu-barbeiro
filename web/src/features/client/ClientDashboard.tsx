@@ -2,7 +2,10 @@ import { BellRing, CalendarDays, ChevronLeft, ChevronRight, Clock3, MapPin, Rota
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Avatar } from '../../components/ui/Avatar'
+import { Skeleton } from '../../components/ui/Skeleton'
+import { BookingTicket } from './BookingTicket'
 import { Calendar } from '../../components/ui/Calendar'
 import { MyPackages } from '../../components/CustomerPackages'
 import { ReviewDialog } from '../../components/ReviewDialog'
@@ -17,7 +20,7 @@ import { formatBusinessHours, formatCurrency, formatDate, paymentLabel } from '.
 import { errorMessage, repository } from '../../lib/repository'
 import type { Appointment, AppointmentAvailability, Barber, Barbershop, CancellationQuote, LastAppointment, MyReview, NewAppointment, Service, User } from '../../types'
 import { Badge } from '../../components/ui/Badge'
-import { buttonStyles, Button } from '../../components/ui/Button'
+import { buttonStyles } from '../../components/ui/Button'
 import { ActionBar, ChoiceCard, StepFieldset, Stepper } from '../../components/ui/Choice'
 import { Notice, SectionHeading } from '../../components/ui/Notice'
 import { cardStyles } from '../../components/ui/Card'
@@ -55,6 +58,8 @@ const formatShortDate = (date: string) => new Intl.DateTimeFormat('pt-BR', {
 export function ClientDashboard({ appointments, barbers, barbershop, currentUser, services, onRefresh }: ClientDashboardProps) {
   const { section } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [justBooked, setJustBooked] = useState<Appointment | null>(null)
   const [form, setForm] = useState<NewAppointment>({ barberId: '', serviceId: '', scheduledAt: '' })
   const [bookingStep, setBookingStep] = useState(1)
   const [date, setDate] = useState('')
@@ -194,6 +199,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
         window.location.assign(result.checkoutUrl)
         return
       }
+      setJustBooked(result.appointment)
       setMessage(result.appointment.paymentStatus === 'APPROVED'
         ? 'Pagamento aprovado. O barbeiro já recebeu seu horário.'
         : 'Pedido enviado. O barbeiro já recebeu seu horário.')
@@ -236,6 +242,13 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
     setBookingStep(lastAppointment?.repeatable ? 2 : 1)
     window.requestAnimationFrame(() => bookingPanel.current?.scrollIntoView({ behavior: 'smooth' }))
   }
+
+  // Atalho "Repetir último corte" da paleta de comandos chega como ?acao=repetir.
+  useEffect(() => {
+    if (section !== 'agendar' || searchParams.get('acao') !== 'repetir' || !lastAppointment) return
+    setSearchParams({}, { replace: true })
+    repeatLastAppointment()
+  }, [section, searchParams, lastAppointment])
 
   const stopReschedule = () => {
     setRescheduleTarget(null)
@@ -292,12 +305,12 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
 
   const appointmentCard = (appointment: Appointment, spotlight = false) => (
     <article className={cn('border-t border-line py-4 first:border-t-0 first:pt-0 [&_p]:mb-1.5 [&_p]:flex [&_p]:items-center [&_p]:gap-1.5 [&_p]:text-xs [&_p]:text-muted', spotlight && 'border-0 p-0')} data-testid={spotlight ? 'client-next-appointment' : undefined} key={appointment.id}>
-      <div className="flex items-center justify-between gap-2 [&_time]:text-xs [&_time]:text-muted"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
+      <div className="flex items-center justify-between gap-2 [&_time]:font-mono [&_time]:text-xs [&_time]:text-muted"><StatusBadge status={appointment.status} /><time>{formatDate(appointment.scheduledAt)}</time></div>
       <h3 className="mt-3 mb-1.5 font-serif text-[1.15rem] font-medium">{appointment.service.name}</h3>
       <p><UserRound aria-hidden="true" /> {appointment.barber.name}</p>
       <p><Clock3 aria-hidden="true" /> {appointment.service.duration} min · {formatCurrency(appointment.service.price)}</p>
       {appointment.paymentStatus === 'PENDING' ? (
-        <div className="my-2.5 rounded-r-lg border-l-[3px] border-brand bg-tint p-2.5 text-tint-ink [&_p]:text-tint-ink [&_p:last-child]:mb-0">
+        <div className="my-2.5 rounded-xl border border-brand/30 bg-tint p-3 text-tint-ink [&_p]:text-tint-ink [&_p:last-child]:mb-0">
           {appointment.paymentExpiresAt && new Date(appointment.paymentExpiresAt).getTime() <= now ? (
             <p><span aria-hidden="true">$</span> Reserva expirada. O horário não está mais reservado.</p>
           ) : (
@@ -329,31 +342,35 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
 
       {section === 'agendar' && (
         <>
-        <PageHeading eyebrow="Novo horário" title="Reserve sua cadeira.">Três escolhas rápidas. Seu horário fica visível antes do formulário quando já existe uma reserva.</PageHeading>
+        <PageHeading eyebrow="Novo horário" title="Reserve sua cadeira.">Duas escolhas: o serviço, depois o dia, o barbeiro e o horário na mesma tela.</PageHeading>
         {upcoming[0] && (
           <section className={cardStyles} aria-labelledby="next-before-booking">
             <SectionHeading eyebrow="Antes de agendar outro" title="Seu próximo horário" id="next-before-booking" aside={<Link className={buttonStyles({ variant: 'ghost', size: 'sm' })} to="/cliente/horarios">Ver agenda</Link>} className="mb-5" />
             {appointmentCard(upcoming[0], true)}
           </section>
         )}
-        <section ref={bookingPanel} className={cn(cardStyles, 'grid gap-5 max-sm:pb-24')} data-testid="booking-form" aria-labelledby="booking-title">
+        {!rescheduleTarget && lastAppointment && bookingStep === 1 && (
+          <button type="button" onClick={repeatLastAppointment} className="group flex w-full animate-fade-up items-center gap-4 rounded-[1.4rem] border-[1.5px] border-dashed border-brand/45 bg-tint p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-brand hover:shadow-card">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand text-on-brand shadow-glow transition duration-500 group-hover:-rotate-180"><RotateCcw aria-hidden="true" /></span>
+            <span className="grid min-w-0 flex-1 gap-0.5">
+              <strong className="text-tint-ink">Repetir último atendimento</strong>
+              <span className="truncate text-sm text-muted">{lastAppointment.service.name} com {lastAppointment.barber.name} · só falta o horário</span>
+            </span>
+            <ChevronRight className="shrink-0 text-tint-ink transition group-hover:translate-x-1" aria-hidden="true" />
+          </button>
+        )}
+        <section ref={bookingPanel} className={cn(cardStyles, 'grid gap-6 max-sm:pb-24')} data-testid="booking-form" aria-labelledby="booking-title">
           <SectionHeading
             eyebrow={rescheduleTarget ? 'Remarcar agendamento' : 'Novo agendamento'}
             title={rescheduleTarget ? 'Escolha o novo horário' : 'Monte seu horário'}
             id="booking-title"
-            aside={<Badge tone="warning">Passo {bookingStep} de 3</Badge>}
+            aside={<Badge tone="warning">Passo {bookingStep} de 2</Badge>}
           />
-          <Stepper label="Progresso do agendamento" steps={['Serviço', 'Data', 'Barbeiro e horário']} current={bookingStep} />
+          <Stepper label="Progresso do agendamento" steps={['Serviço', 'Quando e com quem']} current={bookingStep} />
           {rescheduleTarget && (
             <Notice role="status">
               Serviço e barbeiro serão mantidos. O pagamento já feito continua valendo.
             </Notice>
-          )}
-          {!rescheduleTarget && lastAppointment && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-4">
-              <div className="grid gap-0.5"><strong>{lastAppointment.service.name}</strong><span className="text-sm text-muted">com {lastAppointment.barber.name}</span></div>
-              <Button variant="dark" size="sm" onClick={repeatLastAppointment}><RotateCcw aria-hidden="true" /> Repetir último atendimento</Button>
-            </div>
           )}
           <form onSubmit={submit} className="grid gap-8">
             {bookingStep === 1 && <StepFieldset step="01" title="O que vamos fazer?">
@@ -361,7 +378,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                 {services.length === 0 && (
                   <EmptyState><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => void onRefresh()}>Tentar novamente</button></EmptyState>
                 )}
-                {services.map((service) => (
+                {services.map((service, index) => (
                   <ChoiceCard
                     key={service.id}
                     name="service"
@@ -369,102 +386,123 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                     checked={form.serviceId === service.id}
                     onChange={(event) => setForm({ ...form, serviceId: event.target.value })}
                     required
+                    className="animate-fade-up"
+                    style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
                     icon={<Scissors />}
                     title={service.name}
-                    hint={`${service.duration} min · ${formatCurrency(service.price)}`}
+                    hint={<span className="flex items-center justify-between gap-2"><span>{service.duration} min</span><span className="font-mono text-[.8rem] font-semibold text-ink">{formatCurrency(service.price)}</span></span>}
                   />
                 ))}
               </div>
               {membershipVisit && <Notice role="status">{membershipVisit.covered ? `Esta visita está incluída na sua assinatura: nenhum sinal será cobrado. Depois dela, restará(ão) ${Math.max(0, membershipVisit.remainingVisits - 1)} visita(s).` : 'Esta visita não está incluída ou o limite do período acabou. A política normal de sinal será aplicada.'}</Notice>}
             </StepFieldset>}
 
-            {bookingStep === 2 && <StepFieldset step="02" title="Quando?">
-              <div className="grid gap-3.5 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5" data-testid="date-picker">
-                <p className="flex items-center gap-3.5 rounded-xl bg-gradient-to-br from-tint to-brand-light/40 px-4 py-3.5">
-                  <CalendarDays className="size-6 shrink-0 text-brand-deep" aria-hidden="true" />
-                  <span className="grid"><strong className="font-serif text-lg font-medium first-letter:uppercase">{date ? formatPickedDate(date) : 'Escolha um dia'}</strong><small className="text-xs text-tint-ink/80">Duração estimada: {selectedService?.duration ?? '—'} min</small></span>
-                </p>
-                <Calendar
-                  mode="single"
-                  selected={date ? new Date(`${date}T12:00:00`) : undefined}
-                  defaultMonth={date ? new Date(`${date}T12:00:00`) : new Date(`${dateInTimezone(timezone)}T12:00:00`)}
-                  disabled={{ before: new Date(`${dateInTimezone(timezone)}T12:00:00`) }}
-                  modifiers={{ closed: { dayOfWeek: closedWeekdays } }}
-                  modifiersClassNames={{ closed: '[&>button]:text-muted [&>button]:line-through' }}
-                  onSelect={(picked) => {
-                    if (!picked) return
-                    setDate(format(picked, 'yyyy-MM-dd'))
-                    setForm((current) => ({ ...current, barberId: rescheduleTarget ? current.barberId : '', scheduledAt: '' }))
-                  }}
-                />
-                {closedWeekdays.length > 0 && <small className="text-center text-xs text-muted">Dias riscados: a barbearia não abre.</small>}
-              </div>
-              {loadingBarbers && <p className="text-xs text-muted" role="status">Consultando quem atende nesta data…</p>}
-              {barbersError && <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>}
-            </StepFieldset>}
+            {bookingStep === 2 && (
+              <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
+                <StepFieldset step="02" title="Quando?">
+                  <div className="grid gap-3.5 rounded-[1.4rem] border border-line bg-surface-2 p-4 sm:p-5" data-testid="date-picker">
+                    <p className="flex items-center gap-3.5 rounded-2xl bg-ink px-4 py-3.5 text-paper">
+                      <CalendarDays className="size-6 shrink-0 text-brand-light" aria-hidden="true" />
+                      <span className="grid"><strong className="font-serif text-lg font-medium first-letter:uppercase">{date ? formatPickedDate(date) : 'Escolha um dia'}</strong><small className="font-mono text-[.7rem] text-paper/70">{selectedService ? `${selectedService.name} · ${selectedService.duration} min` : 'Duração estimada: —'}</small></span>
+                    </p>
+                    <Calendar
+                      mode="single"
+                      selected={date ? new Date(`${date}T12:00:00`) : undefined}
+                      defaultMonth={date ? new Date(`${date}T12:00:00`) : new Date(`${dateInTimezone(timezone)}T12:00:00`)}
+                      disabled={{ before: new Date(`${dateInTimezone(timezone)}T12:00:00`) }}
+                      modifiers={{ closed: { dayOfWeek: closedWeekdays } }}
+                      modifiersClassNames={{ closed: '[&>button]:text-muted [&>button]:line-through' }}
+                      onSelect={(picked) => {
+                        if (!picked) return
+                        setDate(format(picked, 'yyyy-MM-dd'))
+                        setForm((current) => ({ ...current, barberId: current.barberId, scheduledAt: '' }))
+                      }}
+                    />
+                    {closedWeekdays.length > 0 && <small className="text-center text-xs text-muted">Dias riscados: a barbearia não abre.</small>}
+                  </div>
+                </StepFieldset>
 
-            {bookingStep === 3 && <StepFieldset step="03" title="Com quem?">
-              {rescheduleTarget ? (
-                <Notice>Barbeiro mantido na remarcação. Escolha um novo horário disponível.</Notice>
-              ) : loadingBarbers ? (
-                <p className="text-xs text-muted" role="status">Consultando quem atende nesta data…</p>
-              ) : barbersError ? (
-                <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>
-              ) : availableBarbers.length === 0 ? (
-                <EmptyState className="col-span-full">
-                  <UserRound aria-hidden="true" />
-                  <strong>Ninguém disponível nesta data</strong>
-                  <p>{nextAvailableDate ? `O próximo dia com atendimento é ${formatShortDate(nextAvailableDate)}.` : 'Não encontramos atendimento nos próximos 60 dias.'}</p>
-                  {nextAvailableDate && <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
-                  <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
-                  {waitlistRequested && <Notice role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</Notice>}
-                </EmptyState>
-              ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <ChoiceCard
-                  name="barber"
-                  value="any"
-                  checked={form.barberId === 'any'}
-                  onChange={(event) => setForm({ ...form, barberId: event.target.value })}
-                  required
-                  recommended={availableBarbers.length > 1}
-                  icon={<UserRound />}
-                  title="Qualquer barbeiro disponível"
-                  hint={availableBarbers.length > 1 ? 'Mais opções de horário para você' : 'Primeiro horário disponível'}
-                />
-                {datedBarbers.map((barber) => (
-                  <ChoiceCard
-                    key={barber.id}
-                    name="barber"
-                    value={barber.id}
-                    checked={form.barberId === barber.id}
-                    onChange={(event) => setForm({ ...form, barberId: event.target.value })}
-                    disabled={!barber.available}
-                    required
-                    icon={<UserRound />}
-                    title={barber.name}
-                    hint={barber.available
-                      ? `${barber.slotCount} horário${barber.slotCount === 1 ? '' : 's'} · primeiro às ${barber.firstAvailableTime}`
-                      : `${barber.unavailableReason}${barber.nextAvailableDate ? ` · atende em ${formatShortDate(barber.nextAvailableDate)}` : ''}`}
+                <StepFieldset step="03" title="Com quem?">
+                  {!date ? (
+                    <EmptyState><CalendarDays aria-hidden="true" /><strong>Escolha um dia no calendário</strong><p>Os barbeiros e os horários livres aparecem aqui na hora.</p></EmptyState>
+                  ) : rescheduleTarget ? (
+                    <Notice>Barbeiro mantido na remarcação. Escolha um novo horário disponível.</Notice>
+                  ) : loadingBarbers ? (
+                    <div className="grid gap-3 sm:grid-cols-2" role="status" aria-label="Consultando quem atende nesta data…">
+                      {[0, 1, 2, 3].map((item) => <Skeleton className="h-24 rounded-[1.15rem]" key={item} />)}
+                      <span className="sr-only">Consultando quem atende nesta data…</span>
+                    </div>
+                  ) : barbersError ? (
+                    <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>
+                  ) : availableBarbers.length === 0 ? (
+                    <EmptyState className="col-span-full">
+                      <UserRound aria-hidden="true" />
+                      <strong>Ninguém disponível nesta data</strong>
+                      <p>{nextAvailableDate ? `O próximo dia com atendimento é ${formatShortDate(nextAvailableDate)}.` : 'Não encontramos atendimento nos próximos 60 dias.'}</p>
+                      {nextAvailableDate && <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
+                      <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
+                      {waitlistRequested && <Notice role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</Notice>}
+                    </EmptyState>
+                  ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ChoiceCard
+                      name="barber"
+                      value="any"
+                      checked={form.barberId === 'any'}
+                      onChange={(event) => setForm({ ...form, barberId: event.target.value })}
+                      required
+                      recommended={availableBarbers.length > 1}
+                      className="animate-fade-up"
+                      icon={<span className="grid size-9 place-items-center rounded-full bg-ink text-paper"><Star className="!size-4" /></span>}
+                      title="Qualquer barbeiro disponível"
+                      hint={availableBarbers.length > 1 ? 'Mais opções de horário para você' : 'Primeiro horário disponível'}
+                    />
+                    {datedBarbers.map((barber, index) => (
+                      <ChoiceCard
+                        key={barber.id}
+                        name="barber"
+                        value={barber.id}
+                        checked={form.barberId === barber.id}
+                        onChange={(event) => setForm({ ...form, barberId: event.target.value })}
+                        disabled={!barber.available}
+                        required
+                        className="animate-fade-up"
+                        style={{ animationDelay: `${Math.min(index + 1, 8) * 40}ms` }}
+                        icon={<Avatar name={barber.name} size="sm" />}
+                        title={barber.name}
+                        hint={barber.available
+                          ? `${barber.slotCount} horário${barber.slotCount === 1 ? '' : 's'} · primeiro às ${barber.firstAvailableTime}`
+                          : `${barber.unavailableReason}${barber.nextAvailableDate ? ` · atende em ${formatShortDate(barber.nextAvailableDate)}` : ''}`}
+                      />
+                    ))}
+                  </div>
+                  )}
+                  <AppointmentSlots
+                    availability={availability}
+                    error={availabilityError}
+                    loading={loadingAvailability}
+                    selected={form.scheduledAt}
+                    browserTimezone={browserTimezone}
+                    onSelect={(scheduledAt) => setForm({ ...form, scheduledAt })}
+                    onRetry={() => setAvailabilityRevision((revision) => revision + 1)}
                   />
-                ))}
+                  {form.scheduledAt && selectedService && (
+                    <div className="relative grid animate-fade-up gap-3 rounded-[1.4rem] border border-line bg-surface-2 p-5" data-testid="booking-summary">
+                      <div className="flex items-center justify-between gap-3"><span className="font-mono text-[.66rem] font-semibold tracking-[.12em] text-muted uppercase">Resumo</span><Badge tone="success">{rescheduleTarget ? 'Remarcação' : 'Quase lá'}</Badge></div>
+                      <strong className="font-serif text-2xl font-medium">{selectedService.name}</strong>
+                      <span className="text-sm text-muted">com {form.barberId === 'any' ? 'o primeiro barbeiro livre' : (datedBarbers.find((barber) => barber.id === form.barberId)?.name ?? rescheduleTarget?.barber.name ?? 'barbeiro escolhido')} · {selectedService.duration} min</span>
+                      <span className="-mx-5 border-t-2 border-dashed border-line" aria-hidden="true" />
+                      <span className="flex items-center justify-between gap-3 font-mono text-[.95rem] font-semibold"><span className="first-letter:uppercase">{formatDate(form.scheduledAt)}</span><span>{formatCurrency(selectedService.price)}</span></span>
+                    </div>
+                  )}
+                </StepFieldset>
               </div>
-              )}
-              <AppointmentSlots
-                availability={availability}
-                error={availabilityError}
-                loading={loadingAvailability}
-                selected={form.scheduledAt}
-                browserTimezone={browserTimezone}
-                onSelect={(scheduledAt) => setForm({ ...form, scheduledAt })}
-                onRetry={() => setAvailabilityRevision((revision) => revision + 1)}
-              />
-            </StepFieldset>}
+            )}
 
             <ActionBar>
-              {bookingStep > 1 && !rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBookingStep((step) => step - 1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
-              {bookingStep < 3 ? (
-                <button className={buttonStyles({ variant: 'primary' })} type="button" disabled={bookingStep === 1 ? !form.serviceId : !date || loadingBarbers || Boolean(barbersError)} onClick={() => setBookingStep((step) => step + 1)}>Continuar <ChevronRight aria-hidden="true" /></button>
+              {bookingStep > 1 && !rescheduleTarget && <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBookingStep(1)}><ChevronLeft aria-hidden="true" /> Voltar</button>}
+              {bookingStep < 2 ? (
+                <button className={buttonStyles({ variant: 'primary' })} type="button" disabled={!form.serviceId} onClick={() => setBookingStep(2)}>Continuar <ChevronRight aria-hidden="true" /></button>
               ) : (
                 <button className={buttonStyles({ variant: 'primary' })} disabled={busy || !form.scheduledAt}>
                   {busy ? (rescheduleTarget ? 'Remarcando…' : 'Reservando…') : (rescheduleTarget ? 'Confirmar novo horário' : 'Solicitar agendamento')} <CalendarDays aria-hidden="true" />
@@ -480,6 +518,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
       {section === 'horarios' && (
         <>
           <PageHeading eyebrow="Sua agenda" title={upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</PageHeading>
+          {justBooked && <BookingTicket appointment={justBooked} barbershopName={barbershop?.name} onDismiss={() => setJustBooked(null)} />}
           <section className={cn(cardStyles, 'max-w-[820px]')} aria-labelledby="upcoming-title">
             <SectionHeading eyebrow="Confirmados e pendentes" title="Próximos horários" id="upcoming-title" aside={<CountBadge>{upcoming.length}</CountBadge>} className="mb-5" />
             <div className="grid gap-3.5">

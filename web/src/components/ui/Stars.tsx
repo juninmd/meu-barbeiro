@@ -6,7 +6,7 @@ export function Stars({ value, className, label }: { value: number; className?: 
   return (
     <span className={cn('inline-flex items-center gap-0.5 text-brand', className)} role="img" aria-label={label ?? `Nota ${value} de 5`}>
       {[1, 2, 3, 4, 5].map((star) => (
-        <Star key={star} aria-hidden="true" className={cn('size-4', value >= star - 0.25 ? 'fill-current' : value >= star - 0.75 ? 'fill-current opacity-50' : 'text-bone-400 opacity-60')} />
+        <Star key={star} aria-hidden="true" className={cn('size-4', value >= star - 0.25 ? 'fill-current' : value >= star - 0.75 ? 'fill-current opacity-50' : 'text-porcelain-400 opacity-60')} />
       ))}
     </span>
   )
@@ -28,7 +28,7 @@ export function StarInput({ value, onChange, name = 'Nota' }: { value: number; o
           }}
           className="grid size-11 place-items-center rounded-xl text-brand transition hover:bg-brand/15 focus-visible:outline-3 focus-visible:outline-brand"
         >
-          <Star aria-hidden="true" className={cn('size-7 transition', value >= star ? 'fill-current' : 'text-bone-400')} />
+          <Star aria-hidden="true" className={cn('size-7 transition', value >= star ? 'fill-current' : 'text-porcelain-400')} />
         </button>
       ))}
       {value > 0 && <span className="ml-2 text-sm font-bold text-muted" aria-live="polite">{labels[value - 1]}</span>}

@@ -183,10 +183,10 @@ function ShopGrid({ children }: { children: React.ReactNode }) {
 
 function Stat({ icon, value, label, alert }: { icon: React.ReactNode; value: number; label: string; alert?: boolean }) {
   return (
-    <article className={cn('grid gap-0.5 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5', alert && 'border-brand bg-tint')}>
-      <span className="mb-2 grid size-10 place-items-center rounded-xl bg-linear-to-br from-brand/30 to-brand/10 text-brand-deep [&_svg]:size-5" aria-hidden="true">{icon}</span>
-      <strong className="font-serif text-4xl leading-none font-medium">{value}</strong>
-      <span className="text-[.78rem] font-bold text-muted">{label}</span>
+    <article className={cn('grid animate-fade-up gap-1 rounded-[1.4rem] border border-line bg-surface p-4 shadow-card transition duration-300 hover:-translate-y-1 sm:p-5', alert && 'border-warn/40 bg-warn-soft')}>
+      <span className={cn('mb-2 grid size-10 place-items-center rounded-xl bg-tint text-brand-deep [&_svg]:size-5', alert && 'bg-warn/15 text-warn')} aria-hidden="true">{icon}</span>
+      <strong className="font-serif text-[2.6rem] leading-none font-medium tabular-nums">{value}</strong>
+      <span className="font-mono text-[.66rem] font-semibold tracking-[.1em] text-muted uppercase">{label}</span>
     </article>
   )
 }
@@ -202,7 +202,7 @@ function RequestList({ users, busyId, onDecide }: { users: AdminUser[]; busyId: 
       {users.map((user) => {
         const busy = busyId === user.id
         return (
-          <li className="grid gap-3 rounded-xl border border-line bg-surface-2 p-4 transition hover:border-brand/50 hover:shadow-sm" key={user.id}>
+          <li className="grid gap-3 rounded-[1.15rem] border border-line bg-surface-2 p-4 transition duration-300 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-card" key={user.id}>
             <div className="flex items-center gap-3">
               <Avatar name={user.name} />
               <div className="grid min-w-0 flex-1">
@@ -211,7 +211,7 @@ function RequestList({ users, busyId, onDecide }: { users: AdminUser[]; busyId: 
               </div>
               <Badge tone={statusTone[user.establishmentRequest]}>{statusLabel[user.establishmentRequest]}</Badge>
             </div>
-            {user.establishmentRequestNote && <blockquote className="rounded-r-xl border-l-[3px] border-brand bg-tint px-4 py-3 text-sm text-ink/80">{user.establishmentRequestNote}</blockquote>}
+            {user.establishmentRequestNote && <blockquote className="rounded-xl border border-brand/25 bg-tint px-4 py-3 text-sm text-ink/80">{user.establishmentRequestNote}</blockquote>}
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
               <small>{user.establishmentRequestedAt ? `Pedido em ${dateLabel(user.establishmentRequestedAt)}` : `Conta criada em ${dateLabel(user.createdAt)}`}</small>
               {user.memberships.length > 0 && <small>{user.memberships.map((item) => item.barbershop.name).join(', ')}</small>}

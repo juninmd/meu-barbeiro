@@ -17,15 +17,20 @@ interface WalkInFormProps {
   currentUser: User
   services: Service[]
   onCreated: () => Promise<void>
+  /** Abre direto no formulário (uso dentro da folha de encaixe). */
+  defaultOpen?: boolean
+  /** Sem moldura de cartão, para caber em um diálogo. */
+  bare?: boolean
+  onClose?: () => void
 }
 
 const timeLabel = (value: string, timezone: string) => new Intl.DateTimeFormat('pt-BR', {
   timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 }).format(new Date(value))
 
-export function WalkInForm({ barbers, barbershop, currentUser, services, onCreated }: WalkInFormProps) {
+export function WalkInForm({ barbers, barbershop, currentUser, services, onCreated, defaultOpen = false, bare = false, onClose }: WalkInFormProps) {
   const barberLocked = barbershop.membershipRole === 'BARBER'
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [existing, setExisting] = useState(true)
   const [query, setQuery] = useState('')
   const [customers, setCustomers] = useState<CustomerSummary[]>([])
@@ -75,6 +80,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
       })
       await onCreated()
       setOpen(false)
+      onClose?.()
       setCustomerId('')
       setName('')
       setServiceIds([])
@@ -93,8 +99,8 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
   }
 
   return (
-    <section className={cn(cardStyles, 'grid gap-5')} aria-labelledby="walk-in-title">
-      <SectionHeading eyebrow="Atendimento pelo balcão" title="Entrada sem horário" id="walk-in-title" aside={<Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Fechar</Button>} />
+    <section className={cn(!bare && cardStyles, 'grid gap-5')} aria-labelledby="walk-in-title">
+      <SectionHeading eyebrow="Atendimento pelo balcão" title="Entrada sem horário" id="walk-in-title" aside={<Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClose?.() }}>Fechar</Button>} />
       {message && <Notice tone="danger" role="alert">{message}</Notice>}
       <form className="grid gap-8" onSubmit={submit}>
         <StepFieldset step="01" title="Cliente">
@@ -107,7 +113,7 @@ export function WalkInForm({ barbers, barbershop, currentUser, services, onCreat
               <Field label="Buscar por nome ou telefone"><Input value={query} onChange={(event) => setQuery(event.target.value)} /></Field>
               <div className="grid gap-2">
                 {customers.map((customer) => (
-                  <label className={cn('flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-brand/35', customerId === customer.id ? 'border-brand bg-tint ring-2 ring-brand' : 'border-line bg-surface-2 hover:border-brand-deep/60')} key={customer.id}>
+                  <label className={cn('flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-brand/35', customerId === customer.id ? 'border-brand bg-tint shadow-[0_0_0_4px_color-mix(in_oklab,var(--amber)_18%,transparent)]' : 'border-line bg-surface-2 hover:border-brand-deep/60')} key={customer.id}>
                     <input className="sr-only" type="radio" name="customer" value={customer.id} checked={customerId === customer.id} onChange={() => setCustomerId(customer.id)} required />
                     <UserRound className="size-5 shrink-0 text-brand-deep" aria-hidden="true" />
                     <span className="grid gap-0.5"><strong>{customer.name}</strong><small className="text-xs text-muted">{customer.phone || 'Sem telefone'}{customer.noShowCount > 0 ? ` · ${customer.noShowCount} falta(s)` : ''}</small></span>

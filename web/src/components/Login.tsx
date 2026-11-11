@@ -104,14 +104,14 @@ export function Login({ onAuthenticated, onBack }: LoginProps) {
 
   return (
     <main className="grid min-h-screen bg-chrome lg:grid-cols-[1.1fr_.9fr]">
-      <section className="relative flex flex-col justify-between gap-3 overflow-hidden bg-[radial-gradient(circle_at_90%_8%,#d99b3244,transparent_34%),radial-gradient(circle_at_0%_100%,#d99b3222,transparent_38%),linear-gradient(145deg,#12110d,#26231a)] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-5 text-chrome-ink before:pointer-events-none before:absolute before:inset-0 before:bg-[repeating-linear-gradient(120deg,transparent_0_23px,#fff_24px,transparent_25px)] before:opacity-10 lg:gap-8 lg:p-16" aria-labelledby="login-title">
+      <section className="relative flex flex-col justify-between gap-3 overflow-hidden bg-[radial-gradient(120%_90%_at_100%_0%,color-mix(in_oklab,var(--amber)_70%,transparent),transparent_60%),radial-gradient(circle_at_0%_100%,color-mix(in_oklab,var(--amber)_22%,transparent),transparent_40%),linear-gradient(160deg,#0c0d14,#141728)] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-5 text-chrome-ink before:pointer-events-none before:absolute before:inset-0 before:bg-[repeating-linear-gradient(120deg,transparent_0_23px,#fff_24px,transparent_25px)] before:opacity-10 lg:gap-8 lg:p-16" aria-labelledby="login-title">
         <div className="relative flex items-center gap-3 text-xs font-extrabold tracking-[.12em] uppercase">
-          <span className="grid size-11 place-items-center rounded-full border border-white/20 bg-white/5 text-brand-light"><Scissors aria-hidden="true" /></span>
+          <span className="barber-pole h-9 w-3.5 rounded-full ring-1 ring-white/30" aria-hidden="true" /><span className="grid size-11 place-items-center rounded-full border border-white/20 bg-white/5 text-brand-light"><Scissors aria-hidden="true" /></span>
           Meu Barbeiro
         </div>
         <div className="relative max-w-2xl">
-          <p className="mb-2 hidden text-[.72rem] font-extrabold tracking-[.16em] text-brand uppercase lg:block">Agenda cheia. Rotina leve.</p>
-          <h1 id="login-title" className="font-serif text-[1.7rem] leading-[1.05] font-medium tracking-tight lg:mb-5 lg:text-7xl lg:leading-[.96]">Seu melhor corte começa antes da cadeira.</h1>
+          <p className="mb-2 hidden font-mono text-[.72rem] font-semibold tracking-[.16em] text-brand-light uppercase lg:block">Agenda cheia. Rotina leve.</p>
+          <h1 id="login-title" className="animate-fade-up font-serif text-[2rem] leading-[1] font-medium tracking-tight lg:mb-5 lg:text-8xl lg:leading-[.9]">Seu melhor corte começa antes da cadeira.</h1>
           <p className="mt-4 hidden max-w-lg text-lg leading-relaxed text-chrome-ink/70 lg:block">
             Agendamentos sem conversa perdida, horários sob controle e uma experiência à altura do seu trabalho.
           </p>
@@ -123,10 +123,11 @@ export function Login({ onAuthenticated, onBack }: LoginProps) {
             ))}
           </ul>
         </div>
-        <div className="relative hidden w-fit rounded-r-xl border-l-[3px] border-brand bg-white/5 px-5 py-3.5 lg:grid" aria-hidden="true">
-          <span className="text-[.72rem] tracking-[.12em] text-chrome-ink/50 uppercase">Hoje</span>
-          <strong className="my-1 font-serif text-lg font-medium">8 horários organizados</strong>
-          <small className="text-[.72rem] tracking-[.12em] text-chrome-ink/50 uppercase">Sem papel. Sem conflito.</small>
+        <div className="relative hidden w-fit rotate-[-2deg] gap-3 rounded-[1.4rem] border border-white/15 bg-white/[.07] p-5 shadow-[0_40px_80px_-30px_#000] backdrop-blur-xl motion-safe:animate-[float_6s_ease-in-out_infinite] lg:grid" aria-hidden="true">
+          <span className="flex items-center gap-2 font-mono text-[.68rem] tracking-[.12em] text-chrome-ink/60 uppercase"><span className="live-dot" /> Hoje</span>
+          <strong className="font-serif text-2xl font-medium">8 horários organizados</strong>
+          <span className="h-px border-t-2 border-dashed border-white/15" />
+          <small className="font-mono text-[.72rem] tracking-[.12em] text-chrome-ink/60 uppercase">Sem papel · Sem conflito</small>
         </div>
       </section>
 

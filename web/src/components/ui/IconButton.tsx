@@ -3,7 +3,7 @@ import { cn } from '../../lib/cn'
 
 const focus = 'focus-visible:ring-4 focus-visible:ring-brand/35 focus-visible:outline-none disabled:cursor-wait disabled:opacity-55'
 
-const iconButton = cva(`grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-line transition [&_svg]:size-[1.1rem] ${focus}`, {
+const iconButton = cva(`grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-line transition duration-200 active:scale-90 [&_svg]:size-[1.1rem] ${focus}`, {
   variants: {
     tone: {
       subtle: 'text-muted hover:border-danger hover:text-danger',

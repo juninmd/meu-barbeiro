@@ -161,7 +161,7 @@ export function SubscriptionPanel({ barbershop, onRefresh }: SubscriptionPanelPr
             const current = plan.id === subscription.plan
             return (
               <article key={plan.id} className={`relative flex flex-col gap-2 rounded-2xl border p-4 ${selected === plan.id ? 'border-brand shadow-card' : 'border-line'} ${plan.recommended ? 'bg-surface' : 'bg-surface-2'}`}>
-                {plan.recommended && <span className="absolute -top-3 left-4 rounded-full bg-brand px-2 py-0.5 text-[.6rem] font-black tracking-[.08em] text-[#1c1810] uppercase">Mais escolhido</span>}
+                {plan.recommended && <span className="absolute -top-3 left-4 rounded-full bg-brand px-2 py-0.5 text-[.6rem] font-black tracking-[.08em] text-on-brand uppercase">Mais escolhido</span>}
                 <h3 className="font-serif text-xl">{plan.name}</h3>
                 <p className="min-h-[2.4em] text-xs text-muted">{plan.tagline}</p>
                 <strong className="font-serif text-2xl">{formatCurrency(plan.monthlyFeeCents / 100)}<small className="font-sans text-xs font-normal text-muted">/mês</small></strong>

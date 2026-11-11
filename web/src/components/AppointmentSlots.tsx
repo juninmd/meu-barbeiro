@@ -25,13 +25,13 @@ export function AppointmentSlots({ availability, error, loading, selected, brows
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <strong className="text-sm">Horários disponíveis</strong>
+        <strong className="text-sm font-semibold">Horários disponíveis</strong>
         {availability.timezone !== browserTimezone && <small className="text-xs text-muted">horários no fuso da barbearia · {availability.timezone}</small>}
       </div>
       <div className="grid gap-4" aria-label="Horários disponíveis">
         {periods.map((period) => period.slots.length > 0 && (
-          <section aria-labelledby={`slot-period-${period.key}`} key={period.key}>
-            <h4 id={`slot-period-${period.key}`} className="mb-2 text-xs font-bold tracking-wider text-muted uppercase">{period.label}</h4>
+          <section className="animate-fade-up" aria-labelledby={`slot-period-${period.key}`} key={period.key}>
+            <h4 id={`slot-period-${period.key}`} className="mb-2 font-mono text-[.66rem] font-semibold tracking-[.12em] text-muted uppercase">{period.label}</h4>
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(5rem,1fr))]">
               {period.slots.map((slot) => {
                 const active = selected === slot.scheduledAt
@@ -40,8 +40,8 @@ export function AppointmentSlots({ availability, error, loading, selected, brows
                     aria-label={`Selecionar horário ${slot.label}`}
                     aria-pressed={active}
                     className={cn(
-                      'grid min-h-11 content-center gap-0.5 rounded-xl border px-2 py-2 text-sm font-extrabold tabular-nums transition duration-200 hover:border-brand-deep/70 hover:bg-tint focus-visible:ring-4 focus-visible:ring-brand/35 focus-visible:outline-none',
-                      active ? 'border-brand bg-tint text-tint-ink ring-2 ring-brand' : 'border-line bg-surface-2 text-ink',
+                      'grid min-h-11 content-center gap-0.5 rounded-xl border-[1.5px] px-2 py-2 font-mono text-sm font-semibold tabular-nums transition duration-200 ease-[cubic-bezier(.34,1.56,.64,1)] hover:border-brand focus-visible:ring-4 focus-visible:ring-brand/35 focus-visible:outline-none active:scale-95',
+                      active ? 'scale-105 border-brand bg-brand text-on-brand shadow-glow' : 'border-line bg-surface text-ink',
                     )}
                     key={slot.scheduledAt}
                     onClick={() => onSelect(slot.scheduledAt)}

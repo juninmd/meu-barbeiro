@@ -1,12 +1,12 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/cn'
 
-const badge = cva('inline-flex items-center rounded-full px-2.5 py-1 text-[.65rem] font-black tracking-[.07em] uppercase', {
+const badge = cva('inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[.64rem] font-semibold tracking-[.06em] uppercase', {
   variants: {
     tone: {
       neutral: 'bg-surface-3 text-muted',
       success: 'bg-success-soft text-success-ink',
-      warning: 'bg-[#f3d899] text-[#6d4d16]',
+      warning: 'bg-warn-soft text-warn',
       danger: 'bg-danger-soft text-danger-ink',
     },
   },

@@ -2,60 +2,72 @@
 @import "tw-animate-css";
 
 /*
- * Navalha — design system do Meu Barbeiro.
+ * Navalha 2.0 — design system do Meu Barbeiro.
  * Camadas: 1) escalas brutas (@theme) 2) tokens semânticos (:root) 3) utilitários Tailwind apontam para os semânticos.
+ * A cor da marca é da barbearia: `--amber` recebe `primaryColor` em runtime e tudo o que é "marca" deriva dela via color-mix.
  * Documentação viva em /design-system e em docs/DESIGN_SYSTEM.md.
  */
 @theme static {
-  --font-sans: "Inter Variable", "Aptos", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
+  --font-sans: "Geist Variable", "Geist", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  /* Neutros quentes ("osso"): do papel ao grafite */
-  --color-bone-50: #fdfcf8;
-  --color-bone-100: #f7f4ed;
-  --color-bone-200: #ece6d8;
-  --color-bone-300: #e2dccd;
-  --color-bone-400: #cdc5b0;
-  --color-bone-500: #9a9486;
-  --color-bone-600: #6b665b;
-  --color-bone-700: #4a463c;
-  --color-bone-800: #2b271b;
-  --color-bone-900: #15140f;
+  /* Porcelana: neutros frios com leve viés azul, do azulejo ao grafite */
+  --color-porcelain-50: #fbfcfe;
+  --color-porcelain-100: #edeff4;
+  --color-porcelain-200: #e2e5ed;
+  --color-porcelain-300: #d9dce6;
+  --color-porcelain-400: #b9bdcb;
+  --color-porcelain-500: #8d92a3;
+  --color-porcelain-600: #5b6072;
+  --color-porcelain-700: #3d4152;
+  --color-porcelain-800: #1f2230;
+  --color-porcelain-900: #11131d;
 
-  /* Marca: âmbar de navalha */
-  --color-amber-50: #fff9ea;
-  --color-amber-100: #fbeec9;
-  --color-amber-200: #f7d98f;
-  --color-amber-300: #f3c86d;
-  --color-amber-400: #e7ae3f;
-  --color-amber-500: #d99b32;
-  --color-amber-600: #b97d1f;
-  --color-amber-700: #8f621c;
-  --color-amber-800: #694815;
+  /* Cobalto: cor padrão de marca (cada barbearia troca a sua) */
+  --color-cobalt-50: #eef0ff;
+  --color-cobalt-100: #dfe3ff;
+  --color-cobalt-200: #c0c8ff;
+  --color-cobalt-300: #97a3ff;
+  --color-cobalt-400: #6676ff;
+  --color-cobalt-500: #2f44ff;
+  --color-cobalt-600: #2234db;
+  --color-cobalt-700: #1a28a8;
+  --color-cobalt-800: #141e78;
+
+  /* Vermelho do poste de barbeiro: só para "agora" e detalhes de identidade */
+  --color-pole-500: #f0442f;
 
   /* Semânticas de estado */
-  --color-success-50: #e6f3ec;
-  --color-success-600: #2d6a4f;
-  --color-danger-50: #fbeeea;
-  --color-danger-600: #a44635;
-  --color-info-50: #e8f0f7;
-  --color-info-600: #2f5f8a;
-  --color-danger-solid: #a44635;
+  --color-success-50: #e3f4ec;
+  --color-success-600: #0f7d55;
+  --color-danger-50: #fdecee;
+  --color-danger-600: #cc2338;
+  --color-info-50: #e8eefc;
+  --color-info-600: #2f5fbf;
+  --color-danger-solid: #cc2338;
 
   --radius-md: .875rem;
-  --radius-lg: 1.125rem;
-  --radius-xl: 1.625rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
 
-  --shadow-xs: 0 1px 2px #15140f0d;
-  --shadow-sm: 0 1px 2px #15140f0f, 0 2px 6px #15140f0a;
-  --shadow-md: 0 1px 2px #15140f0d, 0 10px 30px -8px #15140f1f;
-  --shadow-lg: 0 24px 60px -12px #15140f45;
-  --shadow-glow: 0 10px 30px -8px #d99b3299;
+  --shadow-xs: 0 1px 2px #11131d0d;
+  --shadow-sm: 0 1px 2px #11131d0f, 0 2px 6px #11131d0a;
+  --shadow-md: 0 1px 2px #11131d0d, 0 14px 34px -14px #11131d33;
+  --shadow-lg: 0 40px 80px -30px #11131d66;
+  --shadow-glow: 0 12px 28px -12px var(--amber);
 
   --ease-out-quint: cubic-bezier(.22, 1, .36, 1);
-  --animate-fade-up: fade-up .45s var(--ease-out-quint) both;
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --animate-fade-up: fade-up .5s var(--ease-out-quint) both;
+  --animate-pop: pop .6s var(--ease-spring) both;
+  --animate-pole: pole 1.6s linear infinite;
+  --animate-live: live 1.4s ease-in-out infinite;
   @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-  @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { from { opacity: 0; transform: scale(0) rotate(-40deg); } to { opacity: 1; transform: none; } }
+  @keyframes pole { to { background-position: 0 34px; } }
+  @keyframes live { 0% { box-shadow: 0 0 0 0 var(--pole); } 70% { box-shadow: 0 0 0 7px transparent; } 50% { opacity: .35; } }
 }
 
 /* Tokens semânticos. `inline` mantém as variáveis vivas: --amber muda por barbearia em runtime. */
@@ -72,8 +84,13 @@
   --color-brand: var(--amber);
   --color-brand-light: var(--amber-light);
   --color-brand-deep: var(--amber-deep);
+  --color-on-brand: var(--on-brand);
+  --color-pole: var(--pole);
+  --color-pole-ink: var(--pole-ink);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
   --color-tint: var(--tint);
@@ -93,89 +110,104 @@
   color: var(--ink);
   background: var(--paper);
   font-synthesis: none;
-  --ink: var(--color-bone-900);
-  --chrome: #15140f;
-  --chrome-ink: #f7f4ed;
-  --paper: var(--color-bone-100);
-  --paper-deep: var(--color-bone-200);
-  --surface: var(--color-bone-50);
-  --line: var(--color-bone-300);
-  --amber: var(--color-amber-500);
-  --amber-light: var(--color-amber-300);
-  --amber-deep: var(--color-amber-700);
-  --muted: var(--color-bone-600);
+  --amber: var(--color-cobalt-500);
+  --on-brand: #ffffff;
+  --ink: var(--color-porcelain-900);
+  --chrome: #0c0d14;
+  --chrome-ink: #eef0f8;
+  --paper: var(--color-porcelain-100);
+  --paper-deep: var(--color-porcelain-200);
+  --surface: #ffffff;
+  --surface-2: #f6f7fa;
+  --surface-3: #eef0f5;
+  --line: var(--color-porcelain-300);
+  --control: #c9cdd9;
+  --field: #ffffff;
+  --muted: var(--color-porcelain-600);
+  --pole: var(--color-pole-500);
+  --pole-ink: #b8270f;
+  --amber-light: color-mix(in oklab, var(--amber) 62%, white);
+  --amber-deep: color-mix(in oklab, var(--amber) 82%, black);
+  --tint: color-mix(in oklab, var(--amber) 10%, white);
+  --tint-ink: color-mix(in oklab, var(--amber) 70%, black);
   --danger: var(--color-danger-600);
+  --danger-ink: #8e1527;
+  --danger-soft: #fdecee;
+  --danger-line: #f1b3bc;
   --ok: var(--color-success-600);
+  --success-ink: #0b5c3f;
+  --success-soft: #d9f1e5;
+  --warn: #8a4f00;
+  --warn-soft: #fbedd4;
   --radius: var(--radius-lg);
   --radius-sm: var(--radius-md);
-  --shadow-sm: 0 1px 2px #15140f0f, 0 2px 6px #15140f0a;
-  --shadow: 0 1px 2px #15140f0d, 0 10px 30px -8px #15140f1f;
-  --shadow-lg: 0 24px 60px -12px #15140f45;
-  --surface-2: #faf7ef;
-  --surface-3: #f4efe5;
-  --tint: #f8ecd2;
-  --tint-ink: #594318;
-  --field: #ffffff;
-  --control: #d3ccba;
-  --danger-ink: #7b2d20;
-  --danger-soft: #fdf0ec;
-  --danger-line: #e8b9ae;
-  --success-ink: #2d5c47;
-  --success-soft: #d4e7dc;
+  --shadow-sm: 0 1px 2px #11131d0f, 0 2px 6px #11131d0a;
+  --shadow: 0 1px 2px #11131d0a, 0 18px 40px -22px #11131d38;
+  --shadow-lg: 0 40px 80px -30px #11131d66;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  --ink: #f2eee4;
-  --paper: #0f0e0b;
-  --paper-deep: #26231b;
-  --surface: #181611;
-  --surface-2: #1f1c15;
-  --surface-3: #28241b;
-  --line: #36312a;
-  --muted: #a8a190;
-  --tint: #3a2f17;
-  --tint-ink: #f1d9a0;
-  --field: #12100c;
-  --control: #4a4436;
-  --amber-deep: #e7ae3f;
-  --danger: #e0806f;
-  --danger-ink: #f5b3a6;
-  --danger-soft: #3a1f19;
-  --danger-line: #6b3329;
-  --ok: #6cc29a;
-  --success-ink: #9bdcbc;
-  --success-soft: #1d3a2c;
+  --ink: #eef0f8;
+  --paper: #0a0b10;
+  --paper-deep: #1d2030;
+  --surface: #13151f;
+  --surface-2: #1a1d2a;
+  --surface-3: #222636;
+  --line: #282c3c;
+  --control: #3a3f53;
+  --field: #0f1118;
+  --muted: #9ba1b6;
+  --pole: #ff6a55;
+  --pole-ink: #ff8f7f;
+  --amber-light: color-mix(in oklab, var(--amber) 55%, white);
+  --amber-deep: color-mix(in oklab, var(--amber) 55%, white);
+  --tint: color-mix(in oklab, var(--amber) 18%, #13151f);
+  --tint-ink: color-mix(in oklab, var(--amber) 45%, white);
+  --danger: #ff6b7d;
+  --danger-ink: #ffb3bd;
+  --danger-soft: #3a1820;
+  --danger-line: #6e2a36;
+  --ok: #3fd096;
+  --success-ink: #8fe6c1;
+  --success-soft: #12352a;
+  --warn: #f2a93b;
+  --warn-soft: #3a2a12;
   --shadow-sm: 0 1px 2px #00000066, 0 2px 6px #00000040;
-  --shadow: 0 1px 2px #00000066, 0 10px 30px -8px #00000099;
-  --shadow-lg: 0 24px 60px -12px #000000cc;
+  --shadow: 0 1px 2px #00000080, 0 18px 40px -18px #000000cc;
+  --shadow-lg: 0 40px 80px -30px #000000;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ink: #f2eee4;
-    --paper: #0f0e0b;
-    --paper-deep: #26231b;
-    --surface: #181611;
-    --surface-2: #1f1c15;
-    --surface-3: #28241b;
-    --line: #36312a;
-    --muted: #a8a190;
-    --tint: #3a2f17;
-    --tint-ink: #f1d9a0;
-    --field: #12100c;
-    --control: #4a4436;
-    --amber-deep: #e7ae3f;
-    --danger: #e0806f;
-    --danger-ink: #f5b3a6;
-    --danger-soft: #3a1f19;
-    --danger-line: #6b3329;
-    --ok: #6cc29a;
-    --success-ink: #9bdcbc;
-    --success-soft: #1d3a2c;
+    --ink: #eef0f8;
+    --paper: #0a0b10;
+    --paper-deep: #1d2030;
+    --surface: #13151f;
+    --surface-2: #1a1d2a;
+    --surface-3: #222636;
+    --line: #282c3c;
+    --control: #3a3f53;
+    --field: #0f1118;
+    --muted: #9ba1b6;
+    --pole: #ff6a55;
+    --pole-ink: #ff8f7f;
+    --amber-light: color-mix(in oklab, var(--amber) 55%, white);
+    --amber-deep: color-mix(in oklab, var(--amber) 55%, white);
+    --tint: color-mix(in oklab, var(--amber) 18%, #13151f);
+    --tint-ink: color-mix(in oklab, var(--amber) 45%, white);
+    --danger: #ff6b7d;
+    --danger-ink: #ffb3bd;
+    --danger-soft: #3a1820;
+    --danger-line: #6e2a36;
+    --ok: #3fd096;
+    --success-ink: #8fe6c1;
+    --success-soft: #12352a;
+    --warn: #f2a93b;
+    --warn-soft: #3a2a12;
     --shadow-sm: 0 1px 2px #00000066, 0 2px 6px #00000040;
-    --shadow: 0 1px 2px #00000066, 0 10px 30px -8px #00000099;
-    --shadow-lg: 0 24px 60px -12px #000000cc;
+    --shadow: 0 1px 2px #00000080, 0 18px 40px -18px #000000cc;
+    --shadow-lg: 0 40px 80px -30px #000000;
     color-scheme: dark;
   }
 }
@@ -194,20 +226,20 @@ summary { min-height: 44px; display: flex; align-items: center; cursor: pointer;
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
 button:disabled { cursor: wait; opacity: .55; }
 h1, h2, h3, p { margin-top: 0; }
-h1, h2 { font-family: var(--font-display); font-weight: 500; letter-spacing: -.02em; font-variation-settings: "opsz" 96, "SOFT" 40; }
+h1, h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: -.025em; text-wrap: balance; }
 svg { width: 1.1rem; height: 1.1rem; flex: none; }
 
 /* ---------- Corpo e controles de formulário ---------- */
 body { color: var(--ink); -webkit-font-smoothing: antialiased; }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea { border: 1px solid var(--control); background: var(--field); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea { border: 1.5px solid var(--control); background: var(--field); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
 input:not([type="checkbox"]):not([type="radio"]):hover, select:hover, textarea:hover { border-color: var(--muted); }
-input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px #d99b3233; outline: none; }
-::placeholder { color: #9a9486; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px color-mix(in oklab, var(--amber) 22%, transparent); outline: none; }
+::placeholder { color: var(--color-porcelain-500); }
 
 /* ---------- Acabamento ---------- */
-::selection { color: var(--ink); background: var(--color-amber-200); }
-html { scrollbar-color: var(--color-bone-400) transparent; }
+::selection { color: var(--on-brand); background: var(--amber); }
+html { scrollbar-color: var(--control) transparent; }
 
 /* Linhas com caixa de seleção: rótulo ao lado, sem caixa gigante nem texto empilhado. */
 input[type="checkbox"], input[type="radio"] { width: 1.15rem; height: 1.15rem; flex: none; accent-color: var(--amber); }
@@ -218,6 +250,28 @@ label:has(> input[type="checkbox"]) { display: flex !important; align-items: cen
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 }
+
+/*
+ * Fora de camada de propósito: títulos em `font-serif` herdam a voz da Bricolage (condensada e pesada)
+ * mesmo quando o componente pede `font-medium`, sem precisar tocar em cada tela.
+ */
+.font-serif { font-weight: 720; font-stretch: 86%; letter-spacing: -.028em; }
+.tabular-nums, time, [data-num] { font-variant-numeric: tabular-nums; }
+
+/* Faixa diagonal do poste de barbeiro, usada em marcas e estados "ao vivo". */
+.barber-pole {
+  background: repeating-linear-gradient(135deg, var(--pole) 0 6px, #ffffff 6px 12px, var(--amber) 12px 18px, #ffffff 18px 24px);
+  background-size: 100% 34px;
+  animation: var(--animate-pole);
+}
+.live-dot { position: relative; display: inline-block; width: .5rem; height: .5rem; border-radius: 9999px; background: var(--pole); animation: var(--animate-live); }
+@keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes ring-in { from { stroke-dashoffset: var(--ring-from); } }
+@keyframes nudge { 0%, 60%, 100% { transform: none; } 75% { transform: translateX(6px); } }
+@keyframes grow { from { transform: scaleY(0); } }
+/* Só opacidade: transform criaria bloco de contenção para a barra de ação fixa dentro dos cartões. */
+@keyframes fade-in { from { opacity: 0; } }
