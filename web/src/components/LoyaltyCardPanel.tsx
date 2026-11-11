@@ -50,17 +50,17 @@ export function LoyaltyCardPanel({ userId, canRedeem = false }: LoyaltyCardPanel
 
   return (
     <>
-      <section className="grid gap-3.5 rounded-2xl bg-chrome p-5 text-chrome-ink shadow-sm" aria-label="Cartão fidelidade">
+      <section className="relative grid animate-fade-up gap-3.5 overflow-hidden rounded-[1.4rem] bg-chrome bg-[radial-gradient(120%_100%_at_100%_0%,color-mix(in_oklab,var(--amber)_45%,transparent),transparent_60%)] p-5 text-chrome-ink shadow-card" aria-label="Cartão fidelidade">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-[.72rem] font-extrabold tracking-[.18em] text-brand-light uppercase [&_svg]:size-4"><Stamp aria-hidden="true" /> Cartão fidelidade</p>
+            <p className="mb-1 flex items-center gap-2 font-mono text-[.68rem] font-semibold tracking-[.14em] text-brand-light uppercase [&_svg]:size-4"><Stamp aria-hidden="true" /> Cartão fidelidade</p>
             <h3 className="font-serif text-xl font-medium text-white">{program.rewardDescription}</h3>
           </div>
-          <strong className="font-serif text-3xl font-medium text-brand tabular-nums">{card.availableStamps}<small className="text-sm text-chrome-ink/60">/{program.requiredVisits}</small></strong>
+          <strong className="font-mono text-3xl font-semibold text-brand-light tabular-nums">{card.availableStamps}<small className="text-sm text-chrome-ink/60">/{program.requiredVisits}</small></strong>
         </div>
         <div className="flex flex-wrap gap-1.5" role="img" aria-label={`${card.availableStamps} selos disponíveis de ${program.requiredVisits}`}>
           {Array.from({ length: program.requiredVisits }, (_, index) => (
-            <span className={cn('grid size-8 place-items-center rounded-full border [&_svg]:size-4', index < filled ? 'border-brand bg-brand text-chrome' : 'border-dashed border-chrome-ink/40 text-chrome-ink/50')} key={index}><Stamp aria-hidden="true" /></span>
+            <span style={{ animationDelay: `${index * 70}ms` }} className={cn('grid size-8 place-items-center rounded-full border [&_svg]:size-4', index < filled ? 'animate-pop border-brand bg-brand text-on-brand' : 'border-dashed border-chrome-ink/40 text-chrome-ink/50')} key={index}><Stamp aria-hidden="true" /></span>
           ))}
         </div>
         {card.availableRewards > 0

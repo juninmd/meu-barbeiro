@@ -152,7 +152,7 @@ function CalendarDayButton({ day, selected, today, mobile = false, onClick, onKe
       <span className="flex items-center justify-between gap-1.5" aria-hidden="true">
         <small className="text-[.65rem] text-muted capitalize">{mobile ? weekdayFormatter.format(dateAtNoon(day.date)) : ''}</small>
         <strong className="font-serif text-lg font-medium">{Number(day.date.slice(-2))}</strong>
-        <em className="min-w-5 rounded-full bg-[#eecb84] p-0.5 text-center text-[.6rem] font-extrabold text-[#5a3f12] not-italic">{day.appointments.length}</em>
+        <em className="min-w-5 rounded-full bg-brand p-0.5 text-center font-mono text-[.6rem] font-semibold text-on-brand not-italic">{day.appointments.length}</em>
       </span>
       {!day.open && <span className="truncate text-[.65rem] text-muted" aria-hidden="true">{day.reason}</span>}
       {day.absences.slice(0, 1).map((absence) => <span className="truncate text-[.68rem] font-bold text-danger-ink" key={absence.id}>{absence.barberName ? `${absence.barberName}: ` : ''}{absence.reason}</span>)}

@@ -65,8 +65,6 @@ describe('client barber choice', () => {
       .find((button) => /quarta-feira/i.test(button.getAttribute('aria-label') ?? '') && !button.disabled)
     act(() => wednesday!.click())
     await flush()
-    act(() => [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Continuar'))!.click())
-    await flush()
 
     expect(container.textContent).toContain('Qualquer barbeiro disponível')
     const unavailable = container.querySelector<HTMLInputElement>('input[value="barber-demo"]')

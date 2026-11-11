@@ -73,7 +73,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
               aria-current={current ? 'step' : undefined}
               className={cn('flex items-center gap-3 rounded-xl border bg-surface px-4 py-3.5 text-sm font-bold text-muted', current && 'border-brand text-ink ring-4 ring-brand/15', done && 'text-ok')}
             >
-              <span className={cn('grid size-7 shrink-0 place-items-center rounded-full border border-line text-xs', current && 'border-brand bg-brand text-[#1c1810]', done && 'border-ok bg-ok text-white')}>{index + 1}</span>
+              <span className={cn('grid size-7 shrink-0 place-items-center rounded-full border border-line text-xs', current && 'border-brand bg-brand text-on-brand', done && 'border-ok bg-ok text-white')}>{index + 1}</span>
               {label}
             </li>
           )
@@ -89,7 +89,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
       {status === 'PENDING' && (
         <StatusCard tone="wait" icon={<Clock3 />} title="Solicitação em análise">
           A resposta do administrador aparece nesta tela: volte aqui para acompanhar. Você informou:
-          <blockquote className="mt-3 rounded-r-xl border-l-[3px] border-brand bg-tint px-4 py-3 text-sm text-ink/80">{user.establishmentRequestNote}</blockquote>
+          <blockquote className="mt-3 rounded-xl border border-brand/25 bg-tint px-4 py-3 text-sm text-ink/80">{user.establishmentRequestNote}</blockquote>
         </StatusCard>
       )}
 
@@ -110,7 +110,7 @@ export function EstablishmentOnboarding({ user, onUserChange, onCreated }: Props
       {status === 'APPROVED' && (
         <Card as="form" className="grid max-w-2xl gap-5" onSubmit={create} noValidate>
           <FormTitle step="Passo 3 de 3" icon={<Store aria-hidden="true" />}>Dados do estabelecimento</FormTitle>
-          <p className="rounded-r-xl border-l-[3px] border-brand bg-tint px-4 py-3 text-sm text-tint-ink">Liberação aprovada. Preencha os dados básicos — horários, serviços e equipe você ajusta depois.</p>
+          <p className="rounded-xl border border-brand/25 bg-tint px-4 py-3 text-sm text-tint-ink">Liberação aprovada. Preencha os dados básicos — horários, serviços e equipe você ajusta depois.</p>
           <Field label="Nome da barbearia" error={shopForm.formState.errors.name?.message}>
             <Input
               maxLength={80} placeholder="Barbearia do Zé"

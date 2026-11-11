@@ -45,7 +45,7 @@ async function main() {
       slug: 'barbearia-central',
       name: 'Barbearia Central',
       address: 'Rua das Navalhas, 27 · Centro',
-      primaryColor: '#d99b32',
+      primaryColor: '#2f44ff',
       depositType: 'FULL',
       depositValue: 0,
       subscriptionStatus: 'ACTIVE',

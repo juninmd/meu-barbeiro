@@ -26,7 +26,7 @@ export function TrialBanner({ barbershop }: { barbershop: Barbershop | null }) {
 
   if (subscription.state === 'TRIALING' && subscription.trialDaysLeft <= 7) {
     return (
-      <div className="flex flex-wrap items-center gap-3 bg-[#f3d899] px-4 py-2.5 text-sm text-[#5f4517]" role="status">
+      <div className="flex flex-wrap items-center gap-3 bg-warn-soft px-4 py-2.5 text-sm text-warn" role="status">
         <Sparkles aria-hidden="true" className="size-4 shrink-0" />
         <p className="min-w-56 flex-1">
           <strong>{subscription.trialDaysLeft} dia{subscription.trialDaysLeft === 1 ? '' : 's'} de teste.</strong>{' '}

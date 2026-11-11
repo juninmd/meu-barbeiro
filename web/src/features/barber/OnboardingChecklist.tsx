@@ -52,7 +52,7 @@ export function OnboardingChecklist() {
   }
 
   return (
-    <Card className="mb-5 border-brand/40 bg-tint">
+    <Card className="border-brand/40 bg-tint">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-serif text-xl"><Rocket aria-hidden="true" className="size-5 text-brand-deep" /> Primeiros passos</p>
         <span className="text-xs font-bold text-muted">{data.completedCount}/{data.totalSteps} concluídos</span>

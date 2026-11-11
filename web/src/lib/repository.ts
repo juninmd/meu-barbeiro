@@ -145,7 +145,7 @@ const initialBarbershop: Barbershop = {
   slug: 'barbearia-central',
   name: 'Barbearia Central',
   logoUrl: null,
-  primaryColor: '#d99b32',
+  primaryColor: '#2f44ff',
   address: 'Rua das Navalhas, 27 · Centro',
   timezone: 'America/Sao_Paulo',
   depositType: 'FULL',

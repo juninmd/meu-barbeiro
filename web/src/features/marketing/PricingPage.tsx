@@ -45,7 +45,7 @@ export function PricingPage({ onStart, onBack }: PricingPageProps) {
         <div className="grid gap-5 lg:grid-cols-3">
           {PLAN_CATALOG.map((plan) => (
             <Card key={plan.id} className={`relative flex flex-col gap-3 ${plan.recommended ? 'border-brand shadow-card' : ''}`}>
-              {plan.recommended && <span className="absolute -top-3 left-6 rounded-full bg-brand px-2.5 py-1 text-[.6rem] font-black tracking-[.08em] text-[#1c1810] uppercase">Mais escolhido</span>}
+              {plan.recommended && <span className="absolute -top-3 left-6 rounded-full bg-brand px-2.5 py-1 text-[.6rem] font-black tracking-[.08em] text-on-brand uppercase">Mais escolhido</span>}
               <h2 className="font-serif text-2xl">{plan.name}</h2>
               <p className="min-h-[2.6em] text-sm text-muted">{plan.tagline}</p>
               <strong className="font-serif text-4xl">{formatCurrency(plan.monthlyFeeCents / 100)}<small className="font-sans text-sm font-normal text-muted">/mês</small></strong>

@@ -15,24 +15,24 @@ import { cn } from '../../lib/cn'
 import { PageWrap } from '../../components/ui/Page'
 
 // Classes completas (não montadas por string) para o Tailwind enxergá-las no build.
-const swatches: Array<{ title: string; items: Array<{ token: string; className: string }> }> = [
-  { title: 'Osso — neutros quentes', items: [
-    { token: 'bone-50', className: 'bg-bone-50' }, { token: 'bone-100', className: 'bg-bone-100' }, { token: 'bone-200', className: 'bg-bone-200' },
-    { token: 'bone-300', className: 'bg-bone-300' }, { token: 'bone-400', className: 'bg-bone-400' }, { token: 'bone-500', className: 'bg-bone-500' },
-    { token: 'bone-600', className: 'bg-bone-600' }, { token: 'bone-700', className: 'bg-bone-700' }, { token: 'bone-800', className: 'bg-bone-800' }, { token: 'bone-900', className: 'bg-bone-900' },
+const swatches: Array<{ title: string; items: Array<{ name: string; className: string }> }> = [
+  { title: 'Porcelana — neutros frios', items: [
+    { name: 'porcelain-50', className: 'bg-porcelain-50' }, { name: 'porcelain-100', className: 'bg-porcelain-100' }, { name: 'porcelain-200', className: 'bg-porcelain-200' },
+    { name: 'porcelain-300', className: 'bg-porcelain-300' }, { name: 'porcelain-400', className: 'bg-porcelain-400' }, { name: 'porcelain-500', className: 'bg-porcelain-500' },
+    { name: 'porcelain-600', className: 'bg-porcelain-600' }, { name: 'porcelain-700', className: 'bg-porcelain-700' }, { name: 'porcelain-800', className: 'bg-porcelain-800' }, { name: 'porcelain-900', className: 'bg-porcelain-900' },
   ] },
-  { title: 'Âmbar — marca', items: [
-    { token: 'amber-50', className: 'bg-amber-50' }, { token: 'amber-100', className: 'bg-amber-100' }, { token: 'amber-200', className: 'bg-amber-200' },
-    { token: 'amber-300', className: 'bg-amber-300' }, { token: 'amber-400', className: 'bg-amber-400' }, { token: 'amber-500', className: 'bg-amber-500' },
-    { token: 'amber-600', className: 'bg-amber-600' }, { token: 'amber-700', className: 'bg-amber-700' }, { token: 'amber-800', className: 'bg-amber-800' },
+  { title: 'Cobalto — marca padrão', items: [
+    { name: 'cobalt-50', className: 'bg-cobalt-50' }, { name: 'cobalt-100', className: 'bg-cobalt-100' }, { name: 'cobalt-200', className: 'bg-cobalt-200' },
+    { name: 'cobalt-300', className: 'bg-cobalt-300' }, { name: 'cobalt-400', className: 'bg-cobalt-400' }, { name: 'cobalt-500', className: 'bg-cobalt-500' },
+    { name: 'cobalt-600', className: 'bg-cobalt-600' }, { name: 'cobalt-700', className: 'bg-cobalt-700' }, { name: 'cobalt-800', className: 'bg-cobalt-800' },
   ] },
   { title: 'Estados', items: [
-    { token: 'success-600', className: 'bg-success-600' }, { token: 'danger-600', className: 'bg-danger-600' }, { token: 'info-600', className: 'bg-info-600' },
-    { token: 'success-50', className: 'bg-success-50' }, { token: 'danger-50', className: 'bg-danger-50' }, { token: 'info-50', className: 'bg-info-50' },
+    { name: 'success-600', className: 'bg-success-600' }, { name: 'danger-600', className: 'bg-danger-600' }, { name: 'info-600', className: 'bg-info-600' },
+    { name: 'success-50', className: 'bg-success-50' }, { name: 'danger-50', className: 'bg-danger-50' }, { name: 'info-50', className: 'bg-info-50' },
   ] },
 ]
 // Rótulo branco só onde passa AA (>= 4.5:1); no resto, grafite fixo (não o token `ink`, que clareia no tema escuro).
-const dark = new Set(['bone-600', 'bone-700', 'bone-800', 'bone-900', 'amber-700', 'amber-800', 'success-600', 'danger-600', 'info-600'])
+const dark = new Set(['porcelain-600', 'porcelain-700', 'porcelain-800', 'porcelain-900', 'cobalt-500', 'cobalt-600', 'cobalt-700', 'cobalt-800', 'success-600', 'danger-600', 'info-600'])
 
 function Section({ id, title, children, description }: { id: string; title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -54,18 +54,18 @@ export function DesignSystemPage() {
   return (
     <PageWrap data-section="design-system">
       <PageHeader eyebrow="Design system" title="Navalha.">
-        Fundamentos, componentes e padrões do Meu Barbeiro. Tailwind v4 com tokens em <code className="rounded bg-paper-deep px-1.5 py-0.5 text-sm">@theme</code>, Radix para acessibilidade e Fraunces + Inter na tipografia.
+        Fundamentos, componentes e padrões do Meu Barbeiro. Tailwind v4 com tokens em <code className="rounded bg-paper-deep px-1.5 py-0.5 text-sm">@theme</code>, Radix para acessibilidade e Bricolage Grotesque + Geist na tipografia.
       </PageHeader>
 
       <div className="grid gap-14">
-        <Section id="ds-cores" title="Cor" description="Neutros quentes para superfícies e texto, âmbar para ação e marca. A cor da marca muda por barbearia (variável --amber).">
+        <Section id="ds-cores" title="Cor" description="Neutros frios para superfícies e texto, cobalto como marca padrão. A cor da marca muda por barbearia (variável --amber).">
           <div className="grid gap-5">
             {swatches.map((group) => (
               <div key={group.title}>
                 <p className="mb-2 text-xs font-extrabold tracking-wider text-muted uppercase">{group.title}</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2">
                   {group.items.map((item) => (
-                    <div key={item.token} className={cn('grid h-20 content-end rounded-xl border border-black/5 p-2 text-[.68rem] font-bold', item.className, dark.has(item.token) ? 'text-white' : 'text-[#15140f]')}>{item.token}</div>
+                    <div key={item.name} className={cn('grid h-20 content-end rounded-xl border border-black/5 p-2 text-[.68rem] font-bold', item.className, dark.has(item.name) ? 'text-white' : 'text-[#11131d]')}>{item.name}</div>
                   ))}
                 </div>
               </div>
@@ -73,12 +73,12 @@ export function DesignSystemPage() {
           </div>
         </Section>
 
-        <Section id="ds-tipografia" title="Tipografia" description="Fraunces para títulos (calor e tradição de barbearia), Inter para interface e números.">
+        <Section id="ds-tipografia" title="Tipografia" description="Bricolage Grotesque condensada para títulos, Geist para interface e Geist Mono para horários e preços.">
           <Card className="grid gap-4">
             <p className="font-serif text-6xl leading-none tracking-tight">Corte e barba.</p>
             <p className="font-serif text-4xl leading-tight tracking-tight">Seu melhor corte começa antes da cadeira.</p>
             <p className="font-serif text-2xl">Agenda e disponibilidade</p>
-            <p className="max-w-prose leading-relaxed text-ink/80">Texto de apoio em Inter 16px, entrelinha confortável. Agendamentos sem conversa perdida, horários sob controle e uma experiência à altura do seu trabalho.</p>
+            <p className="max-w-prose leading-relaxed text-ink/80">Texto de apoio em Geist 16px, entrelinha confortável. Agendamentos sem conversa perdida, horários sob controle e uma experiência à altura do seu trabalho.</p>
             <p className="text-[.72rem] font-extrabold tracking-[.18em] text-brand-deep uppercase">Eyebrow · rótulo de seção</p>
             <p className="text-3xl font-semibold tabular-nums">R$ 1.284,50 <span className="text-sm font-medium text-muted">números tabulares</span></p>
           </Card>
@@ -143,12 +143,12 @@ export function DesignSystemPage() {
               <Badge tone="success" className="w-fit">Confirmado</Badge>
             </Card>
             <article className="grid gap-0.5 rounded-2xl border border-line bg-surface p-5 shadow-sm">
-              <span className="mb-2 grid size-10 place-items-center rounded-xl bg-linear-to-br from-amber-100 to-amber-200 text-brand-deep"><Sparkles className="size-5" aria-hidden="true" /></span>
+              <span className="mb-2 grid size-10 place-items-center rounded-xl bg-linear-to-br from-cobalt-100 to-cobalt-200 text-brand-deep"><Sparkles className="size-5" aria-hidden="true" /></span>
               <strong className="font-serif text-4xl leading-none font-medium tabular-nums">128</strong>
               <span className="text-[.78rem] font-bold text-muted">Cortes no mês</span>
             </article>
-            <div className="grid gap-2 rounded-2xl bg-linear-to-br from-bone-900 to-bone-800 p-6 text-chrome-ink shadow-lg">
-              <p className="text-[.72rem] font-extrabold tracking-[.18em] text-amber-300 uppercase">Destaque</p>
+            <div className="grid gap-2 rounded-2xl bg-linear-to-br from-porcelain-900 to-porcelain-800 p-6 text-chrome-ink shadow-lg">
+              <p className="text-[.72rem] font-extrabold tracking-[.18em] text-cobalt-300 uppercase">Destaque</p>
               <p className="font-serif text-2xl">Cartão fidelidade</p>
               <p className="text-sm text-muted/40">Faltam 3 visitas para o próximo prêmio.</p>
             </div>

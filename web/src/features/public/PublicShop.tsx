@@ -10,6 +10,7 @@ import { formatCurrency } from '../../lib/format'
 import { localMoment, openStatus, weekdayName } from '../../lib/hours'
 import { errorMessage, repository } from '../../lib/repository'
 import type { ShopProfile } from '../../types'
+import { brandStyle } from '../../lib/brand'
 
 interface Props {
   /** Leva à tela de entrada (criar conta / entrar) para concluir o agendamento. */
@@ -70,17 +71,18 @@ export function PublicShop({ onBook, onSignIn }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-paper pb-28 text-ink" style={{ '--amber': barbershop.primaryColor } as React.CSSProperties}>
-      <header className="relative overflow-hidden bg-[radial-gradient(circle_at_85%_-10%,#d99b3250,transparent_45%),linear-gradient(135deg,#15140f,#2b271b)] px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-10 text-chrome-ink sm:px-10">
+    <main className="min-h-screen bg-paper pb-28 text-ink" style={brandStyle(barbershop.primaryColor)}>
+      <header className="relative overflow-hidden bg-[radial-gradient(120%_90%_at_100%_0%,color-mix(in_oklab,var(--amber)_75%,transparent),transparent_62%),linear-gradient(160deg,#0c0d14,#141728)] px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-12 text-chrome-ink sm:px-10">
+        <span className="barber-pole pointer-events-none absolute -top-6 -right-8 h-56 w-20 rotate-[25deg] rounded-full opacity-90 sm:right-[8%] sm:h-72 sm:w-24" aria-hidden="true" />
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <span className="flex items-center gap-2 text-xs font-extrabold tracking-[.14em] uppercase"><Scissors className="size-4 text-brand-light" aria-hidden="true" /> Meu Barbeiro</span>
-          <button type="button" onClick={onSignIn} className="min-h-11 rounded-full border border-white/25 px-4 text-sm font-bold transition hover:border-brand">Entrar</button>
+          <span className="relative flex items-center gap-2 font-mono text-[.7rem] font-semibold tracking-[.14em] uppercase"><Scissors className="size-4 text-brand-light" aria-hidden="true" /> Meu Barbeiro</span>
+          <button type="button" onClick={onSignIn} className="relative min-h-11 rounded-full border border-white/25 bg-white/5 px-4 text-sm font-semibold backdrop-blur transition hover:border-brand">Entrar</button>
         </div>
-        <div className="mx-auto mt-8 max-w-3xl">
+        <div className="relative mx-auto mt-8 max-w-3xl animate-fade-up">
           <div className="mb-4 grid size-16 place-items-center overflow-hidden rounded-2xl border border-white/20 bg-white/10">
             {barbershop.logoUrl ? <img src={barbershop.logoUrl} alt="" className="size-full object-cover" /> : <Store className="size-7 text-brand-light" aria-hidden="true" />}
           </div>
-          <h1 className="font-serif text-4xl leading-[1.02] font-medium tracking-tight sm:text-6xl">{barbershop.name}</h1>
+          <h1 className="font-serif text-5xl leading-[.92] font-medium tracking-tight sm:text-7xl">{barbershop.name}</h1>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-chrome-ink/80">
             {rating.count > 0 && (
               <span className="flex items-center gap-2"><Stars value={rating.average} className="text-brand-light" /><strong className="text-chrome-ink">{rating.average.toFixed(1)}</strong> ({rating.count} {rating.count === 1 ? 'avaliação' : 'avaliações'})</span>
@@ -90,7 +92,7 @@ export function PublicShop({ onBook, onSignIn }: Props) {
           </div>
           <div className="mt-7 flex flex-wrap gap-3">
             <Button size="lg" onClick={onBook}><CalendarCheck aria-hidden="true" /> Agendar horário</Button>
-            <button type="button" onClick={share} className="inline-flex min-h-14 items-center gap-2 rounded-xl border border-white/25 px-5 text-base font-bold transition hover:border-brand"><Share2 className="size-[1.1rem]" aria-hidden="true" /> Compartilhar</button>
+            <button type="button" onClick={share} className="inline-flex min-h-14 items-center gap-2 rounded-[14px] border border-white/25 bg-white/5 px-5 text-base font-semibold backdrop-blur transition hover:-translate-y-0.5 hover:border-brand"><Share2 className="size-[1.1rem]" aria-hidden="true" /> Compartilhar</button>
           </div>
         </div>
       </header>
@@ -102,7 +104,7 @@ export function PublicShop({ onBook, onSignIn }: Props) {
               {services.map((service) => (
                 <li key={service.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 rounded-2xl border border-line bg-surface p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand/60 hover:shadow-md sm:flex sm:justify-between">
                   <div className="min-w-0"><strong className="block">{service.name}</strong><span className="text-sm text-muted">{service.duration} min</span></div>
-                  <div className="contents sm:flex sm:items-center sm:gap-3"><strong className="font-serif text-xl tabular-nums">{formatCurrency(service.price)}</strong><Button size="sm" variant="ghost" className="col-span-2 max-sm:w-full" onClick={onBook} aria-label={`Agendar ${service.name}`}>Agendar</Button></div>
+                  <div className="contents sm:flex sm:items-center sm:gap-3"><strong className="font-mono text-lg font-semibold tabular-nums">{formatCurrency(service.price)}</strong><Button size="sm" variant="ghost" className="col-span-2 max-sm:w-full" onClick={onBook} aria-label={`Agendar ${service.name}`}>Agendar</Button></div>
                 </li>
               ))}
             </ul>
@@ -129,7 +131,7 @@ export function PublicShop({ onBook, onSignIn }: Props) {
             <ul className="grid gap-3 sm:grid-cols-2">
               {team.map((member) => (
                 <li key={member.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-sm">
-                  <span className="grid size-12 place-items-center rounded-full bg-linear-to-br from-brand-light to-brand font-extrabold text-[#1c1810]" aria-hidden="true">{initials(member.name)}</span>
+                  <span className="grid size-12 place-items-center rounded-full bg-brand font-display font-bold text-on-brand" aria-hidden="true">{initials(member.name)}</span>
                   <div><strong className="block">{member.name}</strong><span className="text-sm text-muted">{member.specialty}</span></div>
                 </li>
               ))}
@@ -143,7 +145,7 @@ export function PublicShop({ onBook, onSignIn }: Props) {
               const hour = barbershop.businessHours.find((item) => item.weekday === weekday)
               return (
                 <li key={weekday} className={cn('flex items-center justify-between gap-4 border-b border-line px-4 py-3 last:border-0', weekday === today && 'bg-tint font-bold')}>
-                  <span className="capitalize">{weekdayName[weekday]}{weekday === today && <span className="ml-2 text-xs font-extrabold tracking-wider text-brand-deep uppercase">hoje</span>}</span>
+                  <span className="capitalize">{weekdayName[weekday]}{weekday === today && <span className="ml-2 font-mono text-[.66rem] font-semibold tracking-wider text-brand-deep uppercase">hoje</span>}</span>
                   <span className="text-right tabular-nums">
                     {hour?.enabled
                       ? <>{hour.opensAt}–{hour.closesAt}{hour.breakStartsAt && hour.breakEndsAt && <small className="block text-xs font-normal text-muted">almoço {hour.breakStartsAt}–{hour.breakEndsAt}</small>}</>
@@ -199,7 +201,7 @@ export function PublicShop({ onBook, onSignIn }: Props) {
         </footer>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/90 px-5 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+      <div className="fixed inset-x-2.5 bottom-[max(.6rem,env(safe-area-inset-bottom))] z-30 rounded-[1.6rem] border border-line bg-surface/85 p-2 shadow-lg backdrop-blur-xl sm:hidden">
         <Button block size="lg" onClick={onBook}><CalendarCheck aria-hidden="true" /> Agendar horário</Button>
       </div>
     </main>
@@ -209,7 +211,7 @@ export function PublicShop({ onBook, onSignIn }: Props) {
 function Section({ id, title, icon, children }: { id: string; title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <section aria-labelledby={id} className="grid gap-4">
-      <h2 id={id} className="flex items-center gap-2 font-serif text-2xl font-medium tracking-tight [&_svg]:size-5 [&_svg]:text-brand-deep">{icon}{title}</h2>
+      <h2 id={id} className="flex items-center gap-2.5 font-serif text-3xl font-medium tracking-tight [&_svg]:size-5 [&_svg]:text-brand-deep">{icon}{title}</h2>
       {children}
     </section>
   )
