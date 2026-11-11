@@ -15,20 +15,20 @@ import { cn } from '../../lib/cn'
 import { PageWrap } from '../../components/ui/Page'
 
 // Classes completas (não montadas por string) para o Tailwind enxergá-las no build.
-const swatches: Array<{ title: string; items: Array<{ token: string; className: string }> }> = [
+const swatches: Array<{ title: string; items: Array<{ name: string; className: string }> }> = [
   { title: 'Porcelana — neutros frios', items: [
-    { token: 'porcelain-50', className: 'bg-porcelain-50' }, { token: 'porcelain-100', className: 'bg-porcelain-100' }, { token: 'porcelain-200', className: 'bg-porcelain-200' },
-    { token: 'porcelain-300', className: 'bg-porcelain-300' }, { token: 'porcelain-400', className: 'bg-porcelain-400' }, { token: 'porcelain-500', className: 'bg-porcelain-500' },
-    { token: 'porcelain-600', className: 'bg-porcelain-600' }, { token: 'porcelain-700', className: 'bg-porcelain-700' }, { token: 'porcelain-800', className: 'bg-porcelain-800' }, { token: 'porcelain-900', className: 'bg-porcelain-900' },
+    { name: 'porcelain-50', className: 'bg-porcelain-50' }, { name: 'porcelain-100', className: 'bg-porcelain-100' }, { name: 'porcelain-200', className: 'bg-porcelain-200' },
+    { name: 'porcelain-300', className: 'bg-porcelain-300' }, { name: 'porcelain-400', className: 'bg-porcelain-400' }, { name: 'porcelain-500', className: 'bg-porcelain-500' },
+    { name: 'porcelain-600', className: 'bg-porcelain-600' }, { name: 'porcelain-700', className: 'bg-porcelain-700' }, { name: 'porcelain-800', className: 'bg-porcelain-800' }, { name: 'porcelain-900', className: 'bg-porcelain-900' },
   ] },
   { title: 'Cobalto — marca padrão', items: [
-    { token: 'cobalt-50', className: 'bg-cobalt-50' }, { token: 'cobalt-100', className: 'bg-cobalt-100' }, { token: 'cobalt-200', className: 'bg-cobalt-200' },
-    { token: 'cobalt-300', className: 'bg-cobalt-300' }, { token: 'cobalt-400', className: 'bg-cobalt-400' }, { token: 'cobalt-500', className: 'bg-cobalt-500' },
-    { token: 'cobalt-600', className: 'bg-cobalt-600' }, { token: 'cobalt-700', className: 'bg-cobalt-700' }, { token: 'cobalt-800', className: 'bg-cobalt-800' },
+    { name: 'cobalt-50', className: 'bg-cobalt-50' }, { name: 'cobalt-100', className: 'bg-cobalt-100' }, { name: 'cobalt-200', className: 'bg-cobalt-200' },
+    { name: 'cobalt-300', className: 'bg-cobalt-300' }, { name: 'cobalt-400', className: 'bg-cobalt-400' }, { name: 'cobalt-500', className: 'bg-cobalt-500' },
+    { name: 'cobalt-600', className: 'bg-cobalt-600' }, { name: 'cobalt-700', className: 'bg-cobalt-700' }, { name: 'cobalt-800', className: 'bg-cobalt-800' },
   ] },
   { title: 'Estados', items: [
-    { token: 'success-600', className: 'bg-success-600' }, { token: 'danger-600', className: 'bg-danger-600' }, { token: 'info-600', className: 'bg-info-600' },
-    { token: 'success-50', className: 'bg-success-50' }, { token: 'danger-50', className: 'bg-danger-50' }, { token: 'info-50', className: 'bg-info-50' },
+    { name: 'success-600', className: 'bg-success-600' }, { name: 'danger-600', className: 'bg-danger-600' }, { name: 'info-600', className: 'bg-info-600' },
+    { name: 'success-50', className: 'bg-success-50' }, { name: 'danger-50', className: 'bg-danger-50' }, { name: 'info-50', className: 'bg-info-50' },
   ] },
 ]
 // Rótulo branco só onde passa AA (>= 4.5:1); no resto, grafite fixo (não o token `ink`, que clareia no tema escuro).
@@ -65,7 +65,7 @@ export function DesignSystemPage() {
                 <p className="mb-2 text-xs font-extrabold tracking-wider text-muted uppercase">{group.title}</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2">
                   {group.items.map((item) => (
-                    <div key={item.token} className={cn('grid h-20 content-end rounded-xl border border-black/5 p-2 text-[.68rem] font-bold', item.className, dark.has(item.token) ? 'text-white' : 'text-[#11131d]')}>{item.token}</div>
+                    <div key={item.name} className={cn('grid h-20 content-end rounded-xl border border-black/5 p-2 text-[.68rem] font-bold', item.className, dark.has(item.name) ? 'text-white' : 'text-[#11131d]')}>{item.name}</div>
                   ))}
                 </div>
               </div>
