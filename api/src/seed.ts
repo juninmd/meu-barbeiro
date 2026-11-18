@@ -1,10 +1,14 @@
-import { PrismaClient } from '@prisma/client'
-import { SecretBox } from './lib/secrets.js'
-import { hashPassword } from './lib/password.js'
-import { ensurePlatformAdmin } from './lib/bootstrap-admin.js'
+import { PrismaClient } from "@prisma/client";
+import prismaConfig from "../../prisma.config";
+import { SecretBox } from "./lib/secrets.js"
+import { hashPassword } from "./lib/password.js"
+import { ensurePlatformAdmin } from "./lib/bootstrap-admin.js"
 
-const prisma = new PrismaClient()
-const box = new SecretBox(process.env.TOKEN_ENCRYPTION_KEY!)
+const prisma = new PrismaClient({
+  datasources: {
+    db: { url: prismaConfig.datasources.db.url },
+  }
+})
 
 const staff = [
   { email: 'rafael@demo.local', name: 'Rafael Navalha', membership: 'OWNER' as const },
