@@ -71,9 +71,12 @@ O **Meu Barbeiro** é uma plataforma que simplifica a vida de barbeiros e client
 
 ## 🚀 Como Rodar Localmente
 
+Pré-requisitos: Node.js 24 (versão usada no CI) e [pnpm](https://pnpm.io) 10 (`corepack enable` ativa a versão fixada em `packageManager`).
+
 1. Clone o repositório:
    ```bash
    git clone https://github.com/juninmd/meu-barbeiro.git
+   cd meu-barbeiro
    ```
 2. Instale as dependências:
    ```bash
