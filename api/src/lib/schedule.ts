@@ -70,17 +70,29 @@ const weekdayNumbers: Record<string, number> = {
   Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
 }
 
+// Building an Intl.DateTimeFormat is far costlier than formatting; reuse one per timezone.
+const formatters = new Map<string, Intl.DateTimeFormat>()
+
+const formatterFor = (timeZone: string): Intl.DateTimeFormat => {
+  let formatter = formatters.get(timeZone)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+    formatters.set(timeZone, formatter)
+  }
+  return formatter
+}
+
 const localParts = (date: Date, timeZone: string) => {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date)
+  const parts = formatterFor(timeZone).formatToParts(date)
   return Object.fromEntries(parts.map((part) => [part.type, part.value]))
 }
 
