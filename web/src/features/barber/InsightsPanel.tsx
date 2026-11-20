@@ -4,7 +4,7 @@ import { formatCurrency } from '../../lib/format'
 import type { Appointment } from '../../types'
 
 const weekdayShort = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
-const hours = Array.from({ length: 12 }, (_, index) => index + 9)
+const defaultHours = { first: 9, last: 20 }
 const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 
 interface Bar { label: string; value: number; title: string }
@@ -46,6 +46,11 @@ export function InsightsPanel({ appointments }: { appointments: Appointment[] })
       occupancy.set(key, (occupancy.get(key) ?? 0) + 1)
     })
     const heatMax = Math.max(1, ...occupancy.values())
+    // Widen the default 9h-20h grid so appointments outside it are not silently dropped.
+    const busyHours = [...occupancy.keys()].map((key) => Number(key.split('-')[1]))
+    const first = Math.min(defaultHours.first, ...busyHours)
+    const last = Math.max(defaultHours.last, ...busyHours)
+    const hours = Array.from({ length: last - first + 1 }, (_, index) => first + index)
     const closed = appointments.filter((item) => item.status === 'DONE' || item.status === 'NO_SHOW')
     const noShows = closed.filter((item) => item.status === 'NO_SHOW').length
 
@@ -53,6 +58,7 @@ export function InsightsPanel({ appointments }: { appointments: Appointment[] })
       week,
       month,
       occupancy,
+      hours,
       heatMax,
       ticket: done.length ? done.reduce((sum, item) => sum + item.service.price, 0) / done.length : 0,
       noShowRate: closed.length ? noShows / closed.length : 0,
@@ -115,12 +121,12 @@ export function InsightsPanel({ appointments }: { appointments: Appointment[] })
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-separate border-spacing-0.5 font-mono text-[.56rem] text-muted sm:border-spacing-1 sm:text-[.62rem]">
             <caption className="sr-only">Quantidade de horários marcados por dia da semana e hora</caption>
-            <thead><tr><th scope="col" className="w-9"><span className="sr-only">Dia</span></th>{hours.map((hour) => <th scope="col" key={hour} className="font-semibold">{hour}h</th>)}</tr></thead>
+            <thead><tr><th scope="col" className="w-9"><span className="sr-only">Dia</span></th>{data.hours.map((hour) => <th scope="col" key={hour} className="font-semibold">{hour}h</th>)}</tr></thead>
             <tbody>
               {days.map((day) => (
                 <tr key={day}>
                   <th scope="row" className="pr-1 text-left font-semibold">{weekdayShort[day]}</th>
-                  {hours.map((hour) => {
+                  {data.hours.map((hour) => {
                     const count = data.occupancy.get(`${day}-${hour}`) ?? 0
                     return (
                       <td key={hour} title={`${weekdayShort[day]} ${hour}h: ${count} horário(s)`} className="h-7 rounded-md transition hover:scale-110" style={{ background: `color-mix(in oklab, var(--amber) ${Math.round((count / data.heatMax) * 100)}%, var(--surface-3))` }}>
