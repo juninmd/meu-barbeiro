@@ -23,8 +23,14 @@ export function StarInput({ value, onChange, name = 'Nota' }: { value: number; o
           tabIndex={value === star || (value === 0 && star === 1) ? 0 : -1}
           onClick={() => onChange(star)}
           onKeyDown={(event) => {
-            if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); onChange(Math.min(5, (value || 0) + 1)) }
-            if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { event.preventDefault(); onChange(Math.max(1, (value || 2) - 1)) }
+            const next = event.key === 'ArrowRight' || event.key === 'ArrowUp'
+              ? Math.min(5, (value || 0) + 1)
+              : event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? Math.max(1, (value || 2) - 1) : null
+            if (next === null) return
+            event.preventDefault()
+            onChange(next)
+            // Roving tabindex: focus must follow the checked radio (WAI-ARIA radio group).
+            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next - 1]?.focus()
           }}
           className="grid size-11 place-items-center rounded-xl text-brand transition hover:bg-brand/15 focus-visible:outline-3 focus-visible:outline-brand"
         >
