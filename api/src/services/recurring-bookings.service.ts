@@ -53,24 +53,28 @@ export async function processRecurringBookings(now = new Date()): Promise<{ crea
         await prisma.customerSubscription.update({ where: { id: booking.subscription.id }, data: period })
       }
       const benefit = membershipBenefit({ ...booking.subscription, ...period }, booking.subscription.plan, services[0]!.id, now)
-      const covered = benefit.covered && (await prisma.customerSubscription.updateMany({
-        where: { id: booking.subscription.id, status: 'ACTIVE', visitsUsed: period.visitsUsed }, data: { visitsUsed: { increment: 1 } },
-      })).count === 1
       const depositPolicy = { type: booking.barbershop.depositType, value: booking.barbershop.depositValue }
       const priceCents = services.reduce((total, service) => total + service.priceCents, 0)
-      const paymentAmountCents = covered ? 0 : calculateDepositCents(priceCents, depositPolicy)
-      const appointment = await prisma.appointment.create({
-        data: {
-          barbershopId: booking.barbershopId, userId: booking.userId, barberId: booking.barberId,
-          serviceId: services[0]!.id, scheduledAt, status: 'PENDING', recurringBookingId: booking.id,
-          ...(covered ? { customerSubscriptionId: booking.subscription.id } : {}),
-          paymentStatus: paymentAmountCents > 0 ? 'PENDING' : 'NOT_REQUIRED', paymentAmountCents,
-          commissionCents: paymentAmountCents > 0 ? calculateCommissionCents(priceCents, booking.barbershop.commissionBps) : 0,
-          paymentExpiresAt: paymentAmountCents > 0 ? new Date(scheduledAt.getTime() - 60 * 60_000) : null,
-        },
-      })
-      await prisma.recurringBookingOccurrence.create({
-        data: { barbershopId: booking.barbershopId, recurringBookingId: booking.id, scheduledAt, status: 'CREATED', appointmentId: appointment.id },
+      // One transaction: a failed insert must not keep the visit, or every 5-minute retry would consume another one.
+      const { appointment, paymentAmountCents } = await prisma.$transaction(async (tx) => {
+        const covered = benefit.covered && (await tx.customerSubscription.updateMany({
+          where: { id: booking.subscription.id, status: 'ACTIVE', visitsUsed: period.visitsUsed }, data: { visitsUsed: { increment: 1 } },
+        })).count === 1
+        const paymentAmountCents = covered ? 0 : calculateDepositCents(priceCents, depositPolicy)
+        const appointment = await tx.appointment.create({
+          data: {
+            barbershopId: booking.barbershopId, userId: booking.userId, barberId: booking.barberId,
+            serviceId: services[0]!.id, scheduledAt, status: 'PENDING', recurringBookingId: booking.id,
+            ...(covered ? { customerSubscriptionId: booking.subscription.id } : {}),
+            paymentStatus: paymentAmountCents > 0 ? 'PENDING' : 'NOT_REQUIRED', paymentAmountCents,
+            commissionCents: paymentAmountCents > 0 ? calculateCommissionCents(priceCents, booking.barbershop.commissionBps) : 0,
+            paymentExpiresAt: paymentAmountCents > 0 ? new Date(scheduledAt.getTime() - 60 * 60_000) : null,
+          },
+        })
+        await tx.recurringBookingOccurrence.create({
+          data: { barbershopId: booking.barbershopId, recurringBookingId: booking.id, scheduledAt, status: 'CREATED', appointmentId: appointment.id },
+        })
+        return { appointment, paymentAmountCents }
       })
       if (paymentAmountCents > 0 && booking.barbershop.mercadoPagoSellerId) {
         const checkout = await mercadoPagoClient().createMarketplaceCheckout({
