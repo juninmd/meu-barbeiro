@@ -11,7 +11,7 @@ export async function processRecurringBookings(now = new Date()): Promise<{ crea
   })
   const result = { created: 0, pending: 0, skipped: 0 }
   for (const booking of bookings) {
-    for (const date of nextRecurringDates(now, booking.weekday, 4)) {
+    for (const date of nextRecurringDates(now, booking.weekday, 4, booking.barbershop.timezone)) {
       const scheduledAt = dateAtLocalTime(date.toISOString().slice(0, 10), booking.time, booking.barbershop.timezone)
       if (scheduledAt <= now) { result.skipped += 1; continue }
       const existing = await prisma.recurringBookingOccurrence.findUnique({
