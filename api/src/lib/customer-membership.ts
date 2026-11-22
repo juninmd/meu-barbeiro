@@ -1,3 +1,5 @@
+import { localDateKey } from './schedule.js'
+
 const dayMilliseconds = 24 * 60 * 60_000
 
 interface SubscriptionPeriod {
@@ -47,11 +49,12 @@ export function membershipBenefit(
   }
 }
 
-export function nextRecurringDates(now: Date, weekday: number, count: number): Date[] {
-  const cursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+// Days are the barbershop's local calendar days (as UTC-midnight dates); today is included and the
+// caller skips a slot whose time already passed, so a booking made earlier the same day is not lost.
+export function nextRecurringDates(now: Date, weekday: number, count: number, timezone = 'UTC'): Date[] {
+  const cursor = new Date(`${localDateKey(now, timezone)}T00:00:00.000Z`)
   const daysUntil = (weekday - cursor.getUTCDay() + 7) % 7
   cursor.setUTCDate(cursor.getUTCDate() + daysUntil)
-  if (cursor.getTime() < now.getTime()) cursor.setUTCDate(cursor.getUTCDate() + 7)
   return Array.from({ length: count }, (_, index) => new Date(cursor.getTime() + index * 7 * dayMilliseconds))
 }
 

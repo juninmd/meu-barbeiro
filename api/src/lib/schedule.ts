@@ -96,6 +96,12 @@ const localParts = (date: Date, timeZone: string) => {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]))
 }
 
+/** Calendar day (YYYY-MM-DD) of an instant in the given timezone. */
+export const localDateKey = (date: Date, timeZone: string): string => {
+  const local = localParts(date, timeZone)
+  return `${local.year}-${local.month}-${local.day}`
+}
+
 const minutes = (value: string): number => {
   const [hour, minute] = value.split(':').map(Number)
   return (hour ?? 0) * 60 + (minute ?? 0)

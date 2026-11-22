@@ -42,6 +42,16 @@ describe('nextRecurringDates', () => {
       '2026-08-10', '2026-08-17', '2026-08-24', '2026-08-31',
     ])
   })
+
+  it('counts the weekday in the barbershop timezone and keeps a later slot of today', () => {
+    const keys = (now: string, weekday: number) =>
+      nextRecurringDates(new Date(now), weekday, 2, 'America/Sao_Paulo').map((date) => date.toISOString().slice(0, 10))
+    // Monday 22:00 in São Paulo is already Tuesday in UTC.
+    assert.deepEqual(keys('2026-11-24T01:00:00.000Z', 2), ['2026-11-24', '2026-12-01'])
+    assert.deepEqual(keys('2026-11-24T01:00:00.000Z', 1), ['2026-11-23', '2026-11-30'])
+    // Tuesday 10:00 local: today's 18:00 slot is still ahead, the caller drops it only once it passed.
+    assert.deepEqual(keys('2026-11-24T13:00:00.000Z', 2), ['2026-11-24', '2026-12-01'])
+  })
 })
 
 describe('canGenerateRecurring', () => {
