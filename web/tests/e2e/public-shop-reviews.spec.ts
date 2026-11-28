@@ -61,7 +61,7 @@ test('cliente avalia atendimento concluído; nota aparece na página pública e 
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('button', { name: 'Enviar avaliação' }).click()
   await expect(dialog.getByRole('alert')).toContainText('Escolha uma nota')
-  await dialog.getByRole('radio', { name: /5 estrelas/ }).click()
+  await dialog.getByRole('radio', { name: /5 de 5/ }).click()
   await dialog.getByLabel('Comentário (opcional)').fill('Atendimento impecável, voltarei sempre.')
   await dialog.getByRole('button', { name: 'Enviar avaliação' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)

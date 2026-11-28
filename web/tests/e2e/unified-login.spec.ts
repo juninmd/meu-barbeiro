@@ -91,5 +91,6 @@ test('tema escuro: escolha no menu da conta vale na página e persiste após rec
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.getByRole('button', { name: 'Menu da conta' }).click()
   await page.getByRole('menuitemradio', { name: 'Automático' }).click()
-  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/)
+  const systemScheme = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', systemScheme)
 })

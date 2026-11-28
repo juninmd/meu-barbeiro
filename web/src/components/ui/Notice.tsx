@@ -1,20 +1,22 @@
-import { cva, type VariantProps } from 'class-variance-authority'
+import { Alert, StatTile as SonidoStatTile } from '@juninmd/sonido'
 import { cn } from '../../lib/cn'
 
-const notice = cva('animate-fade-up rounded-2xl border px-4 py-3 text-sm leading-relaxed', {
-  variants: {
-    tone: {
-      info: 'border-brand/30 bg-tint text-tint-ink',
-      danger: 'border-danger-line bg-danger-soft text-danger-ink',
-      success: 'border-ok/30 bg-success-soft text-success-ink',
-    },
-  },
-  defaultVariants: { tone: 'info' },
-})
+type NoticeTone = 'info' | 'danger' | 'success' | 'warning'
 
-/** Faixa de aviso com barra lateral. Use `role="alert"` para erros e `role="status"` para confirmações. */
-export function Notice({ tone, className, ...props }: React.HTMLAttributes<HTMLParagraphElement> & VariantProps<typeof notice>) {
-  return <p className={cn(notice({ tone }), className)} {...props} />
+interface NoticeProps {
+  tone?: NoticeTone
+  className?: string
+  children?: React.ReactNode
+  /** Mantido por compatibilidade: o Sonido decide o role pelo tom (danger = alert). */
+  role?: 'alert' | 'status'
+}
+
+/**
+ * Faixa de aviso do Sonido. `danger` é anunciada como `alert`; os demais tons,
+ * como `status`, sem precisar repetir o atributo em cada tela.
+ */
+export function Notice({ tone = 'info', className, children }: NoticeProps) {
+  return <Alert tone={tone} className={cn('animate-fade-up', className)}>{children}</Alert>
 }
 
 export function Eyebrow({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
@@ -31,12 +33,6 @@ export function SectionHeading({ eyebrow, title, id, aside, className }: { eyebr
 }
 
 /** Número em destaque com rótulo (métricas de fechamento, relatórios). */
-export function StatTile({ icon, label, value, hint, featured }: { icon?: React.ReactNode; label: string; value: string; hint?: string; featured?: boolean }) {
-  return (
-    <article className={cn('grid gap-1.5 rounded-2xl border p-4 transition duration-300 hover:-translate-y-0.5', featured ? 'border-transparent bg-ink text-paper' : 'border-line bg-surface-2')}>
-      <span className={cn('flex items-center gap-1.5 text-[.66rem] font-extrabold tracking-wide uppercase [&_svg]:size-4', featured ? 'text-paper/70' : 'text-muted')}>{icon}{label}</span>
-      <strong className="font-mono text-2xl font-semibold tabular-nums">{value}</strong>
-      {hint && <small className={cn('text-xs', featured ? 'text-paper/65' : 'text-muted')}>{hint}</small>}
-    </article>
-  )
+export function StatTile({ featured, icon, label, value, hint }: { icon?: React.ReactNode; label: string; value: string; hint?: string; featured?: boolean }) {
+  return <SonidoStatTile label={label} value={value} hint={hint} icon={icon} tone={featured ? 'accent' : 'neutral'} />
 }

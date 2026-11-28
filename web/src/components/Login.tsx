@@ -4,9 +4,9 @@ import { useForm, type FieldErrors } from 'react-hook-form'
 import { errorMessage, mockEnabled, repository, tenantSlug } from '../lib/repository'
 import { loginSchema, registerSchema } from '../lib/schemas'
 import type { User } from '../types'
+import { Tabs } from '@juninmd/sonido'
 import { Button } from './ui/Button'
 import { Field, Input } from './ui/Field'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/Tabs'
 
 interface LoginProps {
   onAuthenticated: (user: User) => void
@@ -134,57 +134,61 @@ export function Login({ onAuthenticated, onBack }: LoginProps) {
       <section className="flex items-start justify-center bg-paper px-5 pt-5 pb-8 sm:px-12 sm:pt-12 lg:items-center" aria-label="Acesso">
         <div className="w-full max-w-[460px]">
           {onBack && <button type="button" onClick={onBack} className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-muted hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" /> Voltar para a barbearia</button>}
-          <Tabs value={mode} onValueChange={switchMode}>
-            <TabsList aria-label="Acesso à conta" className="mb-5 lg:mb-7">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="register">Criar conta</TabsTrigger>
-            </TabsList>
+          <Tabs
+            items={[{ key: 'login', label: 'Entrar' }, { key: 'register', label: 'Criar conta' }]}
+            value={mode}
+            onChange={(next) => switchMode(next)}
+            label="Acesso à conta"
+            variant="pill"
+            idPrefix="auth"
+            hasPanels
+            className="mb-5 lg:mb-7"
+          />
 
-            <h2 className="mb-2 font-serif text-3xl font-medium tracking-tight lg:text-4xl">{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</h2>
-            <p className="mb-5 text-sm leading-relaxed text-muted lg:mb-6 lg:text-base">
-              {mode === 'login'
-                ? 'Um só acesso para clientes, barbeiros e administradores.'
-                : 'É grátis para clientes. Barbeiros criam a conta e pedem a liberação do estabelecimento depois.'}
-            </p>
+          <h2 className="mb-2 font-serif text-3xl font-medium tracking-tight lg:text-4xl">{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</h2>
+          <p className="mb-5 text-sm leading-relaxed text-muted lg:mb-6 lg:text-base">
+            {mode === 'login'
+              ? 'Um só acesso para clientes, barbeiros e administradores.'
+              : 'É grátis para clientes. Barbeiros criam a conta e pedem a liberação do estabelecimento depois.'}
+          </p>
 
-            <TabsContent value={mode} forceMount>
-              <form className="grid gap-4" onSubmit={submit} noValidate>
-                {mode === 'register' && (
-                  <Field label="Nome completo" error={errors.name?.message}>
-                    <Input icon={<UserRound />} autoComplete="name" maxLength={80} placeholder="Como devemos te chamar?" {...register('name')} />
-                  </Field>
-                )}
-                <Field label={mode === 'login' ? 'E-mail ou usuário' : 'E-mail'} error={errors.identifier?.message}>
-                  <Input
-                    icon={<Mail />} autoComplete={mode === 'login' ? 'username' : 'email'}
-                    type={mode === 'register' ? 'email' : 'text'} inputMode={mode === 'register' ? 'email' : undefined}
-                    autoCapitalize="none" spellCheck={false}
-                    placeholder={mode === 'login' ? 'voce@email.com ou admin' : 'voce@email.com'}
-                    {...register('identifier')}
-                  />
+          <div role="tabpanel" id={`auth-panel-${mode}`} aria-labelledby={`auth-${mode}`}>
+            <form className="grid gap-4" onSubmit={submit} noValidate>
+              {mode === 'register' && (
+                <Field label="Nome completo" error={errors.name?.message}>
+                  <Input icon={<UserRound />} autoComplete="name" maxLength={80} placeholder="Como devemos te chamar?" {...register('name')} />
                 </Field>
-                <Field label="Senha" error={errors.password?.message}>
-                  <Input
-                    icon={<Lock />} type={showPassword ? 'text' : 'password'} maxLength={128}
-                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                    placeholder={mode === 'login' ? 'Sua senha' : 'Mínimo de 8 caracteres'}
-                    {...register('password')}
-                    trailing={(
-                      <button type="button" className="grid size-11 place-items-center rounded-[11px] text-muted hover:bg-paper-deep hover:text-ink" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword}>
-                        {showPassword ? <EyeOff className="size-[1.1rem]" aria-hidden="true" /> : <Eye className="size-[1.1rem]" aria-hidden="true" />}
-                      </button>
-                    )}
-                  />
-                </Field>
+              )}
+              <Field label={mode === 'login' ? 'E-mail ou usuário' : 'E-mail'} error={errors.identifier?.message}>
+                <Input
+                  icon={<Mail />} autoComplete={mode === 'login' ? 'username' : 'email'}
+                  type={mode === 'register' ? 'email' : 'text'} inputMode={mode === 'register' ? 'email' : undefined}
+                  autoCapitalize="none" spellCheck={false}
+                  placeholder={mode === 'login' ? 'voce@email.com ou admin' : 'voce@email.com'}
+                  {...register('identifier')}
+                />
+              </Field>
+              <Field label="Senha" error={errors.password?.message}>
+                <Input
+                  icon={<Lock />} type={showPassword ? 'text' : 'password'} maxLength={128}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder={mode === 'login' ? 'Sua senha' : 'Mínimo de 8 caracteres'}
+                  {...register('password')}
+                  trailing={(
+                    <button type="button" className="grid size-11 place-items-center rounded-[11px] text-muted hover:bg-paper-deep hover:text-ink" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword}>
+                      {showPassword ? <EyeOff className="size-[1.1rem]" aria-hidden="true" /> : <Eye className="size-[1.1rem]" aria-hidden="true" />}
+                    </button>
+                  )}
+                />
+              </Field>
 
-                {error && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-ink">{error}</p>}
+              {error && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-ink">{error}</p>}
 
-                <Button type="submit" size="lg" block loading={isSubmitting}>
-                  {isSubmitting ? (mode === 'login' ? 'Entrando…' : 'Criando conta…') : <>{mode === 'login' ? 'Entrar' : 'Criar conta'} <ArrowRight aria-hidden="true" /></>}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+              <Button type="submit" size="lg" block loading={isSubmitting}>
+                {isSubmitting ? (mode === 'login' ? 'Entrando…' : 'Criando conta…') : <>{mode === 'login' ? 'Entrar' : 'Criar conta'} <ArrowRight aria-hidden="true" /></>}
+              </Button>
+            </form>
+          </div>
 
           {google && (
             <>

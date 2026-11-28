@@ -10,7 +10,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { FormRow, InsetForm } from '../../components/ui/FormParts'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
-import { CountBadge } from '../../components/ui/EmptyState'
+import { Badge } from '../../components/ui/Badge'
 import { Notice, SectionHeading } from '../../components/ui/Notice'
 import { IconButton, TextButton } from '../../components/ui/IconButton'
 
@@ -124,7 +124,7 @@ export function ProductsPanel({ canManage, products, onRefresh }: ProductsPanelP
   return (
     <>
       <section className={cardStyles} aria-labelledby="products-title">
-        <SectionHeading eyebrow="Revenda" title="Produtos" id="products-title" aside={<CountBadge>{products.length}</CountBadge>} className="mb-5" />
+        <SectionHeading eyebrow="Revenda" title="Produtos" id="products-title" aside={<Badge appearance="count">{products.length}</Badge>} className="mb-5" />
         {message && <Notice role="status">{message}</Notice>}
         <div className="grid gap-3">
           {products.length === 0 && <p className="text-sm text-muted">{canManage ? 'Nenhum produto cadastrado. Use o formulário abaixo para adicionar o primeiro.' : 'Nenhum produto disponível. Peça ao responsável para cadastrar o estoque.'}</p>}

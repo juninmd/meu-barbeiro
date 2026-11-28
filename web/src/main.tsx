@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
-import { TooltipProvider } from './components/ui/Tooltip'
 import '@fontsource-variable/geist'
 import '@fontsource-variable/geist-mono'
 import '@fontsource-variable/bricolage-grotesque/standard.css'
@@ -19,7 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={routerBasename}>
-        <TooltipProvider><App /></TooltipProvider>
+        <App />
         <Toaster position="top-center" closeButton toastOptions={{ style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)', boxShadow: 'var(--shadow)' } }} />
       </BrowserRouter>
     </QueryClientProvider>

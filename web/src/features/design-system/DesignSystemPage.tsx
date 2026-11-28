@@ -1,16 +1,13 @@
-import { BadgeCheck, Bell, CalendarDays, Plus, Scissors, Search, Sparkles, Trash2 } from 'lucide-react'
+import { BadgeCheck, Bell, CalendarDays, Inbox, Plus, Scissors, Search, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { Alert, EmptyState, Kbd, Rating, Skeleton, Tabs, TextField, Tooltip } from '@juninmd/sonido'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Avatar } from '../../components/ui/Avatar'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Calendar } from '../../components/ui/Calendar'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Field, Input, Textarea } from '../../components/ui/Field'
-import { Skeleton } from '../../components/ui/Skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs'
-import { Tooltip } from '../../components/ui/Tooltip'
 import { cn } from '../../lib/cn'
 import { PageWrap } from '../../components/ui/Page'
 
@@ -48,13 +45,14 @@ function Section({ id, title, children, description }: { id: string; title: stri
 
 export function DesignSystemPage() {
   const [tab, setTab] = useState('um')
+  const [rating, setRating] = useState(4)
   const [dialog, setDialog] = useState(false)
   const [day, setDay] = useState<Date | undefined>(new Date())
 
   return (
     <PageWrap data-section="design-system">
       <PageHeader eyebrow="Design system" title="Navalha.">
-        Fundamentos, componentes e padrões do Meu Barbeiro. Tailwind v4 com tokens em <code className="rounded bg-paper-deep px-1.5 py-0.5 text-sm">@theme</code>, Radix para acessibilidade e Bricolage Grotesque + Geist na tipografia.
+        Fundamentos, componentes e padrões do Meu Barbeiro. Tokens em <code className="rounded bg-paper-deep px-1.5 py-0.5 text-sm">@theme</code>, primitivas do <code className="rounded bg-paper-deep px-1.5 py-0.5 text-sm">@juninmd/sonido</code> e Bricolage Grotesque + Geist na tipografia.
       </PageHeader>
 
       <div className="grid gap-14">
@@ -93,6 +91,8 @@ export function DesignSystemPage() {
               <Button variant="danger"><Trash2 aria-hidden="true" /> Excluir</Button>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <Button size="xs" appearance="outline">Compacto</Button>
+              <Button size="icon" variant="ghost" aria-label="Novo agendamento"><Plus aria-hidden="true" /></Button>
               <Button size="sm">Pequeno</Button>
               <Button size="md">Médio</Button>
               <Button size="lg">Grande</Button>
@@ -102,35 +102,57 @@ export function DesignSystemPage() {
           </Card>
         </Section>
 
-        <Section id="ds-campos" title="Campos" description="Rótulo sempre visível, dica e erro ligados por aria-describedby, foco com anel âmbar.">
+        <Section id="ds-campos" title="Campos" description="Rótulo sempre visível, dica e erro ligados por aria-describedby, foco com anel da marca. Campos vêm do TextField do Sonido.">
           <Card className="grid gap-5 md:grid-cols-2">
-            <Field label="E-mail" hint="Usado para entrar e receber avisos."><Input icon={<Search />} placeholder="voce@email.com" /></Field>
-            <Field label="Senha" error="A senha deve ter pelo menos 8 caracteres."><Input type="password" defaultValue="123" /></Field>
-            <Field label="Observações" className="md:col-span-2"><Textarea placeholder="Preferências, alergias, recados para o barbeiro…" /></Field>
+            <TextField label="E-mail" hint="Usado para entrar e receber avisos." icon={<Search />} placeholder="voce@email.com" />
+            <TextField label="Senha" type="password" defaultValue="123" error="A senha deve ter pelo menos 8 caracteres." />
+            <TextField className="md:col-span-2" label="Observações" multiline rows={3} placeholder="Preferências, alergias, recados para o barbeiro…" />
             <div className="md:col-span-2">
-              <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="max-w-sm"><TabsTrigger value="um">Entrar</TabsTrigger><TabsTrigger value="dois">Criar conta</TabsTrigger></TabsList>
-                <TabsContent value="um" className="mt-3 text-sm text-muted">Conteúdo da aba "Entrar".</TabsContent>
-                <TabsContent value="dois" className="mt-3 text-sm text-muted">Conteúdo da aba "Criar conta".</TabsContent>
-              </Tabs>
+              <Tabs
+                items={[{ key: 'um', label: 'Entrar' }, { key: 'dois', label: 'Criar conta' }]}
+                value={tab}
+                onChange={setTab}
+                label="Exemplo de abas"
+                variant="pill"
+                idPrefix="ds-tabs"
+                hasPanels
+                className="max-w-sm"
+              />
+              <div role="tabpanel" id={`ds-tabs-panel-${tab}`} aria-labelledby={`ds-tabs-${tab}`} className="mt-3 text-sm text-muted">
+                Conteúdo da aba "{tab === 'um' ? 'Entrar' : 'Criar conta'}".
+              </div>
             </div>
           </Card>
         </Section>
 
-        <Section id="ds-feedback" title="Feedback" description="Badges de estado, avisos (sonner), diálogos (Radix Dialog), dicas (Radix Tooltip) e carregamento.">
+        <Section id="ds-feedback" title="Feedback" description="Badges de estado, avisos, dicas, avaliação e carregamento — todos sobre componentes do Sonido.">
           <Card className="grid gap-6">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="success">Confirmado</Badge><Badge tone="warning">Em análise</Badge><Badge tone="danger">Cancelado</Badge><Badge>Concluído</Badge>
+              <Badge tone="success" dot>Confirmado</Badge><Badge tone="warning" dot>Em análise</Badge><Badge tone="danger" dot>Cancelado</Badge><Badge>Concluído</Badge><Badge tone="accent" appearance="count">12</Badge><Badge tone="danger" live>Ao vivo</Badge>
             </div>
+            <Alert tone="info" title="Design system atualizado">As primitivas agora vêm do <strong>@juninmd/sonido</strong> e herdam a cor da barbearia.</Alert>
             <div className="flex flex-wrap items-center gap-3">
               <Button variant="ghost" onClick={() => toast.success('Horário confirmado para sexta, 14h.')}><BadgeCheck aria-hidden="true" /> Aviso de sucesso</Button>
               <Button variant="ghost" onClick={() => toast.error('Este horário acabou de ser reservado.')}>Aviso de erro</Button>
               <Button variant="ghost" onClick={() => setDialog(true)}>Abrir diálogo</Button>
-              <Tooltip label="Lembretes via Telegram"><Button variant="ghost" size="sm" aria-label="Lembretes"><Bell aria-hidden="true" /></Button></Tooltip>
+              <Tooltip content="Lembretes via Telegram"><Button variant="ghost" size="sm" aria-label="Lembretes"><Bell aria-hidden="true" /></Button></Tooltip>
+              <Kbd>Ctrl</Kbd><span className="text-muted">+</span><Kbd>K</Kbd>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <Rating value={4.5} label="Média da barbearia" size={18} />
+              <Rating value={4} onChange={setRating} label="Sua nota" size={26} />{rating > 0 && <span className="text-sm font-bold text-muted">{rating} de 5</span>}
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" />
+              <Skeleton label="Carregando indicadores" rows={4} media />
+              <Skeleton label="Carregando agenda" rows={5} />
+              <Skeleton label="Carregando clientes" rows={6} />
             </div>
+            <EmptyState
+              icon={<Inbox aria-hidden="true" />}
+              title="Ninguém na fila"
+              description="Quando um cliente chegar sem horário, ele aparece aqui."
+              action={<Button size="sm" variant="ghost"><Plus aria-hidden="true" /> Novo encaixe</Button>}
+            />
           </Card>
         </Section>
 
