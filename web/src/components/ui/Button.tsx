@@ -1,33 +1,56 @@
-import { cva, type VariantProps } from 'class-variance-authority'
-import { LoaderCircle } from 'lucide-react'
+import { forwardRef } from 'react'
+import { Button as SonidoButton, type ButtonProps as SonidoButtonProps } from '@juninmd/sonido'
 import { cn } from '../../lib/cn'
 
-export const buttonStyles = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[14px] border font-semibold tracking-[.005em] transition duration-200 ease-[cubic-bezier(.22,1,.36,1)] select-none enabled:active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-55 [&_svg]:size-[1.1rem] [&_svg]:shrink-0',
-  {
-    variants: {
-      variant: {
-        primary: 'border-transparent bg-brand text-on-brand shadow-glow enabled:hover:-translate-y-0.5 enabled:hover:brightness-110',
-        dark: 'border-ink bg-ink text-paper shadow-sm enabled:hover:-translate-y-0.5',
-        ghost: 'border-line bg-surface text-ink/85 enabled:hover:-translate-y-0.5 enabled:hover:border-brand enabled:hover:text-ink enabled:hover:shadow-card',
-        danger: 'border-danger-solid bg-danger-solid text-white enabled:hover:-translate-y-0.5',
-      },
-      size: { sm: 'min-h-11 px-3 text-xs', md: 'min-h-12 px-5 text-sm', lg: 'min-h-14 px-6 text-base' },
-      block: { true: 'w-full' },
-    },
-    defaultVariants: { variant: 'primary', size: 'md' },
-  },
-)
+type Variant = 'primary' | 'dark' | 'ghost' | 'danger'
+type Size = 'xs' | 'sm' | 'md' | 'lg' | 'icon'
 
-interface ButtonProps extends React.ComponentProps<'button'>, VariantProps<typeof buttonStyles> {
-  loading?: boolean
+/**
+ * Adaptador fino sobre o `Button` do Sonido: mantém as variantes e tamanhos que
+ * o app já usava e garante o alvo de toque de 44px da Navalha. O visual, o
+ * gradiente da marca, o estado de carregamento e o foco vêm do design system.
+ */
+const sonidoVariant: Record<Variant, SonidoButtonProps['variant']> = {
+  primary: 'primary',
+  dark: 'secondary',
+  ghost: 'ghost',
+  danger: 'danger',
 }
 
-export function Button({ className, variant, size, block, loading, disabled, children, type = 'button', ...props }: ButtonProps) {
+const sizeClass: Record<Size, string> = {
+  xs: 'min-h-8 px-2.5 text-xs',
+  sm: 'min-h-11 px-3 text-xs',
+  md: 'min-h-12 px-5 text-sm',
+  lg: 'min-h-14 px-6 text-base',
+  icon: '',
+}
+
+interface StyleOptions {
+  variant?: Variant | null
+  size?: Size | null
+  block?: boolean | null
+}
+
+/** Classes do Sonido para links e botões nativos que não usam o componente React. */
+export const buttonStyles = ({ variant = 'primary', size = 'md', block }: StyleOptions = {}) =>
+  cn('sn-button', `sn-button--${sonidoVariant[variant ?? 'primary']}`, `sn-button--${size ?? 'md'}`, sizeClass[size ?? 'md'], block && 'w-full')
+
+type ButtonProps = Omit<SonidoButtonProps, 'variant' | 'size'> & StyleOptions
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant = 'primary', size = 'md', block, type = 'button', children, ...props },
+  ref,
+) {
   return (
-    <button type={type} className={cn(buttonStyles({ variant, size, block }), className)} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
-      {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+    <SonidoButton
+      {...props}
+      ref={ref as React.Ref<HTMLButtonElement | HTMLAnchorElement>}
+      type={type}
+      variant={sonidoVariant[variant ?? 'primary']}
+      size={size ?? 'md'}
+      className={cn(sizeClass[size ?? 'md'], block && 'w-full', className)}
+    >
       {children}
-    </button>
+    </SonidoButton>
   )
-}
+})

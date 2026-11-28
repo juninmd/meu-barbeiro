@@ -2,8 +2,9 @@ import { Clock3, Scissors, UserRound, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { errorMessage, repository } from '../lib/repository'
 import type { WalkInQueueEntry } from '../types'
+import { EmptyState } from '@juninmd/sonido'
 import { Button } from './ui/Button'
-import { CountBadge, EmptyState } from './ui/EmptyState'
+import { Badge } from './ui/Badge'
 import { Eyebrow, Notice } from './ui/Notice'
 import { cardStyles } from './ui/Card'
 import { cn } from '../lib/cn'
@@ -67,11 +68,11 @@ export function WalkInQueuePanel({ canCall = false, onCalled, refreshKey = 0, hi
     <section className={cn(cardStyles, 'grid gap-4')} aria-labelledby="walk-in-queue-title">
       <div className="flex items-start justify-between gap-4">
         <div><Eyebrow>{canCall ? 'Quem está na porta' : 'Sua vez'}</Eyebrow><h2 id="walk-in-queue-title" className="font-serif text-xl font-medium">Fila de chegada</h2></div>
-        <CountBadge>{waiting.length}</CountBadge>
+        <Badge appearance="count">{waiting.length}</Badge>
       </div>
       <p className="text-xs font-bold text-muted">A ordem é por chegada, mas clientes com horário marcado têm prioridade.</p>
       {error && <Notice tone="danger" role="alert">{error}</Notice>}
-      {waiting.length === 0 && <EmptyState><UserRound aria-hidden="true" /><strong>Ninguém aguardando</strong><p>A fila atualiza automaticamente.</p></EmptyState>}
+      {waiting.length === 0 && <EmptyState icon={<UserRound aria-hidden="true" />} title="Ninguém aguardando" description="A fila atualiza automaticamente." />}
       <ul className="grid gap-3">
         {waiting.map((entry) => (
           <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto]" key={entry.id}>

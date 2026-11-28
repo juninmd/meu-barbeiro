@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { errorMessage, repository } from '../lib/repository'
 import type { Appointment, MyReview } from '../types'
+import { Alert, TextField } from '@juninmd/sonido'
 import { Button } from './ui/Button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/Dialog'
-import { Field, Textarea } from './ui/Field'
 import { StarInput } from './ui/Stars'
 
 interface Props {
@@ -43,10 +43,17 @@ export function ReviewDialog({ appointment, onClose, onSubmitted }: Props) {
         <DialogDescription className="mb-4 text-muted">{appointment.service.name} com {appointment.barber.name}</DialogDescription>
         <form className="grid gap-4" onSubmit={submit} noValidate>
           <StarInput value={rating} onChange={(value) => { setRating(value); setError(null) }} name="Nota do atendimento" />
-          <Field label="Comentário (opcional)" hint={`${comment.length}/500`}>
-            <Textarea maxLength={500} rows={3} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="O que você mais gostou? O que podemos melhorar?" />
-          </Field>
-          {error && <p role="alert" className="rounded-xl border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-ink">{error}</p>}
+          <TextField
+            multiline
+            rows={3}
+            label="Comentário (opcional)"
+            hint={`${comment.length}/500`}
+            maxLength={500}
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            placeholder="O que você mais gostou? O que podemos melhorar?"
+          />
+          {error && <Alert tone="danger">{error}</Alert>}
           <div className="flex justify-end gap-2.5 max-sm:flex-col-reverse [&>button]:max-sm:w-full">
             <Button variant="ghost" onClick={onClose} disabled={busy}>Agora não</Button>
             <Button type="submit" loading={busy}>Enviar avaliação</Button>

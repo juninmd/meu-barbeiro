@@ -13,7 +13,7 @@ test('Ctrl+K abre a paleta, navega pelo teclado e troca o tema', async ({ page }
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('combobox')).toBeFocused()
 
-  const { violations } = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa']).analyze()
+  const { violations } = await new AxeBuilder({ page }).include('.sn-palette').withTags(['wcag2a', 'wcag2aa']).analyze()
   expect(violations.map((violation) => violation.id)).toEqual([])
 
   await page.keyboard.type('financ')

@@ -22,10 +22,10 @@ import type { Appointment, AppointmentAvailability, Barber, Barbershop, Cancella
 import { Badge } from '../../components/ui/Badge'
 import { buttonStyles } from '../../components/ui/Button'
 import { ActionBar, ChoiceCard, StepFieldset, Stepper } from '../../components/ui/Choice'
+import { EmptyState } from '@juninmd/sonido'
 import { Notice, SectionHeading } from '../../components/ui/Notice'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
-import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
 import { PageHeading, PageWrap } from '../../components/ui/Page'
 import { TextButton } from '../../components/ui/IconButton'
 import { celebrate } from '../../lib/celebrate'
@@ -376,7 +376,12 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
             {bookingStep === 1 && <StepFieldset step="01" title="O que vamos fazer?">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {services.length === 0 && (
-                  <EmptyState><Scissors aria-hidden="true" /><strong>Nenhum serviço disponível</strong><p>Tente carregar o catálogo novamente.</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => void onRefresh()}>Tentar novamente</button></EmptyState>
+                  <EmptyState
+                    icon={<Scissors aria-hidden="true" />}
+                    title="Nenhum serviço disponível"
+                    description="Tente carregar o catálogo novamente."
+                    action={<button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => void onRefresh()}>Tentar novamente</button>}
+                  />
                 )}
                 {services.map((service, index) => (
                   <ChoiceCard
@@ -424,7 +429,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
 
                 <StepFieldset step="03" title="Com quem?">
                   {!date ? (
-                    <EmptyState><CalendarDays aria-hidden="true" /><strong>Escolha um dia no calendário</strong><p>Os barbeiros e os horários livres aparecem aqui na hora.</p></EmptyState>
+                    <EmptyState icon={<CalendarDays aria-hidden="true" />} title="Escolha um dia no calendário" description="Os barbeiros e os horários livres aparecem aqui na hora." />
                   ) : rescheduleTarget ? (
                     <Notice>Barbeiro mantido na remarcação. Escolha um novo horário disponível.</Notice>
                   ) : loadingBarbers ? (
@@ -433,16 +438,23 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                       <span className="sr-only">Consultando quem atende nesta data…</span>
                     </div>
                   ) : barbersError ? (
-                    <EmptyState><strong>Não foi possível consultar os barbeiros</strong><p>{barbersError}</p><button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button></EmptyState>
+                    <EmptyState
+                      title="Não foi possível consultar os barbeiros"
+                      description={barbersError}
+                      action={<button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setBarbersRevision((revision) => revision + 1)}>Tentar novamente</button>}
+                    />
                   ) : availableBarbers.length === 0 ? (
-                    <EmptyState className="col-span-full">
-                      <UserRound aria-hidden="true" />
-                      <strong>Ninguém disponível nesta data</strong>
-                      <p>{nextAvailableDate ? `O próximo dia com atendimento é ${formatShortDate(nextAvailableDate)}.` : 'Não encontramos atendimento nos próximos 60 dias.'}</p>
-                      {nextAvailableDate && <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
-                      <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
-                      {waitlistRequested && <Notice role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</Notice>}
-                    </EmptyState>
+                    <EmptyState
+                      className="col-span-full"
+                      icon={<UserRound aria-hidden="true" />}
+                      title="Ninguém disponível nesta data"
+                      description={nextAvailableDate ? `O próximo dia com atendimento é ${formatShortDate(nextAvailableDate)}.` : 'Não encontramos atendimento nos próximos 60 dias.'}
+                      action={<div className="flex flex-wrap justify-center gap-2">
+                        {nextAvailableDate && <button className={buttonStyles({ variant: 'primary' })} type="button" onClick={() => setDate(nextAvailableDate)}>Ver próximo dia</button>}
+                        <button className={buttonStyles({ variant: 'ghost' })} type="button" onClick={() => setWaitlistRequested(true)}>Entrar na fila de espera</button>
+                        {waitlistRequested && <Notice role="status">Interesse registrado para esta data. A barbearia poderá avisar quando surgir um horário.</Notice>}
+                      </div>}
+                    />
                   ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <ChoiceCard
@@ -520,7 +532,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
           <PageHeading eyebrow="Sua agenda" title={upcoming.length > 0 ? 'Seu próximo horário.' : 'Nenhum horário marcado.'}>{upcoming.length > 0 ? 'Confira os detalhes ou ajuste a reserva sem procurar pela página.' : 'Escolha um serviço e garanta sua cadeira.'}</PageHeading>
           {justBooked && <BookingTicket appointment={justBooked} barbershopName={barbershop?.name} onDismiss={() => setJustBooked(null)} />}
           <section className={cn(cardStyles, 'max-w-[820px]')} aria-labelledby="upcoming-title">
-            <SectionHeading eyebrow="Confirmados e pendentes" title="Próximos horários" id="upcoming-title" aside={<CountBadge>{upcoming.length}</CountBadge>} className="mb-5" />
+            <SectionHeading eyebrow="Confirmados e pendentes" title="Próximos horários" id="upcoming-title" aside={<Badge appearance="count">{upcoming.length}</Badge>} className="mb-5" />
             <div className="grid gap-3.5">
               {upcoming.length === 0 && <EmptyAppointments />}
               {upcoming.map((appointment, index) => appointmentCard(appointment, index === 0))}
@@ -539,7 +551,7 @@ export function ClientDashboard({ appointments, barbers, barbershop, currentUser
                   {item.status === 'DONE' && (() => {
                     const review = myReviews.find((entry) => entry.appointmentId === item.id)
                     return review
-                      ? <span className="review-line"><Stars value={review.rating} label={`Sua nota: ${review.rating} de 5`} /> Sua avaliação</span>
+                      ? <span className="review-line"><Stars value={review.rating} label="Sua nota" /> Sua avaliação</span>
                       : <button className={buttonStyles({ variant: 'primary', size: 'sm' })} type="button" onClick={() => setReviewTarget(item)}><Star aria-hidden="true" /> Avaliar atendimento</button>
                   })()}
                 </div>
@@ -626,10 +638,6 @@ function cancelDescription(appointment: Appointment, quote: CancellationQuote | 
 
 function EmptyAppointments() {
   return (
-    <EmptyState>
-      <CalendarDays aria-hidden="true" />
-      <strong>Nenhum horário marcado</strong>
-      <p>Seu próximo agendamento aparecerá aqui.</p>
-    </EmptyState>
+    <EmptyState icon={<CalendarDays aria-hidden="true" />} title="Nenhum horário marcado" description="Seu próximo agendamento aparecerá aqui." />
   )
 }

@@ -33,7 +33,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { FormRow, InsetForm } from '../../components/ui/FormParts'
 import { cardStyles } from '../../components/ui/Card'
 import { cn } from '../../lib/cn'
-import { CountBadge, EmptyState } from '../../components/ui/EmptyState'
+import { EmptyState } from '@juninmd/sonido'
 import { PageHeading, PageWrap } from '../../components/ui/Page'
 import { Notice, SectionHeading } from '../../components/ui/Notice'
 import { IconButton } from '../../components/ui/IconButton'
@@ -243,7 +243,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
                 <p className="mb-1 flex items-center gap-2 font-mono text-[.66rem] font-semibold tracking-[.14em] text-paper/65 uppercase">{nextToday ? <><span className="live-dot" aria-hidden="true" /> {new Date(nextToday.scheduledAt).getTime() <= Date.now() + 15 * 60_000 ? 'Agora' : 'Na sequência'} · {timeOf(nextToday.scheduledAt)}</> : 'Na sequência'}</p>
                 <h2 id="next-client-title" className="font-serif text-lg font-medium text-paper/80">{nextToday ? 'Próximo cliente' : 'Agenda livre agora'}</h2>
               </div>
-              <CountBadge className="bg-paper/10 text-paper">{remainingToday.length}</CountBadge>
+              <Badge appearance="count" className="bg-paper/10 text-paper">{remainingToday.length}</Badge>
             </div>
             {nextToday ? (
               <>
@@ -262,7 +262,12 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
                 )}
                 <button type="button" className="justify-self-start text-sm font-semibold text-paper/75 underline-offset-4 hover:text-paper hover:underline" onClick={() => setProfileCustomerId((current) => current === nextToday.userId ? null : nextToday.userId)}>{profileCustomerId === nextToday.userId ? 'Fechar ficha' : 'Abrir ficha e preferências'}</button>
               </>
-            ) : <EmptyState className="border-paper/20 bg-paper/5 text-paper/70 [&_strong]:text-paper [&_svg]:text-paper/70"><CalendarCheck aria-hidden="true" /><strong>Ninguém aguardando hoje</strong><p>{nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Novos agendamentos aparecerão aqui.'}</p></EmptyState>}
+            ) : <EmptyState
+              className="border-paper/20 bg-paper/5 text-paper/70 [&_.sn-empty__title]:text-paper [&_.sn-empty__desc]:text-paper/70 [&_.sn-empty__icon]:text-paper/70"
+              icon={<CalendarCheck aria-hidden="true" />}
+              title="Ninguém aguardando hoje"
+              description={nextAppointment ? `Próximo dia com agenda: ${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(nextAppointment.scheduledAt))}.` : 'Novos agendamentos aparecerão aqui.'}
+            />}
           </section>
           <WalkInQueuePanel canCall callerBarberId={barbershop?.membershipRole === 'BARBER' ? currentUser.id : undefined} onCalled={refreshAfterQueueCall} refreshKey={queueRevision} />
           </div>
@@ -286,7 +291,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
           </section>
           {today.length > 0 && (
             <section className={cardStyles} aria-labelledby="today-line-title">
-              <SectionHeading eyebrow="Linha do tempo" title="Seu dia" id="today-line-title" aside={<CountBadge>{today.length}</CountBadge>} className="mb-4" />
+              <SectionHeading eyebrow="Linha do tempo" title="Seu dia" id="today-line-title" aside={<Badge appearance="count">{today.length}</Badge>} className="mb-4" />
               <ol className="grid gap-2">
                 {today.map((appointment) => {
                   const isNow = appointment.id === nextToday?.id
@@ -323,7 +328,7 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
           {barbershop && <div id="disponibilidade" className="scroll-mt-28"><BarberAvailability barbers={barbers} barbershop={barbershop} currentUser={currentUser} onChanged={() => setCalendarRevision((current) => current + 1)} /></div>}
           {barbershop && <AppointmentCalendar barbershop={barbershop} refreshKey={`${calendarRevision}:${appointments.map((item) => `${item.id}:${item.status}`).join(',')}`} />}
         <section className={cn(cardStyles, 'agenda-panel')} aria-labelledby="agenda-title">
-          <SectionHeading eyebrow="Linha do tempo" title="Agenda de atendimento" id="agenda-title" aside={<CountBadge>{active.length}</CountBadge>} className="mb-5" />
+          <SectionHeading eyebrow="Linha do tempo" title="Agenda de atendimento" id="agenda-title" aside={<Badge appearance="count">{active.length}</Badge>} className="mb-5" />
           <div className="grid">
             {timelineGroups.map((group) => (group.appointments.length > 0 || group.empty) && (
               <section className="mt-6 first:mt-0" aria-labelledby={`timeline-${group.title.toLowerCase()}`} key={group.title}>
@@ -344,8 +349,8 @@ export function BarberDashboard({ appointments, barbers, barbershop, currentUser
         <>
           <PageHeading eyebrow="Relacionamento" title="Clientes.">Abra a ficha, consulte fidelidade e registre preferências sem procurar na agenda.</PageHeading>
           <section className={cardStyles} aria-labelledby="customers-title">
-            <SectionHeading eyebrow="Base atendida" title="Fichas de clientes" id="customers-title" aside={<CountBadge>{customers.length}</CountBadge>} className="mb-5" />
-            {customers.length === 0 && <EmptyState><UserRound aria-hidden="true" /><strong>Nenhum cliente ainda</strong><p>As fichas aparecem depois do primeiro agendamento.</p></EmptyState>}
+            <SectionHeading eyebrow="Base atendida" title="Fichas de clientes" id="customers-title" aside={<Badge appearance="count">{customers.length}</Badge>} className="mb-5" />
+            {customers.length === 0 && <EmptyState icon={<UserRound aria-hidden="true" />} title="Nenhum cliente ainda" description="As fichas aparecem depois do primeiro agendamento." />}
             <div className="grid gap-3">
               {customers.map((customer) => (
                 <article className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-line bg-surface-2 p-4 max-sm:grid-cols-1" key={customer.id}>

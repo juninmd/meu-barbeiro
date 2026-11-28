@@ -1,11 +1,9 @@
-import { cva, type VariantProps } from 'class-variance-authority'
+import { Avatar as SonidoAvatar } from '@juninmd/sonido'
 import { cn } from '../../lib/cn'
 
-const avatar = cva('inline-grid shrink-0 place-items-center rounded-full bg-brand font-display font-bold text-on-brand ring-2 ring-surface', {
-  variants: { size: { sm: 'size-9 text-sm', md: 'size-11 text-base', lg: 'size-16 text-2xl' } },
-  defaultVariants: { size: 'md' },
-})
+const sizes = { sm: 36, md: 44, lg: 64 } as const
 
-export function Avatar({ name, size, className }: { name: string; className?: string } & VariantProps<typeof avatar>) {
-  return <span className={cn(avatar({ size }), className)} aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+/** `Avatar` do Sonido com as três medidas que o app já usava (36/44/64px). */
+export function Avatar({ name, size = 'md', className }: { name: string; size?: keyof typeof sizes; className?: string }) {
+  return <SonidoAvatar name={name} size={sizes[size]} ring className={cn('shrink-0', className)} />
 }

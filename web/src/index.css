@@ -1,5 +1,12 @@
+@layer theme, base, components, sonido, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
+/*
+ * Sonido na camada `sonido`: vence os componentes antigos do app, mas perde
+ * para as utilities Tailwind de cada tela (alvos de toque, largura, espaçamento).
+ */
+@import "@juninmd/sonido/styles.css" layer(sonido);
+@import "./styles/sonido-bridge.css" layer(sonido);
 
 /*
  * Navalha 2.0 — design system do Meu Barbeiro.

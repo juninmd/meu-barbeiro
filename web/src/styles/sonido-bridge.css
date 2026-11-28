@@ -1,0 +1,98 @@
+/*
+ * Ponte entre os tokens do Meu Barbeiro (Navalha 2.0) e o Sonido.
+ * O app continua dono da identidade: `--amber` (cor da barbearia) alimenta o
+ * acento do design system, e superfícies/texto/bordas vêm dos tokens semânticos
+ * que já respondem a `data-theme="light" | "dark"`.
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  /* Superfícies */
+  --sn-color-bg: var(--paper);
+  --sn-color-surface: var(--surface);
+  --sn-color-surface-2: var(--surface-2);
+  --sn-color-surface-hover: var(--surface-3);
+  --sn-color-border: var(--line);
+  --sn-color-border-soft: color-mix(in oklab, var(--line) 60%, transparent);
+
+  /* Texto */
+  --sn-color-text: var(--ink);
+  --sn-color-text-dim: var(--muted);
+  --sn-color-text-faint: var(--muted);
+  --sn-color-on-accent: var(--on-brand);
+  --sn-color-on-danger: #ffffff;
+  --sn-color-on-tint: var(--tint-ink);
+
+  /* Marca e estados: o acento é a cor da barbearia */
+  --sn-color-accent: var(--amber);
+  --sn-color-accent-2: var(--amber-deep);
+  --sn-color-aqua: var(--ok);
+  --sn-color-gold: var(--amber);
+  --sn-color-success: var(--ok);
+  --sn-color-warning: var(--warn);
+  --sn-color-danger: var(--danger);
+  --sn-color-info: var(--color-info-600);
+  --sn-gradient: linear-gradient(135deg, var(--amber-deep), var(--amber));
+  --sn-gradient-soft: linear-gradient(135deg, var(--tint), color-mix(in oklab, var(--tint) 40%, transparent));
+  --sn-gradient-signature: linear-gradient(115deg, var(--pole), var(--amber) 52%, var(--amber-deep));
+  --sn-sig-1: var(--pole);
+  --sn-sig-2: var(--amber);
+  --sn-sig-3: var(--amber-deep);
+  --sn-amb-1: var(--chrome);
+  --sn-amb-2: var(--amber);
+
+  /* Vidro e scrim */
+  --sn-glass: color-mix(in oklab, var(--surface) 62%, transparent);
+  --sn-glass-strong: color-mix(in oklab, var(--surface) 94%, transparent);
+  --sn-scrim: color-mix(in oklab, var(--ink) 55%, transparent);
+  --sn-glass-fill: linear-gradient(160deg, color-mix(in oklab, var(--surface) 90%, transparent), color-mix(in oklab, var(--surface) 70%, transparent));
+  --sn-glass-edge: color-mix(in oklab, var(--line) 70%, transparent);
+
+  /* Tipografia do app */
+  --sn-font: var(--font-sans);
+  --sn-font-display: var(--font-display);
+  --sn-font-mono: var(--font-mono);
+  --sn-text-xs: 0.75rem;
+  --sn-text-sm: 0.875rem;
+  --sn-text-md: 0.9375rem;
+  --sn-text-lg: 1.0625rem;
+  --sn-text-xl: clamp(1.5rem, 3.2vw, 2rem);
+
+  /* Forma e elevação */
+  --sn-radius-sm: var(--radius-md);
+  --sn-radius: var(--radius-lg);
+  --sn-radius-lg: var(--radius-xl);
+  --sn-shadow-card: var(--shadow);
+  --sn-shadow-pop: var(--shadow-lg);
+  --sn-shadow-lift: var(--shadow);
+  --sn-shadow-glow: var(--shadow-glow);
+  --sn-ring: 0 0 0 4px color-mix(in oklab, var(--amber) 28%, transparent);
+
+  /* Movimento e alvo de toque do app */
+  --sn-ease: var(--ease-out-quint);
+  --sn-ease-spring: var(--ease-spring);
+  --sn-hit-min: 44px;
+}
+
+/* No tema escuro o vermelho do Sonido é claro: texto quase preto mantém o contraste
+ * do botão de perigo sólido, enquanto o tom claro segue legível como texto. */
+:root[data-theme="dark"] {
+  --sn-color-on-danger: var(--color-porcelain-900);
+}
+
+/* Contorno na cor da marca usa o tom profundo da Navalha, que clareia no escuro. */
+.sn-button--outline.sn-button--primary {
+  border-color: var(--amber-deep);
+  color: var(--amber-deep);
+}
+.sn-button--outline.sn-button--primary:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--amber-deep);
+}
+
+/* Ícones passados como filhos ficam na mesma linha do rótulo (o Sonido envolve
+ * o conteúdo em um span; o preflight deixa o svg como bloco). */
+.sn-button__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sn-space-2);
+}
